@@ -76,7 +76,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdro
 .song-card{padding:.75rem .85rem;border-radius:var(--r-sm);cursor:pointer;transition:all .18s;border:1.5px solid transparent;margin-bottom:3px;background:transparent;}
 .song-card:hover{background:white;box-shadow:var(--shadow);transform:translateX(2px);}
 .song-card.active{background:white;border-color:var(--blue-light);box-shadow:0 4px 16px rgba(45,91,227,.12);}
-.song-card-title{font-size:.82rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.song-card-title{font-size:.82rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
 .song-card-meta{font-size:.67rem;color:var(--muted);margin-top:3px;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;}
 .key-badge{background:linear-gradient(135deg,#e8edff,#d6e0ff);color:var(--blue-mid);border-radius:50px;padding:1px 7px;font-size:.6rem;font-weight:800;border:1px solid var(--blue-pale);}
 .cat-badge{border-radius:50px;padding:1px 7px;font-size:.58rem;font-weight:800;border:1.5px solid;}
@@ -101,7 +101,7 @@ header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdro
 .detail-card{background:white;border-radius:20px;padding:1.5rem 1.7rem;box-shadow:var(--shadow-md);margin-bottom:1.2rem;border:1px solid var(--border);position:relative;overflow:hidden;}
 .detail-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--blue-mid),var(--blue-light));}
 .detail-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;}
-.detail-title{font-family:'Lora',serif;font-size:1.8rem;font-weight:700;color:var(--text);line-height:1.1;margin-bottom:.3rem;}
+.detail-title{font-family:'Lora',serif;font-size:1.8rem;font-weight:700;color:var(--text);line-height:1.1;margin-bottom:.3rem;text-transform:uppercase;}
 .detail-author{font-size:.8rem;font-weight:700;color:var(--blue-mid);}
 .detail-cats{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.6rem;}
 .detail-actions{display:flex;gap:.4rem;flex-shrink:0;}
@@ -175,6 +175,11 @@ select.fi option{background:white;}
 .lb-edit-hdr{display:flex;align-items:center;padding:.5rem .8rem;background:var(--surface2);border-bottom:1.5px solid var(--border);}
 .lb-edit-lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;flex:1;color:var(--text-mid);}
 .lb-edit textarea{border:none;border-radius:0;background:white;width:100%;padding:.7rem .9rem;font-family:'Nunito',sans-serif;font-size:.81rem;font-weight:500;resize:vertical;min-height:60px;outline:none;line-height:1.7;-webkit-user-select:text;user-select:text;}
+.lb-edit.dragging{opacity:.4;border-color:var(--blue-mid);}
+.lb-edit.drag-over{border-top:3px solid var(--blue-mid);}
+.drag-handle{cursor:grab;color:var(--muted);font-size:1rem;padding:0 .3rem;user-select:none;touch-action:none;}
+.drag-handle:active{cursor:grabbing;}
+.type-select-mini{font-size:.67rem;font-weight:800;background:transparent;border:none;color:var(--text-mid);cursor:pointer;font-family:'Nunito',sans-serif;text-transform:uppercase;letter-spacing:.05em;outline:none;padding:0 .2rem;}
 .add-blk-row{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem;}
 .add-blk-btn{padding:.28rem .8rem;border-radius:50px;font-size:.68rem;font-weight:800;cursor:pointer;border:1.5px solid var(--blue-pale);background:var(--blue-paler);color:var(--blue-mid);transition:all .15s;font-family:'Nunito',sans-serif;}
 .add-blk-btn:hover{background:var(--blue-mid);color:white;border-color:var(--blue-mid);}
@@ -224,11 +229,13 @@ select.fi option{background:white;}
 
 /* ── MOBILE ── */
 @media(max-width:768px){
-  .sidebar{position:fixed;left:-290px;top:62px;height:calc(100vh - 62px);z-index:100;transition:left .3s cubic-bezier(.4,0,.2,1);box-shadow:none;width:280px;pointer-events:none;}
-  .sidebar.open{left:0;box-shadow:var(--shadow-lg);pointer-events:all;}
-  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(26,58,124,.25);z-index:99;pointer-events:none;}
-  .sidebar-overlay.visible{display:block;pointer-events:all;}
-  .main-content{padding:1rem .9rem;pointer-events:all;}
+  .sidebar{position:fixed;left:-290px;top:62px;height:calc(100vh - 62px);z-index:100;transition:left .3s cubic-bezier(.4,0,.2,1);box-shadow:none;width:280px;}
+  .sidebar.open{left:0;box-shadow:var(--shadow-lg);}
+  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(26,58,124,.18);z-index:98;cursor:pointer;}
+  .sidebar-overlay.visible{display:block;}
+  .song-list{position:relative;z-index:101;}
+  .song-card{position:relative;z-index:101;}
+  .main-content{padding:1rem .9rem;}
   .detail-title{font-size:1.35rem;}
   .info-pills{gap:.4rem;}
   .detail-top{flex-direction:column;}
@@ -860,7 +867,6 @@ function deleteSong(id){
   });
 }
 
-// ── LYRICS BUILDER ───────────────────────────────────────────────────────────
 function addBlk(type){
   lyricCounter[type]=(lyricCounter[type]||0)+1;
   lyricBlocks.push({id:'lb_'+Date.now(),type,num:lyricCounter[type],text:''});
@@ -868,14 +874,63 @@ function addBlk(type){
 }
 function removeBlk(id){lyricBlocks=lyricBlocks.filter(b=>b.id!==id);renderLyricsBuilder();}
 function updateBlk(id,val){const b=lyricBlocks.find(b=>b.id===id);if(b)b.text=val;}
+function changeBlkType(id, newType){
+  const b=lyricBlocks.find(b=>b.id===id);
+  if(!b)return;
+  b.type=newType;
+  // Recalculate num for this type
+  const sameType=lyricBlocks.filter(x=>x.type===newType);
+  b.num=sameType.indexOf(b)+1;
+  // Renumber all blocks of all types
+  renumberBlocks();
+  renderLyricsBuilder();
+}
+function renumberBlocks(){
+  const counters={};
+  lyricBlocks.forEach(b=>{
+    counters[b.type]=(counters[b.type]||0)+1;
+    b.num=counters[b.type];
+  });
+}
 function renderLyricsBuilder(){
-  document.getElementById('lyricsBuilder').innerHTML=lyricBlocks.map(b=>{
+  const typeOptions=['chorus','verse','bridge','intro','outro'];
+  const typeLabels={chorus:'Refrain',verse:'Couplet',bridge:'Bridge',intro:'Intro',outro:'Outro'};
+  document.getElementById('lyricsBuilder').innerHTML=lyricBlocks.map((b,i)=>{
     const bt=BLOCK_TYPES[b.type]||{label:b.type};
-    return `<div class="lb-edit">
-      <div class="lb-edit-hdr"><div class="lb-edit-lbl">${bt.label}${b.num>1?' '+b.num:''}</div><button class="btn btn-ghost btn-sm btn-danger" style="padding:.15rem .45rem" onclick="removeBlk('${b.id}')">✕</button></div>
+    return `<div class="lb-edit" id="lbe_${b.id}" draggable="true"
+      ondragstart="dragStart(event,'${b.id}')"
+      ondragover="dragOver(event,'${b.id}')"
+      ondragleave="dragLeave(event,'${b.id}')"
+      ondrop="dragDrop(event,'${b.id}')">
+      <div class="lb-edit-hdr">
+        <span class="drag-handle" title="Glisser pour réordonner">⠿</span>
+        <select class="type-select-mini" onchange="changeBlkType('${b.id}',this.value)">
+          ${typeOptions.map(t=>`<option value="${t}" ${b.type===t?'selected':''}>${typeLabels[t]}${lyricBlocks.filter(x=>x.type===t).length>1?' '+(lyricBlocks.filter((x,j)=>x.type===t&&j<=i).length):''}</option>`).join('')}
+        </select>
+        <button class="btn btn-ghost btn-sm btn-danger" style="padding:.15rem .45rem;margin-left:auto" onclick="removeBlk('${b.id}')">✕</button>
+      </div>
       <textarea oninput="updateBlk('${b.id}',this.value)" placeholder="Paroles…">${b.text||''}</textarea>
     </div>`;
   }).join('');
+}
+
+// ── DRAG & DROP REORDER ───────────────────────────────────────────────────────
+let dragId=null;
+function dragStart(e,id){dragId=id;setTimeout(()=>document.getElementById('lbe_'+id)?.classList.add('dragging'),0);}
+function dragOver(e,id){e.preventDefault();if(id!==dragId)document.getElementById('lbe_'+id)?.classList.add('drag-over');}
+function dragLeave(e,id){document.getElementById('lbe_'+id)?.classList.remove('drag-over');}
+function dragDrop(e,id){
+  e.preventDefault();
+  document.querySelectorAll('.lb-edit').forEach(el=>el.classList.remove('drag-over','dragging'));
+  if(!dragId||dragId===id)return;
+  const fromIdx=lyricBlocks.findIndex(b=>b.id===dragId);
+  const toIdx=lyricBlocks.findIndex(b=>b.id===id);
+  if(fromIdx<0||toIdx<0)return;
+  const [moved]=lyricBlocks.splice(fromIdx,1);
+  lyricBlocks.splice(toIdx,0,moved);
+  renumberBlocks();
+  renderLyricsBuilder();
+  dragId=null;
 }
 
 function buildCatChk(sel=[]){
