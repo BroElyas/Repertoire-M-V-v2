@@ -229,12 +229,10 @@ select.fi option{background:white;}
 
 /* ── MOBILE ── */
 @media(max-width:768px){
-  .sidebar{position:fixed;left:-290px;top:62px;height:calc(100vh - 62px);z-index:100;transition:left .3s cubic-bezier(.4,0,.2,1);box-shadow:none;width:280px;}
+  .sidebar{position:fixed;left:-290px;top:62px;height:calc(100vh - 62px);z-index:102;transition:left .3s cubic-bezier(.4,0,.2,1);box-shadow:none;width:280px;}
   .sidebar.open{left:0;box-shadow:var(--shadow-lg);}
-  .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(26,58,124,.18);z-index:98;cursor:pointer;}
+  .sidebar-overlay{display:none;position:fixed;top:62px;left:280px;right:0;bottom:0;background:rgba(26,58,124,.18);z-index:101;cursor:pointer;}
   .sidebar-overlay.visible{display:block;}
-  .song-list{position:relative;z-index:101;}
-  .song-card{position:relative;z-index:101;}
   .main-content{padding:1rem .9rem;}
   .detail-title{font-size:1.35rem;}
   .info-pills{gap:.4rem;}
@@ -588,7 +586,7 @@ function renderList(){
 // ── SONG DETAIL ──────────────────────────────────────────────────────────────
 async function selectSong(id){
   currentId=id; renderList();
-  if(window.innerWidth<769) closeSidebar();
+  closeSidebar();
   document.getElementById('emptyState').classList.add('hidden');
   const el=document.getElementById('songDetail');
   el.classList.remove('hidden');
