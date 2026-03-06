@@ -710,7 +710,7 @@ function requirePin(level, title, desc, cb){
   updatePinDots();
   document.getElementById('pinOverlay').classList.remove('hidden');
 }
-function closePinModal(){document.getElementById('pinOverlay').classList.add('hidden');pinCallback=null;pinValue='';}
+function closePinModal(){document.getElementById('pinOverlay').classList.add('hidden');pinValue='';}
 function updatePinDots(){
   for(let i=0;i<4;i++) document.getElementById(`pd${i}`).classList.toggle('filled',i<pinValue.length);
 }
@@ -723,8 +723,10 @@ function pinDel(){pinValue=pinValue.slice(0,-1);updatePinDots();}
 async function verifyPin(){
   try{
     await apiFetch('/api/verify-pin',{method:'POST',body:JSON.stringify({pin:pinValue,level:pinLevel})});
+    const cb = pinCallback;
+    pinCallback = null;
     closePinModal();
-    if(pinCallback) pinCallback();
+    setTimeout(() => { if(cb) cb(); }, 150);
   }catch(e){
     const errEl=document.getElementById('pinError');
     errEl.textContent='❌ PIN incorrect'; errEl.classList.remove('hidden');
@@ -920,8 +922,11 @@ function pickColor(c,el){selColor=c;document.querySelectorAll('.color-opt').forE
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'));
 });
-['songOverlay','stemOverlay','adminOverlay','catOverlay','pinOverlay'].forEach(id=>{
+['songOverlay','stemOverlay','adminOverlay','catOverlay'].forEach(id=>{
   document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById(id).classList.add('hidden');});
+});
+document.getElementById('pinOverlay').addEventListener('click',e=>{
+  if(e.target===e.currentTarget){ pinCallback=null; closePinModal(); }
 });
 
 init();
