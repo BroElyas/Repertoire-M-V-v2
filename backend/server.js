@@ -67,7 +67,15 @@ async function initDB() {
       uploaded_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
-    ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
+    CREATE TABLE IF NOT EXISTS activity_logs (
+      id SERIAL PRIMARY KEY,
+      action TEXT NOT NULL,
+      song_title TEXT,
+      browser TEXT,
+      os TEXT,
+      language TEXT,
+      occurred_at TIMESTAMPTZ DEFAULT NOW()
+    );
     INSERT INTO settings (key, value) VALUES
       ('group_name', 'Répertoire Musical'),
       ('group_subtitle', 'Groupe de Musique'),
@@ -216,6 +224,28 @@ app.delete('/api/audio/:id', async (req, res) => {
   const fp = path.join(UPLOADS_DIR, rows[0].filename);
   if (fs.existsSync(fp)) fs.unlinkSync(fp);
   await pool.query('DELETE FROM audio_files WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ── ACTIVITY LOGS ─────────────────────────────────────────────────────────────
+app.post('/api/logs', async (req, res) => {
+  const { action, song_title, browser, os, language } = req.body;
+  await pool.query(
+    'INSERT INTO activity_logs(action, song_title, browser, os, language) VALUES($1,$2,$3,$4,$5)',
+    [action, song_title||null, browser||null, os||null, language||null]
+  );
+  res.json({ ok: true });
+});
+
+app.get('/api/logs', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM activity_logs ORDER BY occurred_at DESC LIMIT 100'
+  );
+  res.json(rows);
+});
+
+app.delete('/api/logs', async (req, res) => {
+  await pool.query('DELETE FROM activity_logs');
   res.json({ ok: true });
 });
 
