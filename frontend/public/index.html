@@ -801,7 +801,7 @@ function openAddModal(){
 async function openEditModal(id){
   const song=await apiFetch(`/api/songs/${id}`);
   editingId=id;
-  lyricBlocks=(song.lyrics||[]).map(b=>({...b,id:'lb_'+Math.random()}));
+  lyricBlocks=(song.lyrics||[]).map(b=>({...b,id:'lb_'+Math.random(),text:b.content||b.text||''}));
   lyricCounter={};lyricBlocks.forEach(b=>{lyricCounter[b.type]=Math.max(lyricCounter[b.type]||0,b.num||1);});
   document.getElementById('songModalTitle').textContent='Modifier le chant';
   document.getElementById('fTitle').value=song.title||'';
@@ -826,7 +826,7 @@ async function submitSong(){
     bpm:document.getElementById('fBpm').value?parseInt(document.getElementById('fBpm').value):null,
     reference_link:document.getElementById('fLink').value.trim()||null,
     category_ids:[...document.querySelectorAll('#catChk input:checked')].map(i=>parseInt(i.value)),
-    lyrics:lyricBlocks.map(b=>({type:b.type,num:b.num,content:b.text||''}))
+    lyrics:lyricBlocks.map(b=>({type:b.type,num:b.num,content:b.text||b.content||''}))
   };
   try{
     let song;
