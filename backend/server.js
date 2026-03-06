@@ -38,6 +38,7 @@ async function initDB() {
       genre TEXT,
       reference_link TEXT,
       notes TEXT,
+      bpm INTEGER,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
@@ -65,6 +66,8 @@ async function initDB() {
       file_size INTEGER DEFAULT 0,
       uploaded_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
+    ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
     INSERT INTO settings (key, value) VALUES
       ('group_name', 'Répertoire Musical'),
       ('group_subtitle', 'Groupe de Musique'),
@@ -157,11 +160,11 @@ app.get('/api/songs/:id', async (req, res) => {
 });
 
 app.post('/api/songs', async (req, res) => {
-  const { title, author, key_signature, genre, reference_link, notes, category_ids, lyrics } = req.body;
+  const { title, author, key_signature, genre, reference_link, notes, bpm, category_ids, lyrics } = req.body;
   if (!title) return res.status(400).json({ error: 'Titre requis' });
   const { rows } = await pool.query(
-    'INSERT INTO songs(title,author,key_signature,genre,reference_link,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',
-    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null]
+    'INSERT INTO songs(title,author,key_signature,genre,reference_link,notes,bpm) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null]
   );
   const songId = rows[0].id;
   if (category_ids?.length) {
@@ -175,9 +178,9 @@ app.post('/api/songs', async (req, res) => {
 
 app.put('/api/songs/:id', async (req, res) => {
   const id = req.params.id;
-  const { title, author, key_signature, genre, reference_link, notes, category_ids, lyrics } = req.body;
-  await pool.query('UPDATE songs SET title=$1,author=$2,key_signature=$3,genre=$4,reference_link=$5,notes=$6,updated_at=NOW() WHERE id=$7',
-    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, id]);
+  const { title, author, key_signature, genre, reference_link, notes, bpm, category_ids, lyrics } = req.body;
+  await pool.query('UPDATE songs SET title=$1,author=$2,key_signature=$3,genre=$4,reference_link=$5,notes=$6,bpm=$7,updated_at=NOW() WHERE id=$8',
+    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null, id]);
   await pool.query('DELETE FROM song_categories WHERE song_id=$1', [id]);
   if (category_ids?.length) {
     for (const cid of category_ids) await pool.query('INSERT INTO song_categories(song_id,category_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [id, cid]);
