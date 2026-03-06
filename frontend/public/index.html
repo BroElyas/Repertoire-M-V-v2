@@ -455,6 +455,13 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
     </div>
     <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.9rem 0 .8rem;">Catégories <button onclick="openCatMgr()" style="background:none;border:none;color:var(--blue-mid);font-size:.7rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;">+ Gérer</button></div>
     <div id="adminCatList"></div>
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.9rem 0 .8rem;">
+      Historique des modifications
+      <button onclick="clearLogs()" style="background:none;border:none;color:var(--danger);font-size:.7rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;margin-left:.5rem;">🗑 Effacer</button>
+    </div>
+    <div id="adminLogs" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);">
+      <div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem">Chargement…</div>
+    </div>
     <div class="form-actions">
       <button class="btn" onclick="closeAdmin()">Annuler</button>
       <button class="btn btn-primary" onclick="saveAdmin()">💾 Sauvegarder</button>
@@ -510,6 +517,29 @@ function setPinSession(level) {
 let stemSongId=null, stemType='voice', stemSubId=null;
 
 // ── API ──────────────────────────────────────────────────────────────────────
+// ── ACTIVITY LOGGING ──────────────────────────────────────────────────────────
+function getDeviceInfo(){
+  const ua=navigator.userAgent;
+  let browser='Inconnu',os='Inconnu';
+  if(ua.includes('Chrome')&&!ua.includes('Edg'))browser='Chrome';
+  else if(ua.includes('Safari')&&!ua.includes('Chrome'))browser='Safari';
+  else if(ua.includes('Firefox'))browser='Firefox';
+  else if(ua.includes('Edg'))browser='Edge';
+  if(ua.includes('iPhone')||ua.includes('iPad'))os='iOS';
+  else if(ua.includes('Android'))os='Android';
+  else if(ua.includes('Windows'))os='Windows';
+  else if(ua.includes('Mac'))os='macOS';
+  else if(ua.includes('Linux'))os='Linux';
+  return{browser,os,language:navigator.language||'?'};
+}
+async function logActivity(action,songTitle){
+  try{
+    const{browser,os,language}=getDeviceInfo();
+    await fetch('/api/logs',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action,song_title:songTitle,browser,os,language})});
+  }catch(e){}
+}
+
 async function apiFetch(url, opts={}) {
   const r = await fetch(API+url, {headers:{'Content-Type':'application/json'},...opts});
   if (!r.ok) { const e=await r.json().catch(()=>({error:'Erreur réseau'})); throw new Error(e.error||'Erreur'); }
@@ -866,6 +896,8 @@ async function submitSong(){
     closeSongModal(); renderList(); renderDetail(song);
     document.getElementById('emptyState').classList.add('hidden');
     document.getElementById('songDetail').classList.remove('hidden');
+    const action = editingId ? '✏️ Modifié' : '➕ Ajouté';
+    logActivity(action, song.title);
     toast(editingId?'Chant modifié ✓':'Chant ajouté ✓');
   }catch(e){toast('Erreur: '+e.message,'danger');}
 }
@@ -875,6 +907,8 @@ function deleteSong(id){
     if(!confirm('Supprimer ce chant et toutes ses pistes audio ?'))return;
     try{
       await apiFetch(`/api/songs/${id}`,{method:'DELETE'});
+      const deletedSong = songs.find(s=>s.id===id);
+      logActivity('🗑️ Supprimé', deletedSong?.title||'?');
       songs=songs.filter(s=>s.id!==id); currentId=null;
       renderList();
       document.getElementById('songDetail').classList.add('hidden');
@@ -1001,6 +1035,7 @@ function openAdminPanel(){
     document.getElementById('aNewPinC').value='';
     document.getElementById('aNewPinA').value='';
     renderAdminCats();
+    renderLogs();
     document.getElementById('adminOverlay').classList.remove('hidden');
   });
 }
@@ -1009,6 +1044,38 @@ function renderAdminCats(){
   document.getElementById('adminCatList').innerHTML=categories.length
     ?categories.map(c=>`<div class="cat-mgr-item"><div class="cdot" style="background:${c.color}"></div><div style="flex:1;font-size:.83rem;font-weight:700">${c.name}</div></div>`).join('')
     :`<p style="color:var(--muted);font-size:.78rem">Aucune catégorie. <span style="cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();openCatMgr()">En créer une</span></p>`;
+}
+async function renderLogs(){
+  const el=document.getElementById('adminLogs');
+  if(!el)return;
+  try{
+    const logs=await apiFetch('/api/logs');
+    if(!logs.length){el.innerHTML=`<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem;font-weight:600">Aucune activité enregistrée.</div>`;return;}
+    el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.72rem;">
+      <thead><tr style="background:var(--blue-paler);position:sticky;top:0;">
+        <th style="padding:.5rem .7rem;text-align:left;font-weight:800;color:var(--text-mid);">Date</th>
+        <th style="padding:.5rem .7rem;text-align:left;font-weight:800;color:var(--text-mid);">Action</th>
+        <th style="padding:.5rem .7rem;text-align:left;font-weight:800;color:var(--text-mid);">Chant</th>
+        <th style="padding:.5rem .7rem;text-align:left;font-weight:800;color:var(--text-mid);">Appareil</th>
+      </tr></thead>
+      <tbody>${logs.map((l,i)=>{
+        const d=new Date(l.occurred_at);
+        const date=d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+        return `<tr style="border-top:1px solid var(--border);background:${i%2===0?'white':'var(--surface2)'}">
+          <td style="padding:.45rem .7rem;color:var(--muted);white-space:nowrap">${date}</td>
+          <td style="padding:.45rem .7rem;font-weight:700">${l.action}</td>
+          <td style="padding:.45rem .7rem;font-weight:600;color:var(--text)">${l.song_title||'—'}</td>
+          <td style="padding:.45rem .7rem;color:var(--text-mid)">${l.browser||'?'} / ${l.os||'?'}<br><span style="font-size:.62rem;color:var(--muted)">${l.language||''}</span></td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+  }catch(e){el.innerHTML=`<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur de chargement</div>`;}
+}
+async function clearLogs(){
+  if(!confirm('Effacer tout l\'historique ?'))return;
+  await apiFetch('/api/logs',{method:'DELETE'});
+  renderLogs();
+  toast('Historique effacé');
 }
 async function saveAdmin(){
   const payload={
