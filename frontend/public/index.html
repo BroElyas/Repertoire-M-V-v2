@@ -31,12 +31,12 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 body::before{content:'';position:fixed;width:600px;height:600px;top:-150px;right:-150px;border-radius:50%;background:radial-gradient(circle,rgba(107,143,248,.12) 0%,transparent 70%);pointer-events:none;z-index:0;}
 
 /* ── HEADER ── */
-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 1.5rem;height:62px;display:flex;align-items:center;gap:1rem;}
-.logo{display:flex;align-items:center;gap:.7rem;flex:1;min-width:0;}
+header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:0 1.5rem;height:62px;display:flex;align-items:center;gap:1rem;overflow:hidden;}
+.logo{display:flex;align-items:center;gap:.7rem;flex:1;min-width:0;overflow:hidden;}
 .logo-bubble{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--blue-mid),var(--blue-light));display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 4px 12px rgba(45,91,227,.3);flex-shrink:0;}
 .logo-text{font-size:1rem;font-weight:900;color:var(--blue-deep);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.logo-sub{font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.05em;}
-.header-actions{display:flex;gap:.4rem;flex-shrink:0;}
+.logo-sub{font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.05em;white-space:nowrap;}
+.header-actions{display:flex;gap:.4rem;flex-shrink:0;margin-left:auto;}
 
 /* ── BUTTONS ── */
 .btn{padding:.45rem .95rem;border-radius:50px;font-family:'Nunito',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;transition:all .2s;border:1.5px solid var(--border);background:white;color:var(--text-mid);display:inline-flex;align-items:center;gap:.35rem;white-space:nowrap;}
