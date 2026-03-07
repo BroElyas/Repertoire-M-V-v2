@@ -72,10 +72,19 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       action TEXT NOT NULL,
       song_title TEXT,
+      contributor_name TEXT,
       browser TEXT,
       os TEXT,
       language TEXT,
       occurred_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS contributor_name TEXT;
+    CREATE TABLE IF NOT EXISTS contributors (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      pin TEXT NOT NULL,
+      color TEXT NOT NULL DEFAULT '#2d5be3',
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS feedback (
       id SERIAL PRIMARY KEY,
@@ -112,9 +121,62 @@ const upload = multer({ storage, limits: { fileSize: 100*1024*1024 } });
 // ── PIN ───────────────────────────────────────────────────────────────────────
 app.post('/api/verify-pin', async (req, res) => {
   const { pin, level } = req.body;
-  const key = level === 'admin' ? 'pin_admin' : 'pin_contributor';
-  const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', [key]);
-  rows[0]?.value === String(pin) ? res.json({ ok: true }) : res.status(401).json({ ok: false });
+  if (level === 'admin') {
+    const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
+    return rows[0]?.value === String(pin) ? res.json({ ok: true, level: 'admin' }) : res.status(401).json({ ok: false });
+  }
+  // Check individual contributor PINs first
+  const { rows: contribs } = await pool.query('SELECT * FROM contributors WHERE pin = $1', [String(pin)]);
+  if (contribs[0]) {
+    return res.json({ ok: true, level: 'contributor', contributor_id: contribs[0].id, contributor_name: contribs[0].name });
+  }
+  // Fallback: check legacy shared contributor PIN
+  const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_contributor']);
+  rows[0]?.value === String(pin)
+    ? res.json({ ok: true, level: 'contributor', contributor_name: 'Contributeur' })
+    : res.status(401).json({ ok: false });
+});
+
+// ── CONTRIBUTORS ──────────────────────────────────────────────────────────────
+app.get('/api/contributors', async (req, res) => {
+  const { rows } = await pool.query('SELECT id, name, color, created_at FROM contributors ORDER BY name');
+  res.json(rows);
+});
+
+app.post('/api/contributors', async (req, res) => {
+  const { name, pin, color } = req.body;
+  if (!name || !pin) return res.status(400).json({ error: 'Nom et PIN requis' });
+  if (!/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: 'PIN doit être 4 chiffres' });
+  // Check PIN not already used
+  const { rows: existing } = await pool.query('SELECT id FROM contributors WHERE pin = $1', [String(pin)]);
+  if (existing.length) return res.status(400).json({ error: 'Ce PIN est déjà utilisé' });
+  const { rows } = await pool.query(
+    'INSERT INTO contributors(name, pin, color) VALUES($1,$2,$3) RETURNING id, name, color, created_at',
+    [name.trim(), String(pin), color||'#2d5be3']
+  );
+  res.json(rows[0]);
+});
+
+app.delete('/api/contributors/:id', async (req, res) => {
+  await pool.query('DELETE FROM contributors WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+app.patch('/api/contributors/:id', async (req, res) => {
+  const { name, pin, color } = req.body;
+  if (pin && !/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: 'PIN doit être 4 chiffres' });
+  if (pin) {
+    const { rows: existing } = await pool.query('SELECT id FROM contributors WHERE pin = $1 AND id != $2', [String(pin), req.params.id]);
+    if (existing.length) return res.status(400).json({ error: 'Ce PIN est déjà utilisé' });
+  }
+  const fields = [], vals = [];
+  if (name) { fields.push(`name=$${fields.length+1}`); vals.push(name.trim()); }
+  if (pin)  { fields.push(`pin=$${fields.length+1}`);  vals.push(String(pin)); }
+  if (color){ fields.push(`color=$${fields.length+1}`);vals.push(color); }
+  if (!fields.length) return res.status(400).json({ error: 'Rien à modifier' });
+  vals.push(req.params.id);
+  const { rows } = await pool.query(`UPDATE contributors SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING id,name,color,created_at`, vals);
+  res.json(rows[0]);
 });
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
@@ -352,10 +414,10 @@ app.delete('/api/audio/:id', async (req, res) => {
 
 // ── ACTIVITY LOGS ─────────────────────────────────────────────────────────────
 app.post('/api/logs', async (req, res) => {
-  const { action, song_title, browser, os, language } = req.body;
+  const { action, song_title, contributor_name, browser, os, language } = req.body;
   await pool.query(
-    'INSERT INTO activity_logs(action, song_title, browser, os, language) VALUES($1,$2,$3,$4,$5)',
-    [action, song_title||null, browser||null, os||null, language||null]
+    'INSERT INTO activity_logs(action, song_title, contributor_name, browser, os, language) VALUES($1,$2,$3,$4,$5,$6)',
+    [action, song_title||null, contributor_name||null, browser||null, os||null, language||null]
   );
   res.json({ ok: true });
 });
