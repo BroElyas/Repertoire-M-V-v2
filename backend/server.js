@@ -67,6 +67,7 @@ async function initDB() {
       uploaded_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
+    ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
     CREATE TABLE IF NOT EXISTS activity_logs (
       id SERIAL PRIMARY KEY,
       action TEXT NOT NULL,
@@ -75,6 +76,16 @@ async function initDB() {
       os TEXT,
       language TEXT,
       occurred_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS feedback (
+      id SERIAL PRIMARY KEY,
+      song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
+      song_title TEXT,
+      message TEXT NOT NULL,
+      browser TEXT,
+      os TEXT,
+      read BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     );
     INSERT INTO settings (key, value) VALUES
       ('group_name', 'Répertoire Musical'),
@@ -139,6 +150,112 @@ app.post('/api/categories', async (req, res) => {
 app.delete('/api/categories/:id', async (req, res) => {
   await pool.query('DELETE FROM categories WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
+});
+
+// ── SEARCH (full-text in lyrics) ─────────────────────────────────────────────
+app.get('/api/search', async (req, res) => {
+  const q = (req.query.q||'').trim();
+  if(!q) return res.json([]);
+  const pattern = `%${q}%`;
+  // Search in title, author, AND lyrics content
+  const { rows } = await pool.query(`
+    SELECT DISTINCT s.*, 
+      (SELECT string_agg(lb.content, ' ') FROM lyrics_blocks lb WHERE lb.song_id = s.id) as lyrics_preview
+    FROM songs s
+    LEFT JOIN lyrics_blocks lb ON lb.song_id = s.id
+    WHERE 
+      s.title ILIKE $1 OR 
+      s.author ILIKE $1 OR 
+      lb.content ILIKE $1
+    ORDER BY s.title
+    LIMIT 50
+  `, [pattern]);
+  const songs = await Promise.all(rows.map(async s => {
+    const { rows: cats } = await pool.query('SELECT c.* FROM categories c JOIN song_categories sc ON sc.category_id=c.id WHERE sc.song_id=$1', [s.id]);
+    const { rows: cnt } = await pool.query('SELECT COUNT(*) as n FROM audio_files WHERE song_id=$1', [s.id]);
+    // Find matching lyric excerpt
+    const matchInLyrics = s.lyrics_preview && s.lyrics_preview.toLowerCase().includes(q.toLowerCase());
+    return { ...s, categories: cats, audio_count: parseInt(cnt[0].n), match_in_lyrics: matchInLyrics };
+  }));
+  res.json(songs);
+});
+
+// ── PIN SONG ──────────────────────────────────────────────────────────────────
+app.patch('/api/songs/:id/pin', async (req, res) => {
+  const { pinned } = req.body;
+  await pool.query('UPDATE songs SET pinned=$1 WHERE id=$2', [pinned, req.params.id]);
+  res.json({ ok: true });
+});
+
+// ── INCOMPLETE SONGS ──────────────────────────────────────────────────────────
+app.get('/api/songs/incomplete', async (req, res) => {
+  const { rows } = await pool.query(`
+    SELECT s.*, 
+      (s.bpm IS NULL) as missing_bpm,
+      (s.key_signature IS NULL OR s.key_signature = '') as missing_key,
+      (s.author IS NULL OR s.author = '') as missing_author,
+      (s.genre IS NULL OR s.genre = '') as missing_genre,
+      (NOT EXISTS (SELECT 1 FROM lyrics_blocks lb WHERE lb.song_id = s.id)) as missing_lyrics,
+      (s.pinned = true) as is_pinned
+    FROM songs s
+    WHERE s.bpm IS NULL OR s.key_signature IS NULL OR s.key_signature = ''
+       OR s.author IS NULL OR s.author = ''
+       OR NOT EXISTS (SELECT 1 FROM lyrics_blocks lb WHERE lb.song_id = s.id)
+       OR s.pinned = true
+    ORDER BY s.pinned DESC, s.title
+  `);
+  res.json(rows);
+});
+
+// ── FEEDBACK ──────────────────────────────────────────────────────────────────
+app.post('/api/feedback', async (req, res) => {
+  const { song_id, song_title, message, browser, os } = req.body;
+  if(!message) return res.status(400).json({ error: 'Message requis' });
+  await pool.query(
+    'INSERT INTO feedback(song_id,song_title,message,browser,os) VALUES($1,$2,$3,$4,$5)',
+    [song_id||null, song_title||null, message, browser||null, os||null]
+  );
+  res.json({ ok: true });
+});
+
+app.get('/api/feedback', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM feedback ORDER BY created_at DESC');
+  res.json(rows);
+});
+
+app.patch('/api/feedback/:id/read', async (req, res) => {
+  await pool.query('UPDATE feedback SET read=true WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+app.delete('/api/feedback/:id', async (req, res) => {
+  await pool.query('DELETE FROM feedback WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ── STATS (for pie chart) ─────────────────────────────────────────────────────
+app.get('/api/stats', async (req, res) => {
+  const { rows: catStats } = await pool.query(`
+    SELECT c.name, c.color, COUNT(sc.song_id) as count
+    FROM categories c
+    LEFT JOIN song_categories sc ON sc.category_id = c.id
+    GROUP BY c.id, c.name, c.color
+    ORDER BY count DESC
+  `);
+  const { rows: total } = await pool.query('SELECT COUNT(*) as n FROM songs');
+  const { rows: nocat } = await pool.query(`
+    SELECT COUNT(*) as n FROM songs s 
+    WHERE NOT EXISTS (SELECT 1 FROM song_categories sc WHERE sc.song_id = s.id)
+  `);
+  const { rows: pinned } = await pool.query('SELECT COUNT(*) as n FROM songs WHERE pinned = true');
+  const { rows: unread } = await pool.query('SELECT COUNT(*) as n FROM feedback WHERE read = false');
+  res.json({
+    categories: catStats,
+    total_songs: parseInt(total[0].n),
+    no_category: parseInt(nocat[0].n),
+    pinned: parseInt(pinned[0].n),
+    unread_feedback: parseInt(unread[0].n)
+  });
 });
 
 // ── SONGS ─────────────────────────────────────────────────────────────────────
