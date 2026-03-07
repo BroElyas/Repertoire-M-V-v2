@@ -326,6 +326,58 @@ app.get('/api/stats', async (req, res) => {
   });
 });
 
+// ── DUPLICATE DETECTION ───────────────────────────────────────────────────────
+// Normalize: remove accents, punctuation, lowercase
+function normalize(str){
+  return (str||'').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
+}
+
+app.get('/api/songs/check-duplicate', async (req, res) => {
+  const title = (req.query.title||'').trim();
+  if(!title) return res.json([]);
+  const normInput = normalize(title);
+  const { rows } = await pool.query('SELECT id, title FROM songs ORDER BY title');
+  // Find songs whose normalized title shares significant overlap
+  const matches = rows.filter(s => {
+    const normTitle = normalize(s.title);
+    if(normTitle === normInput) return true;
+    // Check if one contains the other (min 4 chars)
+    if(normInput.length >= 4 && normTitle.includes(normInput)) return true;
+    if(normTitle.length >= 4 && normInput.includes(normTitle)) return true;
+    // Word overlap: if 60%+ of words match
+    const wordsA = normInput.split(' ').filter(w=>w.length>2);
+    const wordsB = normTitle.split(' ').filter(w=>w.length>2);
+    if(!wordsA.length || !wordsB.length) return false;
+    const matches = wordsA.filter(w=>wordsB.includes(w)).length;
+    return matches / Math.max(wordsA.length, wordsB.length) >= 0.6;
+  });
+  res.json(matches.slice(0, 5));
+});
+
+app.get('/api/songs/duplicates', async (req, res) => {
+  const { rows } = await pool.query('SELECT id, title FROM songs ORDER BY title');
+  const pairs = [];
+  for(let i=0; i<rows.length; i++){
+    for(let j=i+1; j<rows.length; j++){
+      const a = normalize(rows[i].title);
+      const b = normalize(rows[j].title);
+      // Word overlap score
+      const wordsA = a.split(' ').filter(w=>w.length>2);
+      const wordsB = b.split(' ').filter(w=>w.length>2);
+      if(!wordsA.length || !wordsB.length) continue;
+      const shared = wordsA.filter(w=>wordsB.includes(w)).length;
+      const similarity = Math.round(shared / Math.max(wordsA.length, wordsB.length) * 100);
+      if(similarity >= 60){
+        pairs.push({ id1:rows[i].id, title1:rows[i].title, id2:rows[j].id, title2:rows[j].title, similarity });
+      }
+    }
+  }
+  pairs.sort((a,b)=>b.similarity-a.similarity);
+  res.json(pairs.slice(0, 20));
+});
+
 // ── SONGS ─────────────────────────────────────────────────────────────────────
 async function getSongFull(id) {
   const { rows: songs } = await pool.query('SELECT * FROM songs WHERE id=$1', [id]);
