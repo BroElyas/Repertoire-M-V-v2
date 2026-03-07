@@ -350,7 +350,11 @@ select.fi option{background:white;}
     <div class="form-row"><label>Titre *</label><input class="fi" id="fTitle" placeholder="Ex: Amazing Grace"></div>
     <div class="form-2col">
       <div class="form-row"><label>Auteur</label><input class="fi" id="fAuthor" placeholder="Ex: John Newton"></div>
-      <div class="form-row"><label>Genre</label><input class="fi" id="fGenre" placeholder="Gospel, Worship…"></div>
+      <div class="form-row">
+        <label>Genre</label>
+        <input class="fi" id="fGenre" placeholder="Gospel, Worship…" list="genreList" autocomplete="off">
+        <datalist id="genreList"></datalist>
+      </div>
     </div>
     <div class="form-2col">
       <div class="form-row"><label>BPM</label><input class="fi" id="fBpm" type="number" min="40" max="300" placeholder="Ex: 120"></div>
@@ -510,6 +514,13 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
       <button class="modal-close" onclick="closeCatMgr()">✕</button>
     </div>
     <div id="catMgrList"></div>
+    <!-- Inline color editor (hidden by default) -->
+    <div id="catColorEditor" class="hidden" style="margin-top:.7rem;padding:.8rem;background:var(--blue-paler);border-radius:var(--r-sm);border:1.5px solid var(--blue-pale);">
+      <div style="font-size:.65rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.5rem">
+        Couleur de <span id="catColorEditorName" style="color:var(--blue-mid)"></span>
+      </div>
+      <div id="colorPickerEdit" style="display:flex;gap:.35rem;flex-wrap:wrap"></div>
+    </div>
     <div style="margin-top:1rem;padding-top:.9rem;border-top:1px solid var(--border)">
       <div style="font-size:.65rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.55rem">Nouvelle catégorie</div>
       <div style="display:flex;gap:.5rem;align-items:center">
@@ -613,6 +624,7 @@ async function init() {
     buildColorPicker();
     renderCatPills();
     renderList();
+    buildGenreDatalist();
   } catch(e) {
     toast('❌ Impossible de contacter le serveur', 'danger');
   }
@@ -998,6 +1010,7 @@ async function submitSong(){
     document.getElementById('songDetail').classList.remove('hidden');
     const action = editingId ? '✏️ Modifié' : '➕ Ajouté';
     logActivity(action, song.title);
+    buildGenreDatalist();
     toast(editingId?'Chant modifié ✓':'Chant ajouté ✓');
   }catch(e){toast('Erreur: '+e.message,'danger');}
 }
@@ -1341,11 +1354,55 @@ async function saveAdmin(){
 // ── CATEGORY MANAGER ─────────────────────────────────────────────────────────
 function openCatMgr(){renderCatMgrList();document.getElementById('catOverlay').classList.remove('hidden');}
 function closeCatMgr(){document.getElementById('catOverlay').classList.add('hidden');renderCatPills();renderList();}
+let editingColorCatId = null;
+
 function renderCatMgrList(){
-  document.getElementById('catMgrList').innerHTML=categories.length
-    ?categories.map((c,i)=>`<div class="cat-mgr-item"><div class="cdot" style="background:${c.color}"></div><div style="flex:1;font-size:.83rem;font-weight:700">${c.name}</div><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteCat(${c.id})">✕</button></div>`).join('')
-    :`<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.8rem">Aucune catégorie.</p>`;
+  // Hide color editor when re-rendering
+  document.getElementById('catColorEditor').classList.add('hidden');
+  editingColorCatId = null;
+
+  document.getElementById('catMgrList').innerHTML = categories.length
+    ? categories.map(c=>`
+        <div class="cat-mgr-item" id="catitem_${c.id}">
+          <div class="cdot" style="background:${c.color};cursor:pointer;width:18px;height:18px;border-radius:5px;border:2px solid rgba(0,0,0,.1);flex-shrink:0" title="Changer la couleur" onclick="openCatColorEdit(${c.id})"></div>
+          <div style="flex:1;font-size:.83rem;font-weight:700">${c.name}</div>
+          <button class="btn btn-ghost btn-sm" style="font-size:.65rem;padding:.2rem .5rem;color:var(--muted)" onclick="openCatColorEdit(${c.id})" title="Changer la couleur">🎨</button>
+          <button class="btn btn-ghost btn-sm btn-danger" onclick="deleteCat(${c.id})">✕</button>
+        </div>`).join('')
+    : `<p style="color:var(--muted);font-size:.78rem;text-align:center;padding:.8rem">Aucune catégorie.</p>`;
 }
+
+function openCatColorEdit(id){
+  const cat = categories.find(c=>c.id===id);
+  if(!cat) return;
+  // If already editing this one, close
+  if(editingColorCatId===id){
+    document.getElementById('catColorEditor').classList.add('hidden');
+    editingColorCatId=null; return;
+  }
+  editingColorCatId = id;
+  document.getElementById('catColorEditorName').textContent = cat.name;
+  document.getElementById('colorPickerEdit').innerHTML = PALETTE.map(c=>
+    `<div class="color-opt ${c===cat.color?'sel':''}" style="background:${c}" onclick="pickCatColor('${c}',${id},this)"></div>`
+  ).join('');
+  document.getElementById('catColorEditor').classList.remove('hidden');
+}
+
+async function pickCatColor(color, catId, el){
+  document.querySelectorAll('#colorPickerEdit .color-opt').forEach(e=>e.classList.remove('sel'));
+  el.classList.add('sel');
+  try{
+    await apiFetch(`/api/categories/${catId}`,{method:'PATCH',body:JSON.stringify({color})});
+    const cat = categories.find(c=>c.id===catId);
+    if(cat) cat.color = color;
+    // Update the dot in the list live
+    const dot = document.querySelector(`#catitem_${catId} .cdot`);
+    if(dot) dot.style.background = color;
+    renderCatPills();
+    toast('Couleur mise à jour ✓');
+  }catch(e){ toast('Erreur','danger'); }
+}
+
 async function addCat(){
   const name=document.getElementById('newCatName').value.trim().toUpperCase();
   if(!name)return;
@@ -1372,7 +1429,14 @@ function buildColorPicker(){
     `<div class="color-opt ${c===selColor?'sel':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`
   ).join('');
 }
-function pickColor(c,el){selColor=c;document.querySelectorAll('.color-opt').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');}
+function pickColor(c,el){selColor=c;document.querySelectorAll('#colorPicker .color-opt').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');}
+
+// ── GENRE DATALIST ────────────────────────────────────────────────────────────
+function buildGenreDatalist(){
+  const genres = [...new Set(songs.map(s=>s.genre).filter(Boolean))].sort();
+  const dl = document.getElementById('genreList');
+  if(dl) dl.innerHTML = genres.map(g=>`<option value="${g}">`).join('');
+}
 
 // ── KEYBOARD ─────────────────────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{
