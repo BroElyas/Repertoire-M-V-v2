@@ -1455,18 +1455,33 @@ async function renderAdminDuplicates(){
       return;
     }
     el.innerHTML = pairs.map(p=>`
-      <div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);background:white;">
-        <div style="font-size:.65rem;font-weight:800;color:var(--warn);text-transform:uppercase;margin-bottom:.3rem;">⚠️ Doublon potentiel</div>
-        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id1})">${p.title1}</span>
-          <span style="color:var(--muted);font-size:.72rem">↔</span>
-          <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id2})">${p.title2}</span>
+      <div style="padding:.65rem .8rem;border-bottom:1px solid var(--border);background:white;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
+          <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;flex:1;">
+            <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id1})">${p.title1}</span>
+            <span style="color:var(--muted);font-size:.72rem">↔</span>
+            <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id2})">${p.title2}</span>
+            <span style="font-size:.62rem;color:var(--warn);font-weight:700;background:#fff8ee;padding:1px 7px;border-radius:50px;border:1px solid #f0c060">${p.similarity}% similaire</span>
+          </div>
+          <button class="btn btn-sm" style="font-size:.65rem;padding:.25rem .6rem;color:var(--success);border-color:var(--success);white-space:nowrap;flex-shrink:0"
+            onclick="ignoreDuplicate(${p.id1},${p.id2},this)">
+            ✓ Pas un doublon
+          </button>
         </div>
-        <div style="font-size:.62rem;color:var(--muted);margin-top:.2rem">Similarité : ${p.similarity}%</div>
       </div>`).join('');
   }catch(e){
     el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur</div>`;
   }
+}
+
+async function ignoreDuplicate(id1, id2, btn){
+  btn.disabled = true;
+  btn.textContent = '…';
+  await apiFetch('/api/songs/ignore-duplicate',{method:'POST',body:JSON.stringify({id1,id2})});
+  // Animate row out then re-render
+  const row = btn.closest('div[style]');
+  if(row){ row.style.transition='opacity .3s'; row.style.opacity='0'; setTimeout(()=>renderAdminDuplicates(),320); }
+  else renderAdminDuplicates();
 }
 
 async function renderAdminIncomplete(){
