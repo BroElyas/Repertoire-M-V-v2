@@ -93,6 +93,7 @@ async function initDB() {
       ignored_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(song_id1, song_id2)
     );
+    CREATE TABLE IF NOT EXISTS feedback (
       id SERIAL PRIMARY KEY,
       song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
       song_title TEXT,
