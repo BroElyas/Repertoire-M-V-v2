@@ -270,7 +270,14 @@ select.fi option{background:white;}
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-search">
       <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="Rechercher…" oninput="renderList()">
+        <input type="text" id="searchInput" placeholder="Rechercher…" oninput="handleSearch()">
+      </div>
+      <div style="display:flex;align-items:center;gap:.4rem;margin-top:.4rem;">
+        <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer;font-size:.65rem;font-weight:700;color:var(--muted);">
+          <input type="checkbox" id="searchLyrics" onchange="handleSearch()" style="accent-color:var(--blue-mid);width:13px;height:13px;">
+          Chercher dans les paroles
+        </label>
+        <span id="searchSpinner" style="display:none;font-size:.65rem;color:var(--muted)">⏳</span>
       </div>
     </div>
     <div class="cat-filter">
@@ -438,11 +445,34 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
 
 <!-- ── ADMIN PANEL ── -->
 <div class="overlay hidden" id="adminOverlay">
-  <div class="modal">
+  <div class="modal" style="max-width:640px;">
     <div class="modal-hdr">
       <div class="modal-title">⚙ Panneau Admin</div>
       <button class="modal-close" onclick="closeAdmin()">✕</button>
     </div>
+
+    <!-- STATS CAMEMBERT -->
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.7rem;">📊 Statistiques</div>
+    <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;padding:.9rem;background:var(--surface2);border-radius:var(--r-sm);border:1.5px solid var(--border);">
+      <canvas id="catPieChart" width="110" height="110" style="flex-shrink:0;"></canvas>
+      <div id="catLegend" style="flex:1;display:flex;flex-direction:column;gap:.3rem;font-size:.72rem;"></div>
+    </div>
+
+    <!-- SIGNALEMENTS -->
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem;">
+      ⚠️ Signalements <span id="feedbackBadge" style="display:none;background:var(--danger);color:white;border-radius:50px;padding:1px 7px;font-size:.62rem;margin-left:.3rem;"></span>
+    </div>
+    <div id="adminFeedback" style="max-height:180px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);margin-bottom:1rem;">
+      <div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Chargement…</div>
+    </div>
+
+    <!-- CHANTS INCOMPLETS / ÉPINGLÉS -->
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.6rem;">📌 Épinglés & Incomplets</div>
+    <div id="adminIncomplete" style="max-height:160px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);margin-bottom:1rem;">
+      <div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Chargement…</div>
+    </div>
+
+    <!-- INFOS GROUPE -->
     <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.8rem;">Informations du groupe</div>
     <div class="form-2col">
       <div class="form-row"><label>Nom du groupe</label><input class="fi" id="aName"></div>
@@ -455,13 +485,16 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
     </div>
     <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.9rem 0 .8rem;">Catégories <button onclick="openCatMgr()" style="background:none;border:none;color:var(--blue-mid);font-size:.7rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;">+ Gérer</button></div>
     <div id="adminCatList"></div>
-    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.9rem 0 .8rem;">
+
+    <!-- HISTORIQUE -->
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.9rem 0 .6rem;">
       Historique des modifications
       <button onclick="clearLogs()" style="background:none;border:none;color:var(--danger);font-size:.7rem;font-weight:800;cursor:pointer;font-family:'Nunito',sans-serif;margin-left:.5rem;">🗑 Effacer</button>
     </div>
-    <div id="adminLogs" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);">
+    <div id="adminLogs" style="max-height:200px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);">
       <div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem">Chargement…</div>
     </div>
+
     <div class="form-actions">
       <button class="btn" onclick="closeAdmin()">Annuler</button>
       <button class="btn btn-primary" onclick="saveAdmin()">💾 Sauvegarder</button>
@@ -489,6 +522,25 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
       </div>
     </div>
     <div class="form-actions"><button class="btn btn-primary" onclick="closeCatMgr()">Fermer</button></div>
+  </div>
+</div>
+
+<!-- ── FEEDBACK MODAL ── -->
+<div class="overlay hidden" id="feedbackOverlay">
+  <div class="modal modal-sm">
+    <div class="modal-hdr">
+      <div class="modal-title">⚠️ Signaler un problème</div>
+      <button class="modal-close" onclick="closeFeedback()">✕</button>
+    </div>
+    <div id="feedbackSongName" style="font-size:.78rem;font-weight:700;color:var(--blue-mid);margin-bottom:.9rem;padding:.5rem .8rem;background:var(--blue-paler);border-radius:var(--r-xs);"></div>
+    <div class="form-row">
+      <label>Décrivez le problème *</label>
+      <textarea class="fi" id="feedbackMsg" style="min-height:100px" placeholder="Ex: Faute dans le refrain, paroles incorrectes, mauvaise tonalité…"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeFeedback()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitFeedback()">📨 Envoyer</button>
+    </div>
   </div>
 </div>
 
@@ -595,16 +647,51 @@ function renderCatPills(){
 }
 function setFilter(id){activeFilter=id;renderCatPills();renderList();}
 
+// ── SEARCH ───────────────────────────────────────────────────────────────────
+let searchTimer = null;
+let searchResults = null; // null = use local songs, array = server results
+
+async function handleSearch(){
+  const q = document.getElementById('searchInput').value.trim();
+  const inLyrics = document.getElementById('searchLyrics').checked;
+
+  if(!q){ searchResults=null; renderList(); return; }
+  if(!inLyrics){ searchResults=null; renderList(); return; }
+
+  // Debounce lyrics search
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async()=>{
+    document.getElementById('searchSpinner').style.display='inline';
+    try{
+      const res = await apiFetch(`/api/search?q=${encodeURIComponent(q)}`);
+      searchResults = res;
+      renderList();
+    }catch(e){ toast('Erreur de recherche','danger'); }
+    finally{ document.getElementById('searchSpinner').style.display='none'; }
+  }, 350);
+}
+
 // ── SONG LIST ────────────────────────────────────────────────────────────────
 function renderList(){
-  const q=document.getElementById('searchInput').value.toLowerCase();
-  const sortVal=(document.getElementById('sortSelect')||{value:'alpha'}).value;
-  let filtered=songs.filter(s=>{
-    const mc=activeFilter==='all'||(s.categories||[]).some(c=>c.id==activeFilter);
-    const mq=!q||s.title.toLowerCase().includes(q)||(s.author||'').toLowerCase().includes(q);
-    return mc&&mq;
-  });
-  filtered.sort((a,b)=>{
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const inLyrics = document.getElementById('searchLyrics').checked;
+  const sortVal = (document.getElementById('sortSelect')||{value:'alpha'}).value;
+
+  // Use server results if lyrics search active, else local filter
+  let filtered = searchResults !== null
+    ? searchResults
+    : songs.filter(s=>{
+        const mc = activeFilter==='all'||(s.categories||[]).some(c=>c.id==activeFilter);
+        const mq = !q||s.title.toLowerCase().includes(q)||(s.author||'').toLowerCase().includes(q);
+        return mc&&mq;
+      });
+
+  // Apply category filter on server results too
+  if(searchResults!==null && activeFilter!=='all'){
+    filtered = filtered.filter(s=>(s.categories||[]).some(c=>c.id==activeFilter));
+  }
+
+  filtered = [...filtered].sort((a,b)=>{
     if(sortVal==='alpha') return a.title.localeCompare(b.title);
     if(sortVal==='created_desc') return new Date(b.created_at)-new Date(a.created_at);
     if(sortVal==='created_asc') return new Date(a.created_at)-new Date(b.created_at);
@@ -612,20 +699,29 @@ function renderList(){
     if(sortVal==='bpm') return (a.bpm||9999)-(b.bpm||9999);
     return a.title.localeCompare(b.title);
   });
+
   document.getElementById('songsCount').textContent=`${filtered.length} chant${filtered.length>1?'s':''}`;
   const el=document.getElementById('songList');
-  if(!filtered.length){el.innerHTML=`<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.75rem;font-weight:600">Aucun chant trouvé</div>`;return;}
+  if(!filtered.length){
+    el.innerHTML=`<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.75rem;font-weight:600">${inLyrics&&q?'Aucun chant trouvé dans les paroles':'Aucun chant trouvé'}</div>`;
+    return;
+  }
   el.innerHTML=filtered.map(s=>{
     const sCats=(s.categories||[]);
     const an=s.audio_count||0;
+    const matchLyrics = s.match_in_lyrics && inLyrics && q;
     return `<div class="song-card ${s.id===currentId?'active':''}" onclick="selectSong(${s.id})">
-      <div class="song-card-title">${s.title}</div>
+      <div style="display:flex;align-items:center;gap:.3rem">
+        ${s.pinned?'<span style="font-size:.65rem" title="Épinglé pour révision">📌</span>':''}
+        <div class="song-card-title">${s.title}</div>
+      </div>
       <div class="song-card-meta">
         <span>${s.author||'—'}</span>
         ${s.key_signature?`<span class="key-badge">${s.key_signature.split(' ')[0]}</span>`:''}
         ${s.bpm?`<span class="key-badge" style="background:linear-gradient(135deg,#fff0e8,#ffe0cc);color:#c06020;border-color:#f0c090">${s.bpm} BPM</span>`:''}
         ${sCats.map(c=>`<span class="cat-badge" style="${catStyle(c)}">${c.name}</span>`).join('')}
         ${an?`<span class="audio-badge">♪ ${an}</span>`:''}
+        ${matchLyrics?`<span style="font-size:.6rem;color:var(--blue-mid);font-weight:700">🎵 dans les paroles</span>`:''}
       </div>
     </div>`;
   }).join('');
@@ -663,6 +759,10 @@ function renderDetail(song){
         ${(song.categories||[]).length?`<div class="detail-cats">${song.categories.map(c=>`<span class="cat-badge" style="${catStyle(c)}">${c.name}</span>`).join('')}</div>`:''}
       </div>
       <div class="detail-actions">
+        <button class="btn btn-sm" id="pinBtn" onclick="togglePin(${song.id},${song.pinned?'true':'false'})" title="${song.pinned?'Désépingler':'Épingler pour révision'}" style="${song.pinned?'color:#e08c35;border-color:#e08c35;background:#fff8ee':''}">
+          ${song.pinned?'📌 Épinglé':'📌 Épingler'}
+        </button>
+        <button class="btn btn-sm" onclick="openFeedback(${song.id},'${song.title.replace(/'/g,"\\'")}')">⚠️ Signaler</button>
         <button class="btn btn-sm" onclick="startEditSong(${song.id})">✎ Modifier</button>
         <button class="btn btn-sm btn-danger" onclick="deleteSong(${song.id})">Supprimer</button>
       </div>
@@ -1026,7 +1126,38 @@ function toggleCatChk(cb,cid){
   else{lbl.style.background=cat.color+'15';lbl.style.borderColor=cat.color+'55';lbl.style.color=cat.color;}
 }
 
-// ── ADMIN PANEL ──────────────────────────────────────────────────────────────
+// ── PIN SONG ──────────────────────────────────────────────────────────────────
+async function togglePin(id, currentlyPinned){
+  const newVal = !currentlyPinned;
+  await apiFetch(`/api/songs/${id}/pin`,{method:'PATCH',body:JSON.stringify({pinned:newVal})});
+  const idx = songs.findIndex(s=>s.id===id);
+  if(idx>=0) songs[idx].pinned = newVal;
+  selectSong(id);
+  renderList();
+  toast(newVal?'📌 Épinglé pour révision':'Épingle retirée');
+}
+
+// ── FEEDBACK ──────────────────────────────────────────────────────────────────
+let feedbackSongId=null, feedbackSongTitle='';
+function openFeedback(songId, songTitle){
+  feedbackSongId=songId; feedbackSongTitle=songTitle;
+  document.getElementById('feedbackSongName').textContent='🎵 '+songTitle;
+  document.getElementById('feedbackMsg').value='';
+  document.getElementById('feedbackOverlay').classList.remove('hidden');
+}
+function closeFeedback(){ document.getElementById('feedbackOverlay').classList.add('hidden'); }
+async function submitFeedback(){
+  const msg=document.getElementById('feedbackMsg').value.trim();
+  if(!msg){toast('Décrivez le problème','danger');return;}
+  const{browser,os}=getDeviceInfo();
+  await apiFetch('/api/feedback',{method:'POST',body:JSON.stringify({
+    song_id:feedbackSongId,song_title:feedbackSongTitle,message:msg,browser,os
+  })});
+  closeFeedback();
+  toast('Signalement envoyé à l\'admin ✓');
+}
+
+// ── ADMIN PANEL ───────────────────────────────────────────────────────────────
 function openAdminPanel(){
   requirePin('admin','🔐 PIN Admin','Entrez votre PIN administrateur',async()=>{
     const settings=await apiFetch('/api/settings');
@@ -1036,8 +1167,120 @@ function openAdminPanel(){
     document.getElementById('aNewPinA').value='';
     renderAdminCats();
     renderLogs();
+    renderAdminFeedback();
+    renderAdminIncomplete();
+    renderAdminStats();
     document.getElementById('adminOverlay').classList.remove('hidden');
   });
+}
+
+async function renderAdminStats(){
+  try{
+    const stats = await apiFetch('/api/stats');
+    drawPieChart(stats);
+    renderCatLegend(stats);
+  }catch(e){}
+}
+
+function drawPieChart(stats){
+  const canvas = document.getElementById('catPieChart');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx=55,cy=55,r=48;
+  const cats = stats.categories.filter(c=>parseInt(c.count)>0);
+  const nocat = stats.no_category;
+  const data = [...cats.map(c=>({label:c.name,value:parseInt(c.count),color:c.color}))];
+  if(nocat>0) data.push({label:'Sans catégorie',value:nocat,color:'#cbd5e1'});
+  const total = data.reduce((s,d)=>s+d.value,0);
+  if(total===0){ctx.clearRect(0,0,110,110);ctx.fillStyle='#e2e8f0';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();return;}
+  let startAngle = -Math.PI/2;
+  ctx.clearRect(0,0,110,110);
+  data.forEach(d=>{
+    const slice = (d.value/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,startAngle,startAngle+slice);
+    ctx.closePath();ctx.fillStyle=d.color;ctx.fill();
+    ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
+    startAngle+=slice;
+  });
+  // Centre
+  ctx.beginPath();ctx.arc(cx,cy,22,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+  ctx.fillStyle='#1a2340';ctx.font='bold 13px Nunito,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(stats.total_songs,cx,cy-5);
+  ctx.font='9px Nunito,sans-serif';ctx.fillStyle='#8a9bc4';
+  ctx.fillText('chants',cx,cy+7);
+}
+
+function renderCatLegend(stats){
+  const el=document.getElementById('catLegend');
+  const cats=stats.categories.filter(c=>parseInt(c.count)>0);
+  const nocat=stats.no_category;
+  let html=cats.map(c=>`
+    <div style="display:flex;align-items:center;gap:.4rem;">
+      <div style="width:10px;height:10px;border-radius:3px;background:${c.color};flex-shrink:0;"></div>
+      <span style="font-weight:700;color:var(--text)">${c.name}</span>
+      <span style="color:var(--muted);margin-left:auto">${c.count}</span>
+    </div>`).join('');
+  if(nocat>0) html+=`<div style="display:flex;align-items:center;gap:.4rem;"><div style="width:10px;height:10px;border-radius:3px;background:#cbd5e1;flex-shrink:0;"></div><span style="font-weight:700;color:var(--text)">Sans catégorie</span><span style="color:var(--muted);margin-left:auto">${nocat}</span></div>`;
+  if(stats.pinned>0) html+=`<div style="margin-top:.3rem;padding-top:.3rem;border-top:1px solid var(--border);font-size:.65rem;color:#e08c35;font-weight:700;">📌 ${stats.pinned} épinglé${stats.pinned>1?'s':''}</div>`;
+  el.innerHTML=html||`<span style="color:var(--muted);font-size:.72rem">Aucune catégorie</span>`;
+}
+
+async function renderAdminFeedback(){
+  const el=document.getElementById('adminFeedback');
+  const badge=document.getElementById('feedbackBadge');
+  try{
+    const list=await apiFetch('/api/feedback');
+    const unread=list.filter(f=>!f.read);
+    if(unread.length>0){badge.style.display='inline';badge.textContent=unread.length+' non lu'+(unread.length>1?'s':'');}
+    else{badge.style.display='none';}
+    if(!list.length){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem;font-weight:600">Aucun signalement.</div>`;return;}
+    el.innerHTML=list.map(f=>`
+      <div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);background:${f.read?'white':'#fffbf0'};display:flex;gap:.6rem;align-items:flex-start;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.72rem;font-weight:800;color:var(--blue-mid);">${f.song_title||'Chant inconnu'}</div>
+          <div style="font-size:.74rem;color:var(--text);margin:.2rem 0;line-height:1.5">${f.message}</div>
+          <div style="font-size:.62rem;color:var(--muted)">${new Date(f.created_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${f.browser||'?'}/${f.os||'?'}</div>
+        </div>
+        <div style="display:flex;gap:.3rem;flex-shrink:0;">
+          ${!f.read?`<button class="btn btn-sm" style="padding:.2rem .5rem;font-size:.62rem" onclick="markFeedbackRead(${f.id})">✓ Lu</button>`:''}
+          <button class="btn btn-sm btn-danger" style="padding:.2rem .5rem;font-size:.62rem" onclick="deleteFeedback(${f.id})">✕</button>
+        </div>
+      </div>`).join('');
+  }catch(e){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur</div>`;}
+}
+
+async function markFeedbackRead(id){
+  await apiFetch(`/api/feedback/${id}/read`,{method:'PATCH'});
+  renderAdminFeedback();
+}
+async function deleteFeedback(id){
+  await apiFetch(`/api/feedback/${id}`,{method:'DELETE'});
+  renderAdminFeedback();
+  renderAdminStats();
+}
+
+async function renderAdminIncomplete(){
+  const el=document.getElementById('adminIncomplete');
+  try{
+    const list=await apiFetch('/api/songs/incomplete');
+    if(!list.length){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--success);font-size:.75rem;font-weight:700">✅ Tous les chants sont complets !</div>`;return;}
+    el.innerHTML=list.map(s=>{
+      const missing=[];
+      if(s.missing_author) missing.push('auteur');
+      if(s.missing_key) missing.push('gamme');
+      if(s.missing_bpm) missing.push('BPM');
+      if(s.missing_lyrics) missing.push('paroles');
+      return `<div style="padding:.55rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;cursor:pointer;background:${s.is_pinned?'#fffbf0':'white'}" onclick="closeAdmin();selectSong(${s.id})">
+        ${s.is_pinned?'<span title="Épinglé">📌</span>':'<span style="opacity:.3">○</span>'}
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.78rem;font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
+          ${missing.length?`<div style="font-size:.62rem;color:var(--warn);font-weight:700">Manque : ${missing.join(', ')}</div>`:''}
+        </div>
+        <button class="btn btn-sm" style="padding:.2rem .5rem;font-size:.62rem" onclick="event.stopPropagation();closeAdmin();startEditSong(${s.id})">Compléter</button>
+      </div>`;
+    }).join('');
+  }catch(e){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur</div>`;}
 }
 function closeAdmin(){document.getElementById('adminOverlay').classList.add('hidden');}
 function renderAdminCats(){
@@ -1135,7 +1378,7 @@ function pickColor(c,el){selColor=c;document.querySelectorAll('.color-opt').forE
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape') document.querySelectorAll('.overlay').forEach(o=>o.classList.add('hidden'));
 });
-['songOverlay','stemOverlay','adminOverlay','catOverlay'].forEach(id=>{
+['songOverlay','stemOverlay','adminOverlay','catOverlay','feedbackOverlay'].forEach(id=>{
   document.getElementById(id).addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById(id).classList.add('hidden');});
 });
 document.getElementById('pinOverlay').addEventListener('click',e=>{
