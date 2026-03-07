@@ -152,6 +152,12 @@ app.delete('/api/categories/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+app.patch('/api/categories/:id', async (req, res) => {
+  const { color } = req.body;
+  const { rows } = await pool.query('UPDATE categories SET color=$1 WHERE id=$2 RETURNING *', [color, req.params.id]);
+  res.json(rows[0]);
+});
+
 // ── SEARCH (full-text in lyrics) ─────────────────────────────────────────────
 app.get('/api/search', async (req, res) => {
   const q = (req.query.q||'').trim();
