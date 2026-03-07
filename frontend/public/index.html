@@ -364,7 +364,11 @@ select.fi option{background:white;}
       <div class="modal-title" id="songModalTitle">Nouveau chant</div>
       <button class="modal-close" onclick="closeSongModal()">✕</button>
     </div>
-    <div class="form-row"><label>Titre *</label><input class="fi" id="fTitle" placeholder="Ex: Amazing Grace"></div>
+    <div class="form-row">
+      <label>Titre *</label>
+      <input class="fi" id="fTitle" placeholder="Ex: Amazing Grace" oninput="checkDuplicateTitle(this.value)">
+      <div id="duplicateWarning" class="hidden" style="margin-top:.45rem;padding:.55rem .8rem;background:#fffbf0;border:1.5px solid #e08c35;border-radius:var(--r-xs);font-size:.74rem;font-weight:700;color:#b86a00;"></div>
+    </div>
     <div class="form-2col">
       <div class="form-row"><label>Auteur</label><input class="fi" id="fAuthor" placeholder="Ex: John Newton"></div>
       <div class="form-row">
@@ -484,6 +488,12 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
       ⚠️ Signalements <span id="feedbackBadge" style="display:none;background:var(--danger);color:white;border-radius:50px;padding:1px 7px;font-size:.62rem;margin-left:.3rem;"></span>
     </div>
     <div id="adminFeedback" style="max-height:180px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);margin-bottom:1rem;">
+      <div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Chargement…</div>
+    </div>
+
+    <!-- DOUBLONS -->
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.9rem 0 .6rem;">🔍 Doublons potentiels</div>
+    <div id="adminDuplicates" style="max-height:160px;overflow-y:auto;border:1.5px solid var(--border);border-radius:var(--r-sm);background:var(--surface2);margin-bottom:1rem;">
       <div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Chargement…</div>
     </div>
 
@@ -708,6 +718,28 @@ function renderCatPills(){
 function setFilter(id){activeFilter=id;renderCatPills();renderList();}
 
 // ── SEARCH ───────────────────────────────────────────────────────────────────
+// ── DUPLICATE DETECTION ───────────────────────────────────────────────────────
+let dupTimer = null;
+function checkDuplicateTitle(val){
+  const warn = document.getElementById('duplicateWarning');
+  if(!val || val.length < 3){ warn.classList.add('hidden'); return; }
+  // Don't check when editing (the song itself would match)
+  if(editingId){ warn.classList.add('hidden'); return; }
+  clearTimeout(dupTimer);
+  dupTimer = setTimeout(async()=>{
+    try{
+      const results = await apiFetch(`/api/songs/check-duplicate?title=${encodeURIComponent(val)}`);
+      if(results.length){
+        const names = results.map(s=>`"${s.title}"`).join(', ');
+        warn.innerHTML = `⚠️ Chant similaire déjà existant : ${names}<br><span style="font-weight:600;font-size:.68rem">Vérifiez que ce n'est pas un doublon avant de sauvegarder.</span>`;
+        warn.classList.remove('hidden');
+      } else {
+        warn.classList.add('hidden');
+      }
+    }catch(e){}
+  }, 400);
+}
+
 let searchTimer = null;
 let searchResults = null; // null = use local songs, array = server results
 
@@ -1035,6 +1067,7 @@ function openAddModal(){
   document.getElementById('songModalTitle').textContent='Nouveau chant';
   ['fTitle','fAuthor','fLink','fGenre','fBpm'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fKey').value='';
+  document.getElementById('duplicateWarning').classList.add('hidden');
   buildCatChk(); renderLyricsBuilder(); switchLyricsTab('manuel');
   document.getElementById('pasteArea').value='';
   document.getElementById('songOverlay').classList.remove('hidden');
@@ -1052,6 +1085,7 @@ async function openEditModal(id){
   document.getElementById('fGenre').value=song.genre||'';
   document.getElementById('fBpm').value=song.bpm||'';
   document.getElementById('fLink').value=song.reference_link||'';
+  document.getElementById('duplicateWarning').classList.add('hidden');
   buildCatChk((song.categories||[]).map(c=>c.id));
   renderLyricsBuilder();
   document.getElementById('songOverlay').classList.remove('hidden');
@@ -1258,6 +1292,7 @@ function openAdminPanel(){
     renderLogs();
     renderAdminFeedback();
     renderAdminIncomplete();
+    renderAdminDuplicates();
     renderAdminStats();
     renderAdminContributors();
     buildNewContribColorPicker();
@@ -1408,6 +1443,30 @@ async function deleteFeedback(id){
   await apiFetch(`/api/feedback/${id}`,{method:'DELETE'});
   renderAdminFeedback();
   renderAdminStats();
+}
+
+async function renderAdminDuplicates(){
+  const el = document.getElementById('adminDuplicates');
+  if(!el) return;
+  try{
+    const pairs = await apiFetch('/api/songs/duplicates');
+    if(!pairs.length){
+      el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--success);font-size:.75rem;font-weight:700">✅ Aucun doublon détecté.</div>`;
+      return;
+    }
+    el.innerHTML = pairs.map(p=>`
+      <div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);background:white;">
+        <div style="font-size:.65rem;font-weight:800;color:var(--warn);text-transform:uppercase;margin-bottom:.3rem;">⚠️ Doublon potentiel</div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id1})">${p.title1}</span>
+          <span style="color:var(--muted);font-size:.72rem">↔</span>
+          <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id2})">${p.title2}</span>
+        </div>
+        <div style="font-size:.62rem;color:var(--muted);margin-top:.2rem">Similarité : ${p.similarity}%</div>
+      </div>`).join('');
+  }catch(e){
+    el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur</div>`;
+  }
 }
 
 async function renderAdminIncomplete(){
