@@ -86,7 +86,13 @@ async function initDB() {
       color TEXT NOT NULL DEFAULT '#2d5be3',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
-    CREATE TABLE IF NOT EXISTS feedback (
+    CREATE TABLE IF NOT EXISTS ignored_duplicates (
+      id SERIAL PRIMARY KEY,
+      song_id1 INTEGER NOT NULL,
+      song_id2 INTEGER NOT NULL,
+      ignored_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(song_id1, song_id2)
+    );
       id SERIAL PRIMARY KEY,
       song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE,
       song_title TEXT,
@@ -358,12 +364,16 @@ app.get('/api/songs/check-duplicate', async (req, res) => {
 
 app.get('/api/songs/duplicates', async (req, res) => {
   const { rows } = await pool.query('SELECT id, title FROM songs ORDER BY title');
+  const { rows: ignored } = await pool.query('SELECT song_id1, song_id2 FROM ignored_duplicates');
+  const ignoredSet = new Set(ignored.map(r => `${Math.min(r.song_id1,r.song_id2)}_${Math.max(r.song_id1,r.song_id2)}`));
+
   const pairs = [];
   for(let i=0; i<rows.length; i++){
     for(let j=i+1; j<rows.length; j++){
+      const key = `${Math.min(rows[i].id,rows[j].id)}_${Math.max(rows[i].id,rows[j].id)}`;
+      if(ignoredSet.has(key)) continue;
       const a = normalize(rows[i].title);
       const b = normalize(rows[j].title);
-      // Word overlap score
       const wordsA = a.split(' ').filter(w=>w.length>2);
       const wordsB = b.split(' ').filter(w=>w.length>2);
       if(!wordsA.length || !wordsB.length) continue;
@@ -376,6 +386,16 @@ app.get('/api/songs/duplicates', async (req, res) => {
   }
   pairs.sort((a,b)=>b.similarity-a.similarity);
   res.json(pairs.slice(0, 20));
+});
+
+app.post('/api/songs/ignore-duplicate', async (req, res) => {
+  const { id1, id2 } = req.body;
+  const a = Math.min(id1, id2), b = Math.max(id1, id2);
+  await pool.query(
+    'INSERT INTO ignored_duplicates(song_id1, song_id2) VALUES($1,$2) ON CONFLICT DO NOTHING',
+    [a, b]
+  );
+  res.json({ ok: true });
 });
 
 // ── SONGS ─────────────────────────────────────────────────────────────────────
