@@ -12,18 +12,18 @@ const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, ‘..’, �
 
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-// ── DATABASE ──────────────────────────────────────────────────────────────────
+// – DATABASE ——————————————————————
 const pool = new Pool({
 connectionString: process.env.DATABASE_URL,
 ssl: { rejectUnauthorized: false }
 });
 
 async function initDB() {
-await pool.query(`CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT NOT NULL ); CREATE TABLE IF NOT EXISTS categories ( id SERIAL PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL DEFAULT '#2d5be3', position INTEGER DEFAULT 0 ); CREATE TABLE IF NOT EXISTS songs ( id SERIAL PRIMARY KEY, title TEXT NOT NULL, author TEXT, key_signature TEXT, genre TEXT, reference_link TEXT, notes TEXT, bpm INTEGER, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW() ); CREATE TABLE IF NOT EXISTS song_categories ( song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE, category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE, PRIMARY KEY (song_id, category_id) ); CREATE TABLE IF NOT EXISTS lyrics_blocks ( id SERIAL PRIMARY KEY, song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE, type TEXT NOT NULL, num INTEGER DEFAULT 1, content TEXT DEFAULT '', position INTEGER DEFAULT 0 ); CREATE TABLE IF NOT EXISTS audio_files ( id SERIAL PRIMARY KEY, song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE, filename TEXT NOT NULL, original_name TEXT NOT NULL, stem_type TEXT NOT NULL, stem_category TEXT NOT NULL, stem_label TEXT NOT NULL, file_size INTEGER DEFAULT 0, uploaded_at TIMESTAMPTZ DEFAULT NOW() ); ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER; ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE; CREATE TABLE IF NOT EXISTS activity_logs ( id SERIAL PRIMARY KEY, action TEXT NOT NULL, song_title TEXT, contributor_name TEXT, browser TEXT, os TEXT, language TEXT, occurred_at TIMESTAMPTZ DEFAULT NOW() ); ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS contributor_name TEXT; CREATE TABLE IF NOT EXISTS contributors ( id SERIAL PRIMARY KEY, name TEXT NOT NULL, pin TEXT NOT NULL, color TEXT NOT NULL DEFAULT '#2d5be3', created_at TIMESTAMPTZ DEFAULT NOW() ); CREATE TABLE IF NOT EXISTS ignored_duplicates ( id SERIAL PRIMARY KEY, song_id1 INTEGER NOT NULL, song_id2 INTEGER NOT NULL, ignored_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(song_id1, song_id2) ); CREATE TABLE IF NOT EXISTS feedback ( id SERIAL PRIMARY KEY, song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE, song_title TEXT, message TEXT NOT NULL, browser TEXT, os TEXT, read BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW() ); INSERT INTO settings (key, value) VALUES ('group_name', 'Répertoire Musical'), ('group_subtitle', 'Groupe de Musique'), ('pin_contributor', '1234'), ('pin_admin', '0000') ON CONFLICT (key) DO NOTHING;`);
-console.log(‘✅ Base de données initialisée’);
+await pool.query(`CREATE TABLE IF NOT EXISTS settings ( key TEXT PRIMARY KEY, value TEXT NOT NULL ); CREATE TABLE IF NOT EXISTS categories ( id SERIAL PRIMARY KEY, name TEXT NOT NULL, color TEXT NOT NULL DEFAULT '#2d5be3', position INTEGER DEFAULT 0 ); CREATE TABLE IF NOT EXISTS songs ( id SERIAL PRIMARY KEY, title TEXT NOT NULL, author TEXT, key_signature TEXT, genre TEXT, reference_link TEXT, notes TEXT, bpm INTEGER, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW() ); CREATE TABLE IF NOT EXISTS song_categories ( song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE, category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE, PRIMARY KEY (song_id, category_id) ); CREATE TABLE IF NOT EXISTS lyrics_blocks ( id SERIAL PRIMARY KEY, song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE, type TEXT NOT NULL, num INTEGER DEFAULT 1, content TEXT DEFAULT '', position INTEGER DEFAULT 0 ); CREATE TABLE IF NOT EXISTS audio_files ( id SERIAL PRIMARY KEY, song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE, filename TEXT NOT NULL, original_name TEXT NOT NULL, stem_type TEXT NOT NULL, stem_category TEXT NOT NULL, stem_label TEXT NOT NULL, file_size INTEGER DEFAULT 0, uploaded_at TIMESTAMPTZ DEFAULT NOW() ); ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER; ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE; CREATE TABLE IF NOT EXISTS activity_logs ( id SERIAL PRIMARY KEY, action TEXT NOT NULL, song_title TEXT, contributor_name TEXT, browser TEXT, os TEXT, language TEXT, occurred_at TIMESTAMPTZ DEFAULT NOW() ); ALTER TABLE activity_logs ADD COLUMN IF NOT EXISTS contributor_name TEXT; CREATE TABLE IF NOT EXISTS contributors ( id SERIAL PRIMARY KEY, name TEXT NOT NULL, pin TEXT NOT NULL, color TEXT NOT NULL DEFAULT '#2d5be3', created_at TIMESTAMPTZ DEFAULT NOW() ); CREATE TABLE IF NOT EXISTS ignored_duplicates ( id SERIAL PRIMARY KEY, song_id1 INTEGER NOT NULL, song_id2 INTEGER NOT NULL, ignored_at TIMESTAMPTZ DEFAULT NOW(), UNIQUE(song_id1, song_id2) ); CREATE TABLE IF NOT EXISTS feedback ( id SERIAL PRIMARY KEY, song_id INTEGER REFERENCES songs(id) ON DELETE CASCADE, song_title TEXT, message TEXT NOT NULL, browser TEXT, os TEXT, read BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW() ); INSERT INTO settings (key, value) VALUES ('group_name', 'Repertoire Musical'), ('group_subtitle', 'Groupe de Musique'), ('pin_contributor', '1234'), ('pin_admin', '0000') ON CONFLICT (key) DO NOTHING;`);
+console.log(’ Base de donnees initialisee’);
 }
 
-// ── MIDDLEWARE ────────────────────────────────────────────────────────────────
+// – MIDDLEWARE ––––––––––––––––––––––––––––––––
 app.use(cors());
 app.use(express.json());
 app.use(’/uploads’, express.static(UPLOADS_DIR));
@@ -35,7 +35,7 @@ filename: (req, file, cb) => cb(null, Date.now() + ‘-’ + Math.round(Math.ran
 });
 const upload = multer({ storage, limits: { fileSize: 100*1024*1024 } });
 
-// ── PIN ───────────────────────────────────────────────────────────────────────
+// – PIN ———————————————————————–
 app.post(’/api/verify-pin’, async (req, res) => {
 const { pin, level } = req.body;
 if (level === ‘admin’) {
@@ -54,7 +54,7 @@ rows[0]?.value === String(pin)
 : res.status(401).json({ ok: false });
 });
 
-// ── CONTRIBUTORS ──────────────────────────────────────────────────────────────
+// – CONTRIBUTORS –––––––––––––––––––––––––––––––
 app.get(’/api/contributors’, async (req, res) => {
 const { rows } = await pool.query(‘SELECT id, name, color, created_at FROM contributors ORDER BY name’);
 res.json(rows);
@@ -63,10 +63,10 @@ res.json(rows);
 app.post(’/api/contributors’, async (req, res) => {
 const { name, pin, color } = req.body;
 if (!name || !pin) return res.status(400).json({ error: ‘Nom et PIN requis’ });
-if (!/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: ‘PIN doit être 4 chiffres’ });
+if (!/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: ‘PIN doit etre 4 chiffres’ });
 // Check PIN not already used
 const { rows: existing } = await pool.query(‘SELECT id FROM contributors WHERE pin = $1’, [String(pin)]);
-if (existing.length) return res.status(400).json({ error: ‘Ce PIN est déjà utilisé’ });
+if (existing.length) return res.status(400).json({ error: ‘Ce PIN est deja utilise’ });
 const { rows } = await pool.query(
 ‘INSERT INTO contributors(name, pin, color) VALUES($1,$2,$3) RETURNING id, name, color, created_at’,
 [name.trim(), String(pin), color||’#2d5be3’]
@@ -81,22 +81,22 @@ res.json({ ok: true });
 
 app.patch(’/api/contributors/:id’, async (req, res) => {
 const { name, pin, color } = req.body;
-if (pin && !/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: ‘PIN doit être 4 chiffres’ });
+if (pin && !/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: ‘PIN doit etre 4 chiffres’ });
 if (pin) {
 const { rows: existing } = await pool.query(‘SELECT id FROM contributors WHERE pin = $1 AND id != $2’, [String(pin), req.params.id]);
-if (existing.length) return res.status(400).json({ error: ‘Ce PIN est déjà utilisé’ });
+if (existing.length) return res.status(400).json({ error: ‘Ce PIN est deja utilise’ });
 }
 const fields = [], vals = [];
 if (name) { fields.push(`name=$${fields.length+1}`); vals.push(name.trim()); }
 if (pin)  { fields.push(`pin=$${fields.length+1}`);  vals.push(String(pin)); }
 if (color){ fields.push(`color=$${fields.length+1}`);vals.push(color); }
-if (!fields.length) return res.status(400).json({ error: ‘Rien à modifier’ });
+if (!fields.length) return res.status(400).json({ error: ‘Rien a modifier’ });
 vals.push(req.params.id);
 const { rows } = await pool.query(`UPDATE contributors SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING id,name,color,created_at`, vals);
 res.json(rows[0]);
 });
 
-// ── SETTINGS ──────────────────────────────────────────────────────────────────
+// – SETTINGS ——————————————————————
 app.get(’/api/settings’, async (req, res) => {
 const { rows } = await pool.query(“SELECT key, value FROM settings WHERE key IN (‘group_name’,‘group_subtitle’)”);
 const result = {}; rows.forEach(r => result[r.key] = r.value); res.json(result);
@@ -113,7 +113,7 @@ if (new_pin_admin) await pool.query(‘INSERT INTO settings(key,value) VALUES($1
 res.json({ ok: true });
 });
 
-// ── CATEGORIES ────────────────────────────────────────────────────────────────
+// – CATEGORIES ––––––––––––––––––––––––––––––––
 app.get(’/api/categories’, async (req, res) => {
 const { rows } = await pool.query(‘SELECT * FROM categories ORDER BY position, id’);
 res.json(rows);
@@ -137,7 +137,7 @@ const { rows } = await pool.query(‘UPDATE categories SET color=$1 WHERE id=$2 
 res.json(rows[0]);
 });
 
-// ── SEARCH (full-text in lyrics) ─────────────────────────────────────────────
+// – SEARCH (full-text in lyrics) ———————————————
 app.get(’/api/search’, async (req, res) => {
 const q = (req.query.q||’’).trim();
 if(!q) return res.json([]);
@@ -154,20 +154,20 @@ return { …s, categories: cats, audio_count: parseInt(cnt[0].n), match_in_lyric
 res.json(songs);
 });
 
-// ── PIN SONG ──────────────────────────────────────────────────────────────────
+// – PIN SONG ——————————————————————
 app.patch(’/api/songs/:id/pin’, async (req, res) => {
 const { pinned } = req.body;
 await pool.query(‘UPDATE songs SET pinned=$1 WHERE id=$2’, [pinned, req.params.id]);
 res.json({ ok: true });
 });
 
-// ── INCOMPLETE SONGS ──────────────────────────────────────────────────────────
+// – INCOMPLETE SONGS –––––––––––––––––––––––––––––
 app.get(’/api/songs/incomplete’, async (req, res) => {
 const { rows } = await pool.query(`SELECT s.*,  (s.bpm IS NULL) as missing_bpm, (s.key_signature IS NULL OR s.key_signature = '') as missing_key, (s.author IS NULL OR s.author = '') as missing_author, (s.genre IS NULL OR s.genre = '') as missing_genre, (NOT EXISTS (SELECT 1 FROM lyrics_blocks lb WHERE lb.song_id = s.id)) as missing_lyrics, (s.pinned = true) as is_pinned FROM songs s WHERE s.bpm IS NULL OR s.key_signature IS NULL OR s.key_signature = '' OR s.author IS NULL OR s.author = '' OR NOT EXISTS (SELECT 1 FROM lyrics_blocks lb WHERE lb.song_id = s.id) OR s.pinned = true ORDER BY s.pinned DESC, s.title`);
 res.json(rows);
 });
 
-// ── FEEDBACK ──────────────────────────────────────────────────────────────────
+// – FEEDBACK ——————————————————————
 app.post(’/api/feedback’, async (req, res) => {
 const { song_id, song_title, message, browser, os } = req.body;
 if(!message) return res.status(400).json({ error: ‘Message requis’ });
@@ -193,7 +193,7 @@ await pool.query(‘DELETE FROM feedback WHERE id=$1’, [req.params.id]);
 res.json({ ok: true });
 });
 
-// ── STATS (for pie chart) ─────────────────────────────────────────────────────
+// – STATS (for pie chart) —————————————————–
 app.get(’/api/stats’, async (req, res) => {
 const { rows: catStats } = await pool.query(`SELECT c.name, c.color, COUNT(sc.song_id) as count FROM categories c LEFT JOIN song_categories sc ON sc.category_id = c.id GROUP BY c.id, c.name, c.color ORDER BY count DESC`);
 const { rows: total } = await pool.query(‘SELECT COUNT(*) as n FROM songs’);
@@ -209,7 +209,7 @@ unread_feedback: parseInt(unread[0].n)
 });
 });
 
-// ── DUPLICATE DETECTION ───────────────────────────────────────────────────────
+// – DUPLICATE DETECTION —————————————————––
 // Normalize: remove accents, punctuation, lowercase
 function normalize(str){
 return (str||’’).toLowerCase()
@@ -275,7 +275,7 @@ await pool.query(
 res.json({ ok: true });
 });
 
-// ── SONGS ─────────────────────────────────────────────────────────────────────
+// – SONGS ———————————————————————
 async function getSongFull(id) {
 const { rows: songs } = await pool.query(‘SELECT * FROM songs WHERE id=$1’, [id]);
 if (!songs[0]) return null;
@@ -341,7 +341,7 @@ await pool.query(‘DELETE FROM songs WHERE id=$1’, [req.params.id]);
 res.json({ ok: true });
 });
 
-// ── AUDIO ─────────────────────────────────────────────────────────────────────
+// – AUDIO ———————————————————————
 app.post(’/api/songs/:id/audio’, upload.single(‘file’), async (req, res) => {
 if (!req.file) return res.status(400).json({ error: ‘Fichier manquant’ });
 const { stem_type, stem_category, stem_label } = req.body;
@@ -361,7 +361,7 @@ await pool.query(‘DELETE FROM audio_files WHERE id=$1’, [req.params.id]);
 res.json({ ok: true });
 });
 
-// ── ACTIVITY LOGS ─────────────────────────────────────────────────────────────
+// – ACTIVITY LOGS ———————————————————––
 app.post(’/api/logs’, async (req, res) => {
 const { action, song_title, contributor_name, browser, os, language } = req.body;
 await pool.query(
@@ -385,25 +385,25 @@ res.json({ ok: true });
 
 app.get(’*’, (req, res) => res.sendFile(path.join(__dirname, ‘..’, ‘frontend’, ‘public’, ‘index.html’)));
 
-// ── START ─────────────────────────────────────────────────────────────────────
+// – START ———————————————————————
 async function startServer(retries = 5) {
 for (let i = 0; i < retries; i++) {
 try {
 await initDB();
-app.listen(PORT, () => console.log(`✅ Serveur démarré sur le port ${PORT}`));
+app.listen(PORT, () => console.log(` Serveur demarre sur le port ${PORT}`));
 return;
 } catch(err) {
-console.error(`❌ Tentative ${i+1}/${retries} - Erreur DB: ${err.message}`);
+console.error(` Tentative ${i+1}/${retries} - Erreur DB: ${err.message}`);
 if (i < retries - 1) {
 const wait = (i + 1) * 3000;
-console.log(`⏳ Nouvelle tentative dans ${wait/1000}s...`);
+console.log(` Nouvelle tentative dans ${wait/1000}s...`);
 await new Promise(r => setTimeout(r, wait));
 }
 }
 }
 // Start anyway without DB (will fail on API calls but won’t crash the process)
-console.error(‘⚠️ Démarrage sans base de données - vérifiez DATABASE_URL’);
-app.listen(PORT, () => console.log(`⚠️ Serveur démarré SANS DB sur le port ${PORT}`));
+console.error(’ Demarrage sans base de donnees - verifiez DATABASE_URL’);
+app.listen(PORT, () => console.log(` Serveur demarre SANS DB sur le port ${PORT}`));
 }
 
 startServer();
