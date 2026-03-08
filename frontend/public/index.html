@@ -332,9 +332,9 @@ select.fi option{background:#252525;color:#f0ece8;}
   .mob-search-wrap input::placeholder{color:#444;}
   .mob-search-wrap input:focus{background:#2e2e2e;}
   .mob-search-wrap::before{
-    content:'search';font-family:'Material Icons';
+    content:'🔍';
     position:absolute;left:.65rem;top:50%;transform:translateY(-50%);
-    font-size:.85rem;pointer-events:none;color:#444;
+    font-size:.6rem;pointer-events:none;opacity:.4;
   }
 
   .mob-add-btn{
@@ -347,7 +347,7 @@ select.fi option{background:#252525;color:#f0ece8;}
 
   #mobileDetailView{
     display:none;position:fixed;top:0;left:0;right:0;bottom:0;
-    background:#111;z-index:20;flex-direction:column;overflow:hidden;
+    background:#111;z-index:100;flex-direction:column;overflow:hidden;
   }
   #mobileDetailView.active{display:flex;}
 
@@ -556,7 +556,7 @@ select.fi option{background:#252525;color:#f0ece8;}
     <div class="form-row">
       <label>Titre *</label>
       <input class="fi" id="fTitle" placeholder="Ex: Amazing Grace" oninput="checkDuplicateTitle(this.value)">
-      <div id="duplicateWarning" class="hidden" style="margin-top:.45rem;padding:.55rem .8rem;background:#fffbf0;border:1.5px solid #e08c35;border-radius:var(--r-xs);font-size:.74rem;font-weight:700;color:#b86a00;"></div>
+      <div id="duplicateWarning" class="hidden" style="margin-top:.45rem;padding:.55rem .8rem;background:#2a1800;border:1.5px solid #e08c35;border-radius:var(--r-xs);font-size:.74rem;font-weight:700;color:#b86a00;"></div>
     </div>
     <div class="form-2col">
       <div class="form-row"><label>Auteur</label><input class="fi" id="fAuthor" placeholder="Ex: John Newton"></div>
@@ -1390,7 +1390,7 @@ function updateContributorBadge(){
   if(!badge){
     badge = document.createElement('div');
     badge.id = 'contributorBadge';
-    badge.style.cssText = 'position:fixed;bottom:1.2rem;right:1.2rem;background:#111;color:white;padding:.45rem .9rem;border-radius:50px;font-size:.72rem;font-weight:700;box-shadow:var(--shadow-lg);z-index:90;border:1px solid #332220;display:flex;align-items:center;gap:.5rem;cursor:pointer;';
+    badge.style.cssText = 'position:fixed;top:.75rem;right:4rem;background:#1e1e1e;color:white;padding:.32rem .75rem;border-radius:50px;font-size:.68rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:200;border:1px solid #444;display:flex;align-items:center;gap:.4rem;cursor:pointer;';
     badge.title = 'Cliquer pour se déconnecter';
     badge.onclick = () => { clearContributorSession(); badge.remove(); toast('Session terminée'); };
     document.body.appendChild(badge);
@@ -1673,7 +1673,7 @@ async function renderAdminContributors(){
     return;
   }
   el.innerHTML = contributors.map(c => `
-    <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border:1.5px solid var(--border);border-radius:var(--r-sm);background:white;margin-bottom:.35rem;">
+    <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border:1.5px solid #332220;border-radius:var(--r-sm);background:#1e1e1e;margin-bottom:.35rem;">
       <div style="width:28px;height:28px;border-radius:50%;background:${c.color};display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;font-weight:900;flex-shrink:0;">${c.name[0].toUpperCase()}</div>
       <div style="flex:1;">
         <div style="font-size:.82rem;font-weight:800;color:var(--text)">${c.name}</div>
@@ -1768,7 +1768,7 @@ async function renderAdminFeedback(){
     else{badge.style.display='none';}
     if(!list.length){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem;font-weight:600">Aucun signalement.</div>`;return;}
     el.innerHTML=list.map(f=>`
-      <div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);background:${f.read?'white':'#fffbf0'};display:flex;gap:.6rem;align-items:flex-start;">
+      <div style="padding:.6rem .8rem;border-bottom:1px solid var(--border);background:${f.read?'#1e1e1e':'#2a1800'};display:flex;gap:.6rem;align-items:flex-start;">
         <div style="flex:1;min-width:0;">
           <div style="font-size:.72rem;font-weight:800;color:var(--blue-mid);">${f.song_title||'Chant inconnu'}</div>
           <div style="font-size:.74rem;color:var(--text);margin:.2rem 0;line-height:1.5">${f.message}</div>
@@ -1802,7 +1802,7 @@ async function renderAdminDuplicates(){
       return;
     }
     el.innerHTML = pairs.map(p=>`
-      <div style="padding:.65rem .8rem;border-bottom:1px solid var(--border);background:white;">
+      <div style="padding:.65rem .8rem;border-bottom:1px solid #332220;background:#1e1e1e;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;">
           <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;flex:1;">
             <span style="font-size:.78rem;font-weight:800;cursor:pointer;color:var(--blue-mid);text-decoration:underline" onclick="closeAdmin();selectSong(${p.id1})">${p.title1}</span>
@@ -1842,13 +1842,13 @@ async function renderAdminIncomplete(){
       if(s.missing_key) missing.push('gamme');
       if(s.missing_bpm) missing.push('BPM');
       if(s.missing_lyrics) missing.push('paroles');
-      return `<div style="padding:.55rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;cursor:pointer;background:${s.is_pinned?'#fffbf0':'white'}" onclick="closeAdmin();selectSong(${s.id})">
+      return `<div style="padding:.55rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;cursor:pointer;background:${s.is_pinned?'#2a1800':'#1e1e1e'}" onclick="closeAdmin();selectSong(${s.id})">
         ${s.is_pinned?'<span title="Épinglé">📌</span>':'<span style="opacity:.3">○</span>'}
         <div style="flex:1;min-width:0;">
           <div style="font-size:.78rem;font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
           ${missing.length?`<div style="font-size:.62rem;color:var(--warn);font-weight:700">Manque : ${missing.join(', ')}</div>`:''}
         </div>
-        <button class="btn btn-sm" style="padding:.2rem .5rem;font-size:.62rem" onclick="event.stopPropagation();closeAdmin();startEditSong(${s.id})">Compléter</button>
+        <button class="btn btn-sm" style="padding:.2rem .5rem;font-size:.62rem;background:#1e1e1e;color:#f0ece8;border-color:#444" onclick="event.stopPropagation();closeAdmin();startEditSong(${s.id})">Compléter</button>
       </div>`;
     }).join('');
   }catch(e){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur</div>`;}
