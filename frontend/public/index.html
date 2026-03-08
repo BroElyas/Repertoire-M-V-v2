@@ -1122,7 +1122,8 @@ function renderMobList(prefiltered){
   filtered.forEach(s=>{
     const cats=(s.categories||[]);
     if(isAlpha){
-      const letter=(s.title||'?')[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      let letter='?';
+      try{ letter=(s.title||'?')[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }catch(e){}
       if(letter!==lastLetter){
         html+=`<div class="alpha-sep" data-letter="${letter}">${letter}</div>`;
         lastLetter=letter;
@@ -1147,7 +1148,7 @@ function renderAlphaIndex(songs){
   const idx=document.getElementById('alphaIndex');
   if(!idx) return;
   if(!songs.length){idx.innerHTML='';idx.classList.remove('has-letters');return;}
-  const letters=[...new Set(songs.map(s=>(s.title||'?')[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')))];
+  const letters=[...new Set(songs.map(s=>{try{return (s.title||'?')[0].toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');}catch(e){return '?';}}))];
   idx.classList.add('has-letters');
   idx.innerHTML=letters.map(l=>`<div class="alpha-letter" data-letter="${l}" ontouchstart="alphaJump('${l}',this)" onclick="alphaJump('${l}',this)">${l}</div>`).join('');
 }
