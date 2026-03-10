@@ -282,7 +282,7 @@ res.json({ ok: true });
 });
 
 // – SONGS ———————————————————————
-// ══ PENDING CHANGES ══════════════════════════════════════════════════════════
+// – PENDING CHANGES –
 app.get(’/api/pending-changes’, async (req, res) => {
 const { rows } = await pool.query(‘SELECT * FROM pending_changes ORDER BY created_at DESC’);
 res.json(rows);
@@ -337,7 +337,7 @@ await pool.query(‘DELETE FROM pending_changes WHERE id=$1’, [req.params.id])
 res.json({ ok: true });
 });
 
-// ══ SETLIST ════════════════════════════════════════════════════════════════════
+// – SETLIST –
 app.get(’/api/setlist’, async (req, res) => {
 const { rows } = await pool.query(‘SELECT * FROM setlist ORDER BY position’);
 res.json(rows);
