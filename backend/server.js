@@ -462,27 +462,25 @@ app.patch('/api/pending-changes/:id/review', async (req, res) => {
   const { rows: change } = await pool.query('SELECT * FROM pending_changes WHERE id=$1', [req.params.id]);
   if (!change[0]) return res.status(404).json({ error: 'Modification introuvable' });
   const c = change[0];
+  // Apply a full song snapshot (title, author, genre, bpm, key, link, lyrics)
+  async function applySnapshot(songId, snapshotStr) {
+    const s = JSON.parse(snapshotStr || '{}');
+    await pool.query(
+      'UPDATE songs SET title=$1, author=$2, genre=$3, bpm=$4, key_signature=$5, reference_link=$6, updated_at=NOW() WHERE id=$7',
+      [s.title||null, s.author||null, s.genre||null, s.bpm||null, s.key_signature||null, s.reference_link||null, songId]
+    );
+    if (Array.isArray(s.lyrics)) {
+      await pool.query('DELETE FROM lyrics_blocks WHERE song_id=$1', [songId]);
+      for (const [i, b] of s.lyrics.entries()) {
+        await pool.query('INSERT INTO lyrics_blocks(song_id,type,num,content,position) VALUES($1,$2,$3,$4,$5)',
+          [songId, b.type, b.num||1, b.content||'', i]);
+      }
+    }
+  }
   if (action === 'approve') {
-    const fieldMap = { bpm: 'bpm', key_signature: 'key_signature', lyrics: null };
-    if (c.field_name === 'lyrics') {
-      const blocks = JSON.parse(c.new_value || '[]');
-      await pool.query('DELETE FROM lyrics_blocks WHERE song_id=$1', [c.song_id]);
-      for (const [i, b] of blocks.entries()) {
-        await pool.query('INSERT INTO lyrics_blocks(song_id,type,num,content,position) VALUES($1,$2,$3,$4,$5)', [c.song_id, b.type, b.num||1, b.content||'', i]);
-      }
-    } else if (['bpm','key_signature'].includes(c.field_name)) {
-      await pool.query(`UPDATE songs SET ${c.field_name}=$1, updated_at=NOW() WHERE id=$2`, [c.new_value||null, c.song_id]);
-    }
+    await applySnapshot(c.song_id, c.new_value);
   } else {
-    if (c.field_name === 'lyrics') {
-      const blocks = JSON.parse(c.old_value || '[]');
-      await pool.query('DELETE FROM lyrics_blocks WHERE song_id=$1', [c.song_id]);
-      for (const [i, b] of blocks.entries()) {
-        await pool.query('INSERT INTO lyrics_blocks(song_id,type,num,content,position) VALUES($1,$2,$3,$4,$5)', [c.song_id, b.type, b.num||1, b.content||'', i]);
-      }
-    } else if (['bpm','key_signature'].includes(c.field_name)) {
-      await pool.query(`UPDATE songs SET ${c.field_name}=$1, updated_at=NOW() WHERE id=$2`, [c.old_value||null, c.song_id]);
-    }
+    await applySnapshot(c.song_id, c.old_value);
   }
   await pool.query('UPDATE pending_changes SET status=$1, reviewed_at=NOW() WHERE id=$2', [action === 'approve' ? 'approved' : 'rejected', req.params.id]);
   res.json({ ok: true });
@@ -646,4 +644,3 @@ async function startServer(retries = 5) {
 }
 
 startServer();
-
