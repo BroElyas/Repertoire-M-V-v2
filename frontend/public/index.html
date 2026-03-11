@@ -1247,14 +1247,15 @@ function closeMobDetail(){
 // ── SONG DETAIL ──────────────────────────────────────────────────────────────
 function mobSelectSongById(id){
   mobSwitchTab('repertoire');
-  setTimeout(()=>selectSong(id), 100);
+  setTimeout(()=>selectSong(parseInt(id)||id), 100);
 }
 
 function selectSongById(id){
-  selectSong(id);
+  selectSong(parseInt(id)||id);
 }
 
 async function selectSong(id){
+  id = parseInt(id) || id; // normalize string to int
   currentId=id; renderList();
   closeSidebar();
 
@@ -1262,6 +1263,13 @@ async function selectSong(id){
   if(window.innerWidth <= 768){
     const song = songs.find(s=>s.id===id);
     if(song) openMobDetail(song);
+    else {
+      // Song not in local cache, fetch it
+      try {
+        const fetched = await apiFetch(`/api/songs/${id}`);
+        openMobDetail(fetched);
+      } catch(e) { toast('Erreur chargement','danger'); }
+    }
     return;
   }
 
