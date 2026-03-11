@@ -990,7 +990,7 @@ function setFilter(id){activeFilter=id;renderCatPills();renderList();}
 // ── SEARCH ───────────────────────────────────────────────────────────────────
 // ── DUPLICATE DETECTION ───────────────────────────────────────────────────────
 let dupTimer = null;
-function checkDuplicateTitle(val){
+async function checkDuplicateTitle(val){
   const warn = document.getElementById('duplicateWarning');
   if(!val || val.length < 3){ warn.classList.add('hidden'); return; }
   // Don't check when editing (the song itself would match)
@@ -1115,7 +1115,7 @@ function mobSetFilter(id, el){
   renderMobList();
 }
 
-function handleMobSearch(){
+async function handleMobSearch(){
   clearTimeout(mobSearchTimer);
   const inLyrics = document.getElementById('mobSearchLyrics')?.checked;
   const q = document.getElementById('mobSearchInput')?.value.trim();
@@ -1707,7 +1707,7 @@ async function submitSong(){
   }catch(e){toast('Erreur: '+e.message,'danger');}
 }
 
-function deleteSong(id){
+async function deleteSong(id){
   requirePin('admin','🔐 PIN Admin','Seul l\'administrateur peut supprimer un chant',async()=>{
     if(!confirm('Supprimer ce chant et toutes ses pistes audio ?'))return;
     try{
@@ -1863,7 +1863,7 @@ async function submitFeedback(){
 }
 
 // ── ADMIN PANEL ───────────────────────────────────────────────────────────────
-function openAdminPanel(){
+async function openAdminPanel(){
   requirePin('admin','🔐 PIN Admin','Entrez votre PIN administrateur',async()=>{
     const settings=await apiFetch('/api/settings');
     document.getElementById('aName').value=settings.group_name||'';
