@@ -88,12 +88,20 @@ async function initDB() {
       can_edit_bpm BOOLEAN DEFAULT FALSE,
       can_edit_key BOOLEAN DEFAULT FALSE,
       can_create_song BOOLEAN DEFAULT FALSE,
+      can_edit_author BOOLEAN DEFAULT FALSE,
+      can_edit_genre BOOLEAN DEFAULT FALSE,
+      can_edit_categories BOOLEAN DEFAULT FALSE,
+      can_edit_link BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_lyrics BOOLEAN DEFAULT TRUE;
     ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_bpm BOOLEAN DEFAULT FALSE;
     ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_key BOOLEAN DEFAULT FALSE;
     ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_create_song BOOLEAN DEFAULT FALSE;
+    ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_author BOOLEAN DEFAULT FALSE;
+    ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_genre BOOLEAN DEFAULT FALSE;
+    ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_categories BOOLEAN DEFAULT FALSE;
+    ALTER TABLE contributors ADD COLUMN IF NOT EXISTS can_edit_link BOOLEAN DEFAULT FALSE;
     CREATE TABLE IF NOT EXISTS ignored_duplicates (
       id SERIAL PRIMARY KEY,
       song_id1 INTEGER NOT NULL,
@@ -170,7 +178,7 @@ app.post('/api/verify-pin', async (req, res) => {
   if (contribs[0]) {
     const c = contribs[0];
     return res.json({ ok: true, level: 'contributor', contributor_id: c.id, contributor_name: c.name,
-      permissions: { can_edit_lyrics: c.can_edit_lyrics, can_edit_bpm: c.can_edit_bpm, can_edit_key: c.can_edit_key, can_create_song: c.can_create_song }
+      permissions: { can_edit_lyrics: c.can_edit_lyrics, can_edit_bpm: c.can_edit_bpm, can_edit_key: c.can_edit_key, can_create_song: c.can_create_song, can_edit_author: c.can_edit_author, can_edit_genre: c.can_edit_genre, can_edit_categories: c.can_edit_categories, can_edit_link: c.can_edit_link }
     });
   }
   // No match found
@@ -179,19 +187,19 @@ app.post('/api/verify-pin', async (req, res) => {
 
 // -- CONTRIBUTORS --------------------------------------------------------------
 app.get('/api/contributors', async (req, res) => {
-  const { rows } = await pool.query('SELECT id, name, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, created_at FROM contributors ORDER BY name');
+  const { rows } = await pool.query('SELECT id, name, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, can_edit_author, can_edit_genre, can_edit_categories, can_edit_link, created_at FROM contributors ORDER BY name');
   res.json(rows);
 });
 
 app.post('/api/contributors', async (req, res) => {
-  const { name, pin, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song } = req.body;
+  const { name, pin, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, can_edit_author, can_edit_genre, can_edit_categories, can_edit_link } = req.body;
   if (!name || !pin) return res.status(400).json({ error: 'Nom et PIN requis' });
   if (!/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: 'PIN doit etre 4 chiffres' });
   const { rows: existing } = await pool.query('SELECT id FROM contributors WHERE pin = $1', [String(pin)]);
   if (existing.length) return res.status(400).json({ error: 'Ce PIN est deja utilise' });
   const { rows } = await pool.query(
-    'INSERT INTO contributors(name, pin, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id, name, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, created_at',
-    [name.trim(), String(pin), color||'#8b1a2e', can_edit_lyrics!==false, can_edit_bpm===true, can_edit_key===true, can_create_song===true]
+    'INSERT INTO contributors(name, pin, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, can_edit_author, can_edit_genre, can_edit_categories, can_edit_link) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id, name, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, can_edit_author, can_edit_genre, can_edit_categories, can_edit_link, created_at',
+    [name.trim(), String(pin), color||'#8b1a2e', can_edit_lyrics!==false, can_edit_bpm===true, can_edit_key===true, can_create_song===true, can_edit_author===true, can_edit_genre===true, can_edit_categories===true, can_edit_link===true]
   );
   res.json(rows[0]);
 });
@@ -202,7 +210,7 @@ app.delete('/api/contributors/:id', async (req, res) => {
 });
 
 app.patch('/api/contributors/:id', async (req, res) => {
-  const { name, pin, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song } = req.body;
+  const { name, pin, color, can_edit_lyrics, can_edit_bpm, can_edit_key, can_create_song, can_edit_author, can_edit_genre, can_edit_categories, can_edit_link } = req.body;
   if (pin && !/^\d{4}$/.test(String(pin))) return res.status(400).json({ error: 'PIN doit etre 4 chiffres' });
   if (pin) {
     const { rows: existing } = await pool.query('SELECT id FROM contributors WHERE pin = $1 AND id != $2', [String(pin), req.params.id]);
@@ -213,12 +221,16 @@ app.patch('/api/contributors/:id', async (req, res) => {
   if (pin !== undefined)   { fields.push(`pin=$${fields.length+1}`);   vals.push(String(pin)); }
   if (color !== undefined) { fields.push(`color=$${fields.length+1}`); vals.push(color); }
   if (can_edit_lyrics !== undefined) { fields.push(`can_edit_lyrics=$${fields.length+1}`); vals.push(can_edit_lyrics); }
+  if (can_edit_author !== undefined)     { fields.push(`can_edit_author=$${fields.length+1}`); vals.push(can_edit_author); }
+  if (can_edit_genre !== undefined)      { fields.push(`can_edit_genre=$${fields.length+1}`); vals.push(can_edit_genre); }
+  if (can_edit_categories !== undefined) { fields.push(`can_edit_categories=$${fields.length+1}`); vals.push(can_edit_categories); }
+  if (can_edit_link !== undefined)       { fields.push(`can_edit_link=$${fields.length+1}`); vals.push(can_edit_link); }
   if (can_edit_bpm !== undefined)    { fields.push(`can_edit_bpm=$${fields.length+1}`);    vals.push(can_edit_bpm); }
   if (can_edit_key !== undefined)    { fields.push(`can_edit_key=$${fields.length+1}`);    vals.push(can_edit_key); }
   if (can_create_song !== undefined) { fields.push(`can_create_song=$${fields.length+1}`); vals.push(can_create_song); }
   if (!fields.length) return res.status(400).json({ error: 'Rien a modifier' });
   vals.push(req.params.id);
-  const { rows } = await pool.query(`UPDATE contributors SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING id,name,color,can_edit_lyrics,can_edit_bpm,can_edit_key,can_create_song,created_at`, vals);
+  const { rows } = await pool.query(`UPDATE contributors SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING id,name,color,can_edit_lyrics,can_edit_bpm,can_edit_key,can_create_song,can_edit_author,can_edit_genre,can_edit_categories,can_edit_link,created_at`, vals);
   res.json(rows[0]);
 });
 
