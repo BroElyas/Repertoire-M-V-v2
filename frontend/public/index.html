@@ -609,7 +609,7 @@ select.fi option{background:#252525;color:#f0ece8;}
       <div class="form-row" id="linkFieldWrap"><label>Lien référence</label><input class="fi" type="url" id="fLink" placeholder="https://…"></div>
     </div>
     <div class="form-row" id="catsFieldWrap"><label>Catégories</label><div class="cats-chk" id="catChk"></div></div>
-    <div class="form-row">
+    <div class="form-row" id="lyricsBuilderSection">
       <label>Paroles</label>
       <!-- Tabs -->
       <div style="display:flex;gap:0;margin-bottom:.7rem;border:1.5px solid var(--border);border-radius:var(--r-xs);overflow:hidden;">
@@ -872,7 +872,13 @@ function isPinSessionValid(level) {
 }
 function setPinSession(level, contributorData) {
   if(level==='contributor' && contributorData) {
+    // Connexion contributeur : effacer la session admin
+    sessionStorage.removeItem('pin_session_admin');
     currentContributor = contributorData;
+  } else if(level==='admin') {
+    // Connexion admin : effacer la session contributeur
+    currentContributor = null;
+    sessionStorage.setItem('pin_session_admin', Date.now() + PIN_SESSION_DURATION);
   } else {
     sessionStorage.setItem('pin_session_' + level, Date.now() + PIN_SESSION_DURATION);
   }
@@ -1239,6 +1245,19 @@ function closeMobDetail(){
 }
 
 // ── SONG DETAIL ──────────────────────────────────────────────────────────────
+function mobSelectSongById(id){
+  const song = songs.find(s=>s.id===id);
+  if(!song) return;
+  // Switch to repertoire tab and select the song
+  mobSwitchTab('repertoire');
+  setTimeout(()=>selectSong(song), 100);
+}
+
+function selectSongById(id){
+  const song = songs.find(s=>s.id===id);
+  if(song){ selectSong(song); }
+}
+
 async function selectSong(id){
   currentId=id; renderList();
   closeSidebar();
@@ -1612,31 +1631,62 @@ async function submitSong(){
     let song;
     if(editingId){
       if(isAdmin){
-        // Admin : applique directement
+        // Admin : applique directement, pas de pending
         song=await apiFetch(`/api/songs/${editingId}`,{method:'PUT',body:JSON.stringify(payload)});
         const idx=songs.findIndex(s=>s.id===editingId);
         if(idx>=0) songs[idx]={...songs[idx],...song};
         currentId=editingId;
       } else if(currentContributor && oldSong){
-        // Contributeur : ne pas modifier, créer une demande en attente
+        // Detect which fields changed
+        const fieldMap = {
+          title:'Titre', author:'Auteur', genre:'Genre',
+          bpm:'BPM', key_signature:'Gamme', reference_link:'Lien'
+        };
+        const affectedFields = [];
+        for(const [k,label] of Object.entries(fieldMap)){
+          if(String(payload[k]||'') !== String(oldSong[k]||'')) affectedFields.push(k);
+        }
+        const oldLyrics = JSON.stringify((oldSong.lyrics||[]).map(b=>({type:b.type,num:b.num,content:b.content||''})));
+        const newLyrics = JSON.stringify(payload.lyrics);
+        if(oldLyrics !== newLyrics) affectedFields.push('lyrics');
+        if(!affectedFields.length){ toast('Aucune modification detectee'); closeSongModal(); return; }
+
         const oldSnap = JSON.stringify({
-          title: oldSong.title, author: oldSong.author, genre: oldSong.genre,
-          bpm: oldSong.bpm, key_signature: oldSong.key_signature,
-          reference_link: oldSong.reference_link,
-          lyrics: (oldSong.lyrics||[]).map(b=>({type:b.type,num:b.num,content:b.content||''}))
+          title:oldSong.title, author:oldSong.author, genre:oldSong.genre,
+          bpm:oldSong.bpm, key_signature:oldSong.key_signature,
+          reference_link:oldSong.reference_link,
+          lyrics:(oldSong.lyrics||[]).map(b=>({type:b.type,num:b.num,content:b.content||''}))
         });
         const newSnap = JSON.stringify({
-          title: payload.title, author: payload.author, genre: payload.genre,
-          bpm: payload.bpm, key_signature: payload.key_signature,
-          reference_link: payload.reference_link, lyrics: payload.lyrics
+          title:payload.title, author:payload.author, genre:payload.genre,
+          bpm:payload.bpm, key_signature:payload.key_signature,
+          reference_link:payload.reference_link, lyrics:payload.lyrics
         });
-        if(oldSnap === newSnap){ toast('Aucune modification detectee'); closeSongModal(); return; }
-        await submitPendingChange(editingId, oldSong.title, 'update', oldSnap, newSnap);
-        // Marquer localement
-        song = oldSong;
-        currentId = editingId;
-        const si = songs.findIndex(s=>s.id===editingId);
-        if(si>=0) songs[si]._hasPending = true;
+
+        // Check conflicts server-side
+        let pendingRes;
+        try {
+          pendingRes = await apiFetch('/api/pending-changes', {
+            method:'POST',
+            body:JSON.stringify({
+              song_id:editingId, song_title:oldSong.title,
+              contributor_id:currentContributor.id,
+              contributor_name:currentContributor.name,
+              field_name:'update', old_value:oldSnap, new_value:newSnap,
+              affected_fields:affectedFields
+            })
+          });
+        } catch(e) {
+          // 409 conflict
+          toast('Impossible : ' + (e.message||'modification deja en attente sur ce champ'), 'danger');
+          return;
+        }
+
+        // Apply changes immediately (visible by all)
+        song=await apiFetch(`/api/songs/${editingId}`,{method:'PUT',body:JSON.stringify(payload)});
+        const idx=songs.findIndex(s=>s.id===editingId);
+        if(idx>=0){ songs[idx]={...songs[idx],...song}; songs[idx]._hasPending=true; }
+        currentId=editingId;
       } else {
         toast('Erreur: session invalide','danger'); return;
       }
@@ -1654,7 +1704,7 @@ async function submitSong(){
     logActivity(action, freshSong.title);
     buildGenreDatalist();
     if(!isAdmin && currentContributor && editingId){
-      toast('Modification soumise - en attente de validation par l\'admin');
+      toast('Modification appliquee - en attente de validation admin');
     } else {
       toast(editingId ? 'Chant modifie' : 'Chant ajoute');
     }
@@ -1875,23 +1925,50 @@ async function loadPendingChanges(){
       return;
     }
     el.innerHTML = pending.map(c => {
-      const label = 'Modification';
-      // Parse diff summary
-      let diffSummary = '';
+      // Parse diff
+      let diffHtml = '';
       try{
         const oldV = JSON.parse(c.old_value||'{}');
         const newV = JSON.parse(c.new_value||'{}');
-        const diffs = [];
-        const fieldNames = {title:'Titre',author:'Auteur',genre:'Genre',bpm:'BPM',key_signature:'Gamme',reference_link:'Lien',lyrics:'Paroles'};
-        for(const k of Object.keys(fieldNames)){
-          if(k==='lyrics'){
-            if(JSON.stringify(oldV[k])!==JSON.stringify(newV[k])) diffs.push('Paroles');
-          } else if(String(oldV[k]||'')!==String(newV[k]||'')) {
-            diffs.push(`${fieldNames[k]}: <s style="color:#888">${oldV[k]||'—'}</s> → <b style="color:#c4395a">${newV[k]||'—'}</b>`);
+        const fieldNames = {title:'Titre',author:'Auteur',genre:'Genre',bpm:'BPM',key_signature:'Gamme',reference_link:'Lien'};
+        const rows = [];
+        for(const [k,label] of Object.entries(fieldNames)){
+          if(String(oldV[k]||'')!==String(newV[k]||'')){
+            rows.push(`<div style="margin-bottom:.3rem;">
+              <span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">${label}</span><br>
+              <span style="color:#888;text-decoration:line-through;font-size:.72rem;">${oldV[k]||'—'}</span>
+              <span style="color:#555;margin:0 .3rem;">→</span>
+              <span style="color:#3db87a;font-weight:800;font-size:.72rem;">${newV[k]||'—'}</span>
+            </div>`);
           }
         }
-        diffSummary = diffs.join(' | ');
-      }catch(e){ diffSummary = '(voir details)'; }
+        // Lyrics diff
+        const oldL = oldV.lyrics||[];
+        const newL = newV.lyrics||[];
+        if(JSON.stringify(oldL)!==JSON.stringify(newL)){
+          // Show changed blocks
+          const maxLen = Math.max(oldL.length, newL.length);
+          const lyricsRows = [];
+          for(let i=0;i<maxLen;i++){
+            const ob = oldL[i]; const nb = newL[i];
+            if(JSON.stringify(ob)!==JSON.stringify(nb)){
+              if(!ob) lyricsRows.push(`<div style="font-size:.68rem;color:#3db87a;">+ ${nb.type}${nb.num>1?nb.num:''}: ${(nb.content||'').substring(0,60)}${nb.content?.length>60?'…':''}</div>`);
+              else if(!nb) lyricsRows.push(`<div style="font-size:.68rem;color:#e05577;text-decoration:line-through;">- ${ob.type}${ob.num>1?ob.num:''}: ${(ob.content||'').substring(0,60)}${ob.content?.length>60?'…':''}</div>`);
+              else lyricsRows.push(`<div style="font-size:.68rem;">
+                <div style="color:#888;text-decoration:line-through;">- ${ob.type}${ob.num>1?ob.num:''}: ${(ob.content||'').substring(0,80)}${ob.content?.length>80?'…':''}</div>
+                <div style="color:#3db87a;">+ ${nb.type}${nb.num>1?nb.num:''}: ${(nb.content||'').substring(0,80)}${nb.content?.length>80?'…':''}</div>
+              </div>`);
+            }
+          }
+          if(lyricsRows.length){
+            rows.push(`<div style="margin-bottom:.3rem;">
+              <span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">Paroles</span>
+              <div style="background:#1a1a1a;border-radius:4px;padding:.35rem .5rem;margin-top:.2rem;max-height:120px;overflow-y:auto;">${lyricsRows.join('')}</div>
+            </div>`);
+          }
+        }
+        diffHtml = rows.length ? rows.join('') : '<span style="color:#555;font-size:.68rem;">Aucune difference detectee</span>';
+      }catch(e){ diffHtml = '<span style="color:#555;font-size:.68rem;">(erreur lecture)</span>'; }
       const d = new Date(c.created_at);
       const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       return `<div style="padding:.6rem .8rem;border:1.5px solid #332220;border-radius:var(--r-sm);background:#1e1e1e;margin-bottom:.4rem;">
@@ -1902,7 +1979,7 @@ async function loadPendingChanges(){
         </div>
         <div style="font-size:.68rem;color:var(--muted);margin-bottom:.35rem;">
           Par <strong style="color:var(--text-mid)">${c.contributor_name||'?'}</strong>
-          <div style="margin-top:.2rem;font-size:.65rem;line-height:1.5;">${diffSummary}</div>
+          <div style="margin-top:.3rem;line-height:1.6;">${diffHtml}</div>
         </div>
         <div style="display:flex;gap:.4rem;">
           <button class="btn btn-sm" style="background:#1a3a1a;color:#3db87a;border-color:#2a4a2a;font-size:.68rem;" onclick="reviewChange(${c.id},'approve')">Valider</button>
@@ -2349,8 +2426,12 @@ function mobSwitchTab(tab){
             h += '<div style="padding:.4rem .6rem;font-size:.75rem;color:#444;font-style:italic;">—</div>';
           } else {
             items.forEach((item,i)=>{
-              h += `<div style="padding:.5rem .7rem;background:#1e1e1e;border-radius:8px;margin-bottom:.3rem;font-size:.85rem;font-weight:800;color:#f0ece8;border:1px solid #2a2020;">
-                <span style="color:#555;margin-right:.4rem;">${i+1}.</span>${item.song_title||'—'}
+              const clickStyle = item.song_id ? 'cursor:pointer;' : '';
+              const clickAttr = item.song_id ? `onclick="mobSelectSongById(${item.song_id})"` : '';
+              h += `<div ${clickAttr} style="padding:.5rem .7rem;background:#1e1e1e;border-radius:8px;margin-bottom:.3rem;font-size:.85rem;font-weight:800;color:#f0ece8;border:1px solid #2a2020;display:flex;align-items:center;gap:.4rem;${clickStyle}">
+                <span style="color:#555;min-width:1.2rem;">${i+1}.</span>
+                <span style="flex:1;">${item.song_title||'—'}</span>
+                ${item.song_id ? '<span style="color:#555;font-size:.75rem;">›</span>' : ''}
               </div>`;
             });
           }
@@ -2405,8 +2486,11 @@ function renderSetlistView(){
       html += '<div style="padding:.4rem .6rem;font-size:.72rem;color:#444;font-style:italic;">—</div>';
     } else {
       items.forEach((item,i) => {
-        html += `<div style="padding:.45rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;font-size:.8rem;font-weight:800;color:#f0ece8;">
-          <span style="color:#555;margin-right:.4rem;">${i+1}.</span>${item.song_title||'—'}
+        const clickable = item.song_id ? `onclick="selectSongById(${item.song_id})" style="padding:.45rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;font-size:.8rem;font-weight:800;color:#f0ece8;cursor:pointer;display:flex;align-items:center;gap:.5rem;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'"` : `style="padding:.45rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;font-size:.8rem;font-weight:800;color:#f0ece8;"`;
+        html += `<div ${clickable}>
+          <span style="color:#555;margin-right:.1rem;min-width:1.2rem;">${i+1}.</span>
+          <span style="flex:1;">${item.song_title||'—'}</span>
+          ${item.song_id ? '<span style="color:#555;font-size:.65rem;">›</span>' : ''}
         </div>`;
       });
     }
@@ -2418,6 +2502,22 @@ function renderSetlistView(){
 // ══ ADMIN SETLIST MANAGEMENT ══════════════════════════════════════════════════
 async function openSetlistAdmin(){
   await loadSetlist();
+  renderAdminSetlist();
+}
+
+let _dragSetlistIdx = null;
+
+function setlistDragStart(idx){ _dragSetlistIdx = idx; }
+function setlistDragOver(e){ e.preventDefault(); }
+function setlistDrop(e, toIdx){
+  e.preventDefault();
+  if(_dragSetlistIdx === null || _dragSetlistIdx === toIdx) return;
+  const principales = setlistData.filter(i=>i.section==='principale');
+  const others = setlistData.filter(i=>i.section!=='principale');
+  const moved = principales.splice(_dragSetlistIdx, 1)[0];
+  principales.splice(toIdx, 0, moved);
+  setlistData = [...principales, ...others];
+  _dragSetlistIdx = null;
   renderAdminSetlist();
 }
 
@@ -2435,12 +2535,18 @@ function renderAdminSetlist(){
     const specialLabelHtml = sec.key==='special' ? `
       <input id="specialLabel" placeholder="Nom de la rubrique..." value="${items[0]?.special_label||''}"
         style="padding:.3rem .6rem;background:#252525;border:1px solid #332220;border-radius:6px;color:#f0ece8;font-size:.72rem;font-family:'Nunito',sans-serif;width:130px;margin-left:.5rem;">` : '';
-    const songCards = items.map((item,idx)=>`
-      <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;background:#252525;padding:.4rem .6rem;border-radius:6px;border:1px solid #332220;">
+    const songCards = items.map((item,i)=>{
+      const isDraggable = sec.key==='principale';
+      return `<div
+          ${isDraggable ? `draggable="true" ondragstart="setlistDragStart(${i})" ondragover="setlistDragOver(event)" ondrop="setlistDrop(event,${i})"` : ''}
+          style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;background:#252525;padding:.4rem .6rem;border-radius:6px;border:1px solid #332220;${isDraggable?'cursor:grab;':''}"
+        >
+        ${isDraggable ? '<span style="color:#444;font-size:.7rem;margin-right:.1rem;flex-shrink:0;">⠿</span>' : ''}
         <span style="flex:1;font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</span>
         ${item.song_id ? (item.song_categories||[]).map(c=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:700;">${c.name}</span>`).join('') : ''}
-        <button onclick="removeSetlistItem('${sec.key}',${idx})" style="background:none;border:none;color:#e05577;cursor:pointer;font-size:.8rem;flex-shrink:0;">✕</button>
-      </div>`).join('');
+        <button onclick="removeSetlistItem('${sec.key}',${i})" style="background:none;border:none;color:#e05577;cursor:pointer;font-size:.8rem;flex-shrink:0;">✕</button>
+      </div>`;
+    }).join('');
     const searchWidget = (sec.multi || items.length===0) ? `
       <div style="position:relative;margin-top:.3rem;">
         <input id="setlistSearch_${sec.key}" placeholder="Chercher un chant..." oninput="setlistSearchFilter('${sec.key}',this.value)"
@@ -2466,7 +2572,9 @@ function setlistSearchFilter(section, q){
   resultsEl.style.display = '';
   resultsEl.innerHTML = matches.map(s=>{
     const cats = (s.categories||[]).map(c=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:700;">${c.name}</span>`).join('');
-    return `<div onclick="pickSetlistSong('${section}',${s.id},'${s.title.replace(/'/g,"\\'")}',${JSON.stringify((s.categories||[]).map(c=>({id:c.id,name:c.name})))})"
+    const catsJson = encodeURIComponent(JSON.stringify((s.categories||[]).map(c=>({id:c.id,name:c.name}))));
+    return `<div
+      data-section="${section}" data-song-id="${s.id}" data-cats="${catsJson}"
       style="padding:.45rem .7rem;cursor:pointer;border-bottom:1px solid #252525;display:flex;align-items:center;gap:.4rem;"
       onmouseover="this.style.background='#252525'" onmouseout="this.style.background=''">
       <span style="flex:1;font-size:.78rem;font-weight:800;color:#f0ece8;">${s.title}</span>
@@ -2474,6 +2582,17 @@ function setlistSearchFilter(section, q){
       <span style="display:flex;gap:.2rem;">${cats}</span>
     </div>`;
   }).join('');
+  // Attach click handlers via JS (avoids apostrophe issues)
+  resultsEl.querySelectorAll('[data-song-id]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const sec = el.dataset.section;
+      const sid = parseInt(el.dataset.songId);
+      const song = songs.find(s=>s.id===sid);
+      if(!song) return;
+      const cats = JSON.parse(decodeURIComponent(el.dataset.cats));
+      pickSetlistSong(sec, sid, song.title, cats);
+    });
+  });
 }
 
 function pickSetlistSong(section, songId, songTitle, songCats){
