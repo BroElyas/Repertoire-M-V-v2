@@ -120,11 +120,13 @@ async function initDB() {
       field_name TEXT NOT NULL,
       old_value TEXT,
       new_value TEXT,
+      affected_fields TEXT[],
       status TEXT NOT NULL DEFAULT 'pending',
       created_at TIMESTAMPTZ DEFAULT NOW(),
       reviewed_at TIMESTAMPTZ,
       reviewed_by TEXT
     );
+    ALTER TABLE pending_changes ADD COLUMN IF NOT EXISTS affected_fields TEXT[];
     CREATE TABLE IF NOT EXISTS setlist (
       id SERIAL PRIMARY KEY,
       section TEXT NOT NULL,
@@ -440,11 +442,24 @@ app.get('/api/pending-changes', async (req, res) => {
 });
 
 app.post('/api/pending-changes', async (req, res) => {
-  const { song_id, song_title, contributor_id, contributor_name, field_name, old_value, new_value } = req.body;
+  const { song_id, song_title, contributor_id, contributor_name, field_name, old_value, new_value, affected_fields } = req.body;
   if (!song_id || !field_name) return res.status(400).json({ error: 'Donnees manquantes' });
+  // Check for conflicts: if any of the affected fields already has a pending change
+  if (affected_fields && affected_fields.length) {
+    const { rows: conflicts } = await pool.query(
+      `SELECT field_name FROM pending_changes
+       WHERE song_id=$1 AND status='pending'
+       AND affected_fields && $2::text[]`,
+      [song_id, affected_fields]
+    );
+    if (conflicts.length) {
+      const conflicting = conflicts.map(r=>r.field_name).join(', ');
+      return res.status(409).json({ error: `Modification en attente sur: ${conflicting}. Attendre la validation admin.`, conflicts: conflicts.map(r=>r.field_name) });
+    }
+  }
   const { rows } = await pool.query(
-    'INSERT INTO pending_changes(song_id, song_title, contributor_id, contributor_name, field_name, old_value, new_value) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-    [song_id, song_title||null, contributor_id||null, contributor_name||null, field_name, old_value||null, new_value||null]
+    'INSERT INTO pending_changes(song_id, song_title, contributor_id, contributor_name, field_name, old_value, new_value, affected_fields) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+    [song_id, song_title||null, contributor_id||null, contributor_name||null, field_name, old_value||null, new_value||null, affected_fields||null]
   );
   res.json(rows[0]);
 });
@@ -473,8 +488,9 @@ app.patch('/api/pending-changes/:id/review', async (req, res) => {
     }
   }
   if (action === 'approve') {
-    await applySnapshot(c.song_id, c.new_value);
+    // Changes already applied by contributor - just mark as approved
   } else {
+    // Rollback to old state
     await applySnapshot(c.song_id, c.old_value);
   }
   await pool.query('UPDATE pending_changes SET status=$1, reviewed_at=NOW() WHERE id=$2', [action === 'approve' ? 'approved' : 'rejected', req.params.id]);
