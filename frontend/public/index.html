@@ -751,6 +751,18 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
             <input type="checkbox" id="permLyrics" checked> Paroles
           </label>
           <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="permAuthor"> Auteur
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="permGenre"> Genre
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="permCategories"> Catégories
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="permLink"> Lien de référence
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
             <input type="checkbox" id="permBpm"> BPM
           </label>
           <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
@@ -1468,7 +1480,7 @@ async function verifyPin(){
       setPinSession('contributor', {
         name: resp.contributor_name || 'Contributeur',
         id: resp.contributor_id || null,
-        permissions: resp.permissions || { can_edit_lyrics: true, can_edit_bpm: false, can_edit_key: false, can_create_song: false }
+        permissions: resp.permissions || { can_edit_lyrics: true, can_edit_author: false, can_edit_genre: false, can_edit_categories: false, can_edit_link: false, can_edit_bpm: false, can_edit_key: false, can_create_song: false }
       });
     } else {
       setPinSession(pinLevel);
@@ -1566,16 +1578,26 @@ function applyFieldPermissions(){
   const show = (id, visible) => { const el=document.getElementById(id); if(el) el.style.display=visible?'':'none'; };
   const disable = (id, disabled) => { const el=document.getElementById(id); if(el) el.disabled=disabled; };
 
-  // Fields gated by can_edit_lyrics (= title, author, genre, link, categories, lyrics)
-  show('titleFieldWrap', canLyrics);
-  show('authGenreWrap',  canLyrics);
-  show('linkFieldWrap',  canLyrics);
-  show('catsFieldWrap',  canLyrics);
-  show('lyricsBuilderSection', canLyrics);
+  const canAuthor     = isAdmin || canDo('can_edit_author');
+  const canGenre      = isAdmin || canDo('can_edit_genre');
+  const canCategories = isAdmin || canDo('can_edit_categories');
+  const canLink       = isAdmin || canDo('can_edit_link');
 
+  // Title always gated by lyrics permission
+  show('titleFieldWrap', canLyrics);
+  // Author + Genre in same wrap - show if either permitted
+  show('authGenreWrap', canAuthor || canGenre);
+  // Individually disable fields within the wrap
+  const authEl = document.getElementById('fAuthor'); if(authEl) { authEl.disabled = !canAuthor; authEl.style.opacity = canAuthor?'':'0.3'; }
+  const genreEl = document.getElementById('fGenre');  if(genreEl) { genreEl.disabled = !canGenre; genreEl.style.opacity = canGenre?'':'0.3'; }
+  // Link
+  show('linkFieldWrap', canLink);
+  // Categories
+  show('catsFieldWrap', canCategories);
+  // Lyrics
+  show('lyricsBuilderSection', canLyrics);
   // BPM
   show('bpmFieldWrap', canBpm);
-
   // Gamme/Key
   show('keyFieldWrap', canKey);
 
@@ -1909,90 +1931,111 @@ function pickNewContribColor(color, el){
 }
 
 async function loadPendingChanges(){
-  // Also update _hasPending flags on songs
+  // Update _hasPending flags on songs
   try{
     const allPending = await apiFetch('/api/pending-changes');
     const pendingSongIds = new Set(allPending.filter(c=>c.status==='pending').map(c=>c.song_id));
     songs.forEach(s=>{ s._hasPending = pendingSongIds.has(s.id); });
     renderList();
-    // Update mobile list too
     if(typeof renderMobList === 'function') renderMobList();
   }catch(e){}
 
   const el = document.getElementById('pendingChangesList');
   if(!el) return;
-  try{
-    const list = await apiFetch('/api/pending-changes');
-    const pending = list.filter(c=>c.status==='pending');
-    if(!pending.length){
-      el.innerHTML = '<div style="padding:.5rem .8rem;font-size:.74rem;color:var(--muted);font-weight:600;">Aucune modification en attente.</div>';
-      return;
-    }
-    el.innerHTML = pending.map(c => {
-      // Parse diff
-      let diffHtml = '';
-      try{
-        const oldV = JSON.parse(c.old_value||'{}');
-        const newV = JSON.parse(c.new_value||'{}');
-        const fieldNames = {title:'Titre',author:'Auteur',genre:'Genre',bpm:'BPM',key_signature:'Gamme',reference_link:'Lien'};
-        const rows = [];
-        for(const [k,label] of Object.entries(fieldNames)){
-          if(String(oldV[k]||'')!==String(newV[k]||'')){
-            rows.push(`<div style="margin-bottom:.3rem;">
-              <span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">${label}</span><br>
-              <span style="color:#888;text-decoration:line-through;font-size:.72rem;">${oldV[k]||'—'}</span>
-              <span style="color:#555;margin:0 .3rem;">→</span>
-              <span style="color:#3db87a;font-weight:800;font-size:.72rem;">${newV[k]||'—'}</span>
-            </div>`);
-          }
+
+  let list;
+  try{ list = await apiFetch('/api/pending-changes'); }
+  catch(e){
+    el.innerHTML = '<div style="color:var(--danger);font-size:.74rem;padding:.5rem;">Erreur chargement</div>';
+    return;
+  }
+
+  const pending = list.filter(c=>c.status==='pending');
+  if(!pending.length){
+    el.innerHTML = '<div style="padding:.5rem .8rem;font-size:.74rem;color:var(--muted);font-weight:600;">Aucune modification en attente.</div>';
+    return;
+  }
+
+  const cards = pending.map(c => {
+    // Build diff HTML safely
+    let diffHtml = '';
+    try{
+      const oldV = JSON.parse(c.old_value || '{}');
+      const newV = JSON.parse(c.new_value || '{}');
+      const fieldNames = {title:'Titre',author:'Auteur',genre:'Genre',bpm:'BPM',key_signature:'Gamme',reference_link:'Lien'};
+      const rows = [];
+      for(const [k,label] of Object.entries(fieldNames)){
+        const ov = String(oldV[k] || '');
+        const nv = String(newV[k] || '');
+        if(ov !== nv){
+          rows.push(
+            '<div style="margin-bottom:.3rem;">' +
+            '<span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">' + label + '</span><br>' +
+            '<span style="color:#888;text-decoration:line-through;font-size:.72rem;">' + (oldV[k]||'—') + '</span>' +
+            '<span style="color:#555;margin:0 .3rem;">→</span>' +
+            '<span style="color:#3db87a;font-weight:800;font-size:.72rem;">' + (newV[k]||'—') + '</span>' +
+            '</div>'
+          );
         }
-        // Lyrics diff
-        const oldL = oldV.lyrics||[];
-        const newL = newV.lyrics||[];
-        if(JSON.stringify(oldL)!==JSON.stringify(newL)){
-          // Show changed blocks
-          const maxLen = Math.max(oldL.length, newL.length);
-          const lyricsRows = [];
-          for(let i=0;i<maxLen;i++){
-            const ob = oldL[i]; const nb = newL[i];
-            if(JSON.stringify(ob)!==JSON.stringify(nb)){
-              if(!ob) lyricsRows.push(`<div style="font-size:.68rem;color:#3db87a;">+ ${nb.type}${nb.num>1?nb.num:''}: ${(nb.content||'').substring(0,60)}${nb.content?.length>60?'…':''}</div>`);
-              else if(!nb) lyricsRows.push(`<div style="font-size:.68rem;color:#e05577;text-decoration:line-through;">- ${ob.type}${ob.num>1?ob.num:''}: ${(ob.content||'').substring(0,60)}${ob.content?.length>60?'…':''}</div>`);
-              else lyricsRows.push(`<div style="font-size:.68rem;">
-                <div style="color:#888;text-decoration:line-through;">- ${ob.type}${ob.num>1?ob.num:''}: ${(ob.content||'').substring(0,80)}${ob.content?.length>80?'…':''}</div>
-                <div style="color:#3db87a;">+ ${nb.type}${nb.num>1?nb.num:''}: ${(nb.content||'').substring(0,80)}${nb.content?.length>80?'…':''}</div>
-              </div>`);
+      }
+      // Lyrics diff
+      const oldL = Array.isArray(oldV.lyrics) ? oldV.lyrics : [];
+      const newL = Array.isArray(newV.lyrics) ? newV.lyrics : [];
+      if(JSON.stringify(oldL) !== JSON.stringify(newL)){
+        const maxLen = Math.max(oldL.length, newL.length);
+        const lyricsRows = [];
+        for(let i=0;i<maxLen;i++){
+          const ob = oldL[i]; const nb = newL[i];
+          if(JSON.stringify(ob) !== JSON.stringify(nb)){
+            if(!ob){
+              lyricsRows.push('<div style="font-size:.68rem;color:#3db87a;">+ ' + (nb.type||'') + (nb.num>1?nb.num:'') + ': ' + String(nb.content||'').substring(0,60) + '</div>');
+            } else if(!nb){
+              lyricsRows.push('<div style="font-size:.68rem;color:#e05577;text-decoration:line-through;">- ' + (ob.type||'') + (ob.num>1?ob.num:'') + ': ' + String(ob.content||'').substring(0,60) + '</div>');
+            } else {
+              lyricsRows.push(
+                '<div style="font-size:.68rem;">' +
+                '<div style="color:#888;text-decoration:line-through;">- ' + (ob.type||'') + (ob.num>1?ob.num:'') + ': ' + String(ob.content||'').substring(0,80) + '</div>' +
+                '<div style="color:#3db87a;">+ ' + (nb.type||'') + (nb.num>1?nb.num:'') + ': ' + String(nb.content||'').substring(0,80) + '</div>' +
+                '</div>'
+              );
             }
           }
-          if(lyricsRows.length){
-            rows.push(`<div style="margin-bottom:.3rem;">
-              <span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">Paroles</span>
-              <div style="background:#1a1a1a;border-radius:4px;padding:.35rem .5rem;margin-top:.2rem;max-height:120px;overflow-y:auto;">${lyricsRows.join('')}</div>
-            </div>`);
-          }
         }
-        diffHtml = rows.length ? rows.join('') : '<span style="color:#555;font-size:.68rem;">Aucune difference detectee</span>';
-      }catch(e){ diffHtml = '<span style="color:#555;font-size:.68rem;">(erreur lecture)</span>'; }
-      const d = new Date(c.created_at);
-      const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      return `<div style="padding:.6rem .8rem;border:1.5px solid #332220;border-radius:var(--r-sm);background:#1e1e1e;margin-bottom:.4rem;">
-        <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem;">
-          <span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 6px;font-size:.62rem;font-weight:800;">${label}</span>
-          <span style="font-size:.78rem;font-weight:800;color:var(--text);">${c.song_title||'—'}</span>
-          <span style="font-size:.6rem;color:var(--muted);margin-left:auto;">${dateStr}</span>
-        </div>
-        <div style="font-size:.68rem;color:var(--muted);margin-bottom:.35rem;">
-          Par <strong style="color:var(--text-mid)">${c.contributor_name||'?'}</strong>
-          <div style="margin-top:.3rem;line-height:1.6;">${diffHtml}</div>
-        </div>
-        <div style="display:flex;gap:.4rem;">
-          <button class="btn btn-sm" style="background:#1a3a1a;color:#3db87a;border-color:#2a4a2a;font-size:.68rem;" onclick="reviewChange(${c.id},'approve')">Valider</button>
-          <button class="btn btn-sm" style="background:#2a1018;color:#e05577;border-color:#3a1520;font-size:.68rem;" onclick="reviewChange(${c.id},'reject')">Refuser</button>
-        </div>
-      </div>`;
-    }).join('');
-  }catch(e){ if(el) el.innerHTML='<div style="color:var(--danger);font-size:.74rem;padding:.5rem;">Erreur chargement</div>'; }
+        if(lyricsRows.length){
+          rows.push(
+            '<div style="margin-bottom:.3rem;">' +
+            '<span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">Paroles</span>' +
+            '<div style="background:#1a1a1a;border-radius:4px;padding:.35rem .5rem;margin-top:.2rem;max-height:120px;overflow-y:auto;">' +
+            lyricsRows.join('') + '</div></div>'
+          );
+        }
+      }
+      diffHtml = rows.length ? rows.join('') : '<span style="color:#555;font-size:.68rem;">Aucune difference</span>';
+    }catch(e2){ diffHtml = '<span style="color:#555;font-size:.68rem;">(erreur lecture diff)</span>'; }
+
+    const d = new Date(c.created_at);
+    const dateStr = d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}) + ' ' + d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+
+    return '<div style="background:#1e1e1e;border:1px solid #2a2020;border-radius:8px;padding:.6rem .8rem;margin-bottom:.6rem;">' +
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.3rem;">' +
+      '<div>' +
+      '<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 6px;font-size:.6rem;font-weight:900;">Modification</span>' +
+      '<span style="font-weight:900;font-size:.8rem;margin-left:.5rem;">' + (c.song_title||'—') + '</span>' +
+      '</div>' +
+      '<span style="font-size:.62rem;color:#555;flex-shrink:0;">' + dateStr + '</span>' +
+      '</div>' +
+      '<div style="font-size:.65rem;color:#888;margin-bottom:.4rem;">Par ' + (c.contributor_name||'Inconnu') + '</div>' +
+      '<div style="margin-top:.3rem;line-height:1.6;">' + diffHtml + '</div>' +
+      '<div style="display:flex;gap:.4rem;margin-top:.5rem;">' +
+      '<button class="btn btn-sm" style="background:#1a3a1a;color:#3db87a;border-color:#2a4a2a;font-size:.68rem;" onclick="reviewChange(' + c.id + ',&quot;approve&quot;)">Valider</button>' +
+      '<button class="btn btn-sm" style="background:#2a1018;color:#e05577;border-color:#3a1520;font-size:.68rem;" onclick="reviewChange(' + c.id + ',&quot;reject&quot;)">Refuser</button>' +
+      '</div>' +
+      '</div>';
+  });
+
+  el.innerHTML = cards.join('');
 }
+
 
 async function reviewChange(id, action){
   const pin = prompt('PIN Admin pour ' + (action==='approve'?'valider':'refuser') + ' cette modification :');
@@ -2016,10 +2059,14 @@ async function renderAdminContributors(){
   }
   el.innerHTML = contributors.map(c => {
     const perms = [];
-    if(c.can_edit_lyrics) perms.push('Paroles');
-    if(c.can_edit_bpm)    perms.push('BPM');
-    if(c.can_edit_key)    perms.push('Gamme');
-    if(c.can_create_song) perms.push('Creer');
+    if(c.can_edit_lyrics)     perms.push('Paroles');
+    if(c.can_edit_author)     perms.push('Auteur');
+    if(c.can_edit_genre)      perms.push('Genre');
+    if(c.can_edit_categories) perms.push('Categories');
+    if(c.can_edit_link)       perms.push('Lien');
+    if(c.can_edit_bpm)        perms.push('BPM');
+    if(c.can_edit_key)        perms.push('Gamme');
+    if(c.can_create_song)     perms.push('Creer');
     return `
     <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border:1.5px solid #332220;border-radius:var(--r-sm);background:#1e1e1e;margin-bottom:.35rem;">
       <div style="width:28px;height:28px;border-radius:50%;background:${c.color};display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;font-weight:900;flex-shrink:0;">${c.name[0].toUpperCase()}</div>
@@ -2040,10 +2087,14 @@ async function addContributor(){
   if(!name){ toast('Entrez un prenom','danger'); return; }
   if(!/^\d{4}$/.test(pin)){ toast('PIN : 4 chiffres exactement','danger'); return; }
   const perms = {
-    can_edit_lyrics: document.getElementById('permLyrics')?.checked || false,
-    can_edit_bpm:    document.getElementById('permBpm')?.checked    || false,
-    can_edit_key:    document.getElementById('permKey')?.checked    || false,
-    can_create_song: document.getElementById('permCreate')?.checked || false
+    can_edit_lyrics:     document.getElementById('permLyrics')?.checked     || false,
+    can_edit_author:     document.getElementById('permAuthor')?.checked     || false,
+    can_edit_genre:      document.getElementById('permGenre')?.checked      || false,
+    can_edit_categories: document.getElementById('permCategories')?.checked || false,
+    can_edit_link:       document.getElementById('permLink')?.checked       || false,
+    can_edit_bpm:        document.getElementById('permBpm')?.checked        || false,
+    can_edit_key:        document.getElementById('permKey')?.checked        || false,
+    can_create_song:     document.getElementById('permCreate')?.checked     || false
   };
   try{
     const c = await apiFetch('/api/contributors',{method:'POST',body:JSON.stringify({name,pin,color:newContribColor,...perms})});
@@ -2051,6 +2102,10 @@ async function addContributor(){
     document.getElementById('newContribName').value='';
     document.getElementById('newContribPin').value='';
     document.getElementById('permLyrics').checked = true;
+    document.getElementById('permAuthor').checked = false;
+    document.getElementById('permGenre').checked = false;
+    document.getElementById('permCategories').checked = false;
+    document.getElementById('permLink').checked = false;
     document.getElementById('permBpm').checked = false;
     document.getElementById('permKey').checked = false;
     document.getElementById('permCreate').checked = false;
