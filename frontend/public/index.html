@@ -1930,6 +1930,54 @@ function pickNewContribColor(color, el){
   el.style.borderColor = '#1a2340';
 }
 
+// ── WORD DIFF HELPERS ─────────────────────────────────────────────────────────
+function wordDiff(oldText, newText) {
+  // Simple LCS-based word diff
+  const oldWords = String(oldText||'').split(/(\s+)/);
+  const newWords = String(newText||'').split(/(\s+)/);
+  const m = oldWords.length, n = newWords.length;
+  // Build LCS table
+  const dp = Array.from({length:m+1}, ()=>new Array(n+1).fill(0));
+  for(let i=1;i<=m;i++) for(let j=1;j<=n;j++){
+    dp[i][j] = oldWords[i-1]===newWords[j-1] ? dp[i-1][j-1]+1 : Math.max(dp[i-1][j],dp[i][j-1]);
+  }
+  // Trace back
+  const result = [];
+  let i=m, j=n;
+  while(i>0||j>0){
+    if(i>0&&j>0&&oldWords[i-1]===newWords[j-1]){ result.unshift({type:'same',val:oldWords[i-1]}); i--;j--; }
+    else if(j>0&&(i===0||dp[i][j-1]>=dp[i-1][j])){ result.unshift({type:'add',val:newWords[j-1]}); j--; }
+    else{ result.unshift({type:'del',val:oldWords[i-1]}); i--; }
+  }
+  return result;
+}
+
+function renderWordDiff(oldText, newText) {
+  const diff = wordDiff(oldText, newText);
+  let beforeHtml = '', afterHtml = '';
+  diff.forEach(d => {
+    if(d.type==='same'){
+      beforeHtml += '<span>' + d.val.replace(/</g,'&lt;') + '</span>';
+      afterHtml  += '<span>' + d.val.replace(/</g,'&lt;') + '</span>';
+    } else if(d.type==='del'){
+      beforeHtml += '<span style="background:#3a0f0f;color:#e05577;text-decoration:line-through;border-radius:2px;padding:0 1px;">' + d.val.replace(/</g,'&lt;') + '</span>';
+    } else {
+      afterHtml  += '<span style="background:#0f2a1a;color:#3db87a;border-radius:2px;padding:0 1px;">' + d.val.replace(/</g,'&lt;') + '</span>';
+    }
+  });
+  return {beforeHtml, afterHtml};
+}
+
+function toggleLyricsDiff(id) {
+  const el = document.getElementById('lyricsDiff_' + id);
+  const btn = document.getElementById('lyricsDiffBtn_' + id);
+  if(!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if(btn) btn.textContent = isOpen ? '▶ Voir les paroles modifiées' : '▼ Masquer';
+}
+
+
 async function loadPendingChanges(){
   // Update _hasPending flags on songs
   try{
@@ -1978,35 +2026,61 @@ async function loadPendingChanges(){
           );
         }
       }
-      // Lyrics diff
+      // Lyrics diff - collapsible word-level diff
       const oldL = Array.isArray(oldV.lyrics) ? oldV.lyrics : [];
       const newL = Array.isArray(newV.lyrics) ? newV.lyrics : [];
       if(JSON.stringify(oldL) !== JSON.stringify(newL)){
         const maxLen = Math.max(oldL.length, newL.length);
-        const lyricsRows = [];
+        const changedBlocks = [];
         for(let i=0;i<maxLen;i++){
           const ob = oldL[i]; const nb = newL[i];
           if(JSON.stringify(ob) !== JSON.stringify(nb)){
+            const blockLabel = (nb||ob).type + ((nb||ob).num > 1 ? ' ' + (nb||ob).num : '');
             if(!ob){
-              lyricsRows.push('<div style="font-size:.68rem;color:#3db87a;">+ ' + (nb.type||'') + (nb.num>1?nb.num:'') + ': ' + String(nb.content||'').substring(0,60) + '</div>');
+              // Bloc ajouté
+              changedBlocks.push(
+                '<div style="margin-bottom:.6rem;">' +
+                '<div style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;margin-bottom:.25rem;">' + blockLabel + '</div>' +
+                '<div style="font-size:.65rem;color:#555;font-style:italic;margin-bottom:.1rem;">Avant : —</div>' +
+                '<div style="font-size:.65rem;background:#0f1f15;border-radius:4px;padding:.3rem .5rem;line-height:1.5;">' +
+                '<span style="background:#0f2a1a;color:#3db87a;border-radius:2px;padding:0 1px;">' + String(nb.content||'').replace(/</g,'&lt;') + '</span>' +
+                '</div></div>'
+              );
             } else if(!nb){
-              lyricsRows.push('<div style="font-size:.68rem;color:#e05577;text-decoration:line-through;">- ' + (ob.type||'') + (ob.num>1?ob.num:'') + ': ' + String(ob.content||'').substring(0,60) + '</div>');
+              // Bloc supprimé
+              changedBlocks.push(
+                '<div style="margin-bottom:.6rem;">' +
+                '<div style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;margin-bottom:.25rem;">' + blockLabel + '</div>' +
+                '<div style="font-size:.65rem;background:#1f0f0f;border-radius:4px;padding:.3rem .5rem;line-height:1.5;margin-bottom:.1rem;">' +
+                '<span style="background:#3a0f0f;color:#e05577;text-decoration:line-through;border-radius:2px;padding:0 1px;">' + String(ob.content||'').replace(/</g,'&lt;') + '</span>' +
+                '</div>' +
+                '<div style="font-size:.65rem;color:#555;font-style:italic;">Après : —</div>' +
+                '</div>'
+              );
             } else {
-              lyricsRows.push(
-                '<div style="font-size:.68rem;">' +
-                '<div style="color:#888;text-decoration:line-through;">- ' + (ob.type||'') + (ob.num>1?ob.num:'') + ': ' + String(ob.content||'').substring(0,80) + '</div>' +
-                '<div style="color:#3db87a;">+ ' + (nb.type||'') + (nb.num>1?nb.num:'') + ': ' + String(nb.content||'').substring(0,80) + '</div>' +
+              // Bloc modifié - word diff
+              const wd = renderWordDiff(ob.content||'', nb.content||'');
+              changedBlocks.push(
+                '<div style="margin-bottom:.6rem;">' +
+                '<div style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;margin-bottom:.25rem;">' + blockLabel + '</div>' +
+                '<div style="font-size:.65rem;color:#888;margin-bottom:.15rem;">Avant</div>' +
+                '<div style="font-size:.65rem;background:#1a1a1a;border-radius:4px;padding:.3rem .5rem;line-height:1.6;margin-bottom:.25rem;">' + wd.beforeHtml + '</div>' +
+                '<div style="font-size:.65rem;color:#888;margin-bottom:.15rem;">Après</div>' +
+                '<div style="font-size:.65rem;background:#1a1a1a;border-radius:4px;padding:.3rem .5rem;line-height:1.6;">' + wd.afterHtml + '</div>' +
                 '</div>'
               );
             }
           }
         }
-        if(lyricsRows.length){
+        if(changedBlocks.length){
           rows.push(
             '<div style="margin-bottom:.3rem;">' +
-            '<span style="font-size:.6rem;font-weight:900;color:#888;text-transform:uppercase;">Paroles</span>' +
-            '<div style="background:#1a1a1a;border-radius:4px;padding:.35rem .5rem;margin-top:.2rem;max-height:120px;overflow-y:auto;">' +
-            lyricsRows.join('') + '</div></div>'
+            '<button id="lyricsDiffBtn_' + c.id + '" onclick="toggleLyricsDiff(' + c.id + ')" ' +
+            'style="background:none;border:1px solid #332220;border-radius:4px;color:#c4395a;font-size:.65rem;font-weight:800;padding:.2rem .6rem;cursor:pointer;margin-bottom:.3rem;">' +
+            '▶ Voir les paroles modifiées (' + changedBlocks.length + ' bloc' + (changedBlocks.length>1?'s':'') + ')</button>' +
+            '<div id="lyricsDiff_' + c.id + '" style="display:none;background:#141414;border-radius:6px;padding:.5rem .7rem;border:1px solid #2a2020;">' +
+            changedBlocks.join('') +
+            '</div></div>'
           );
         }
       }
