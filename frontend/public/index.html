@@ -1246,16 +1246,12 @@ function closeMobDetail(){
 
 // ── SONG DETAIL ──────────────────────────────────────────────────────────────
 function mobSelectSongById(id){
-  const song = songs.find(s=>s.id===id);
-  if(!song) return;
-  // Switch to repertoire tab and select the song
   mobSwitchTab('repertoire');
-  setTimeout(()=>selectSong(song), 100);
+  setTimeout(()=>selectSong(id), 100);
 }
 
 function selectSongById(id){
-  const song = songs.find(s=>s.id===id);
-  if(song){ selectSong(song); }
+  selectSong(id);
 }
 
 async function selectSong(id){
@@ -1996,8 +1992,9 @@ async function reviewChange(id, action){
   try{
     await apiFetch(`/api/pending-changes/${id}/review`,{method:'PATCH',body:JSON.stringify({action,pin_admin:pin})});
     toast(action==='approve'?'Modification validee':'Modification refusee');
-    loadPendingChanges();
-    loadSongs();
+    await loadPendingChanges();
+    // Reload current song detail if it was the one modified
+    if(currentId) selectSong(currentId);
   }catch(e){ toast(e.message||'Erreur','danger'); }
 }
 
