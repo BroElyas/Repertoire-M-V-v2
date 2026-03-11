@@ -1254,12 +1254,16 @@ function closeMobDetail(){
   document.getElementById('mobileDetailView').classList.remove('active');
   document.getElementById('mobileListView').classList.remove('hidden');
   currentId = null;
+  // Restore previous tab
+  if(_lastMobTab === 'set') mobSwitchTab('set');
 }
 
 // ── SONG DETAIL ──────────────────────────────────────────────────────────────
 function mobSelectSongById(id){
-  mobSwitchTab('repertoire');
-  setTimeout(()=>selectSong(parseInt(id)||id), 100);
+  // Remember which tab we came from
+  const setBtn = document.getElementById('mobTabSet');
+  _lastMobTab = setBtn && setBtn.style.background === 'rgb(139, 26, 46)' ? 'set' : 'rep';
+  setTimeout(()=>selectSong(parseInt(id)||id), 50);
 }
 
 function selectSongById(id){
@@ -2562,10 +2566,16 @@ function mobSwitchTab(tab){
             items.forEach((item,i)=>{
               const clickStyle = item.song_id ? 'cursor:pointer;' : '';
               const clickAttr = item.song_id ? `onclick="mobSelectSongById(${item.song_id})"` : '';
-              h += `<div ${clickAttr} style="padding:.5rem .7rem;background:#1e1e1e;border-radius:8px;margin-bottom:.3rem;font-size:.85rem;font-weight:800;color:#f0ece8;border:1px solid #2a2020;display:flex;align-items:center;gap:.4rem;${clickStyle}">
-                <span style="color:#555;min-width:1.2rem;">${i+1}.</span>
-                <span style="flex:1;">${item.song_title||'—'}</span>
-                ${item.song_id ? '<span style="color:#555;font-size:.75rem;">›</span>' : ''}
+              const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
+              const bpm = songData?.bpm ? `<span style="font-size:.58rem;color:#888;font-weight:600;">${songData.bpm} BPM</span>` : '';
+              const key = songData?.key_signature ? `<span style="font-size:.58rem;background:#2a1018;color:#c4395a;border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
+              h += `<div ${clickAttr} style="padding:.5rem .7rem;background:#1e1e1e;border-radius:8px;margin-bottom:.3rem;border:1px solid #2a2020;display:flex;align-items:center;gap:.4rem;${clickStyle}">
+                <span style="color:#555;min-width:1.2rem;font-size:.75rem;font-weight:700;">${i+1}.</span>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:.82rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</div>
+                  ${(bpm||key) ? `<div style="display:flex;gap:.3rem;margin-top:.15rem;align-items:center;">${key}${bpm}</div>` : ''}
+                </div>
+                ${item.song_id ? '<span style="color:#555;font-size:.75rem;flex-shrink:0;">›</span>' : ''}
               </div>`;
             });
           }
@@ -2620,11 +2630,17 @@ function renderSetlistView(){
       html += '<div style="padding:.4rem .6rem;font-size:.72rem;color:#444;font-style:italic;">—</div>';
     } else {
       items.forEach((item,i) => {
-        const clickable = item.song_id ? `onclick="selectSongById(${item.song_id})" style="padding:.45rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;font-size:.8rem;font-weight:800;color:#f0ece8;cursor:pointer;display:flex;align-items:center;gap:.5rem;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'"` : `style="padding:.45rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;font-size:.8rem;font-weight:800;color:#f0ece8;"`;
+        const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
+        const bpmTag = songData?.bpm ? `<span style="font-size:.55rem;color:#888;font-weight:600;">${songData.bpm} BPM</span>` : '';
+        const keyTag = songData?.key_signature ? `<span style="font-size:.55rem;background:#2a1018;color:#c4395a;border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
+        const clickable = item.song_id ? `onclick="selectSongById(${item.song_id})" style="padding:.4rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'"` : `style="padding:.4rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;display:flex;align-items:center;gap:.4rem;"`;
         html += `<div ${clickable}>
-          <span style="color:#555;margin-right:.1rem;min-width:1.2rem;">${i+1}.</span>
-          <span style="flex:1;">${item.song_title||'—'}</span>
-          ${item.song_id ? '<span style="color:#555;font-size:.65rem;">›</span>' : ''}
+          <span style="color:#555;min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</div>
+            ${(bpmTag||keyTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;">${keyTag}${bpmTag}</div>` : ''}
+          </div>
+          ${item.song_id ? '<span style="color:#555;font-size:.62rem;">›</span>' : ''}
         </div>`;
       });
     }
@@ -2640,6 +2656,7 @@ async function openSetlistAdmin(){
 }
 
 let _dragSetlistIdx = null;
+let _lastMobTab = 'rep';
 
 function setlistDragStart(idx){ _dragSetlistIdx = idx; }
 function setlistDragOver(e){ e.preventDefault(); }
