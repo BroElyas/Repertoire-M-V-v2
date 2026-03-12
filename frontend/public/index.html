@@ -170,7 +170,7 @@ body.light .mob-search-wrap input::placeholder { color:#b0a098; }
 body.light .mob-search-wrap input:focus { background:#fff; }
 body.light #mobPanelSet { background:#f5f0eb; }
 /* Bridge block */
-body.light .lyric-blk-hdr.bridge { background:linear-gradient(90deg,#e8f0fe,#f0f5ff); color:#2d5be3; border-bottom-color:#c5d5f8; }
+body.light .lyric-blk-hdr.bridge { background:linear-gradient(90deg,#fdf0e8,#fdf5ef); color:#a0522d; border-bottom-color:#e8c9a8; }
 
 /* Setlist sidebar (desktop) */
 body.light #panelSetlist { background:#f8f4f0; }
@@ -340,7 +340,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .lyric-blk-hdr{padding:.45rem .9rem;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;}
 .lyric-blk-hdr.chorus{background:linear-gradient(90deg,#3a1520,#2a1018);color:#c4395a;border-bottom:1.5px solid #3a1520;}
 .lyric-blk-hdr.verse{background:var(--surface2);color:var(--text-mid);border-bottom:1.5px solid var(--border);}
-.lyric-blk-hdr.bridge{background:linear-gradient(90deg,#f0f5ff,#e8f5ff);color:#3d7ac4;border-bottom:1.5px solid #cce0f5;}
+.lyric-blk-hdr.bridge{background:linear-gradient(90deg,#2a1a10,#1e1510);color:#c47a4a;border-bottom:1.5px solid #3a2518;}
 .lyric-blk-body{padding:.8rem .9rem;font-size:.82rem;color:var(--text);line-height:1.85;white-space:pre-wrap;background:var(--surface2);-webkit-user-select:text;user-select:text;}
 .lyric-blk-body.empty{color:var(--muted);font-style:italic;}
 
@@ -3143,8 +3143,8 @@ function renderAdminSetlist(){
         ${isDrag?`draggable="true" ondragstart="setlistDragStart(${i})" ondragover="setlistDragOver(event)" ondrop="setlistDrop(event,${i})"` : ''}
         style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;background:var(--surface2);padding:.4rem .6rem;border-radius:6px;border:1px solid var(--border);${isDrag?'cursor:grab;':''}"
       >
-        ${isDrag?'<span style="color:#444;font-size:.7rem;flex-shrink:0;">&#8286;</span>':''}
-        <span style="flex:1;font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</span>
+        ${isDrag?'<span style="color:var(--muted);font-size:.7rem;flex-shrink:0;">&#8286;</span>':''}
+        <span style="flex:1;font-size:.78rem;font-weight:800;color:var(--text);">${item.song_title||'—'}</span>
         <span style="display:flex;gap:.2rem;flex-wrap:wrap;">${cats}</span>
         <button onclick="removeSetlistItem('${key}',${i})" style="background:none;border:none;color:#e05577;cursor:pointer;font-size:.8rem;flex-shrink:0;">&#10005;</button>
       </div>`;
