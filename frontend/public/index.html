@@ -27,11 +27,11 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;-webkit-tap-highlight-color:transparent;}
-body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;overscroll-behavior:none;}
 
 
 /* ── HEADER ── */
-header{position:sticky;top:0;z-index:50;background:#111;border-bottom:1px solid #2a2020;padding:0 1.5rem;height:62px;display:flex;align-items:center;gap:1rem;overflow:hidden;}
+header{position:fixed;top:0;left:0;right:0;z-index:50;background:#111;border-bottom:1px solid #2a2020;padding:0 1.5rem;height:62px;display:flex;align-items:center;gap:1rem;overflow:hidden;}
 .logo{display:flex;align-items:center;gap:.7rem;flex:1;min-width:0;overflow:hidden;}
 .logo img{width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;}
 .logo-text{font-size:1rem;font-weight:900;color:#fff;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -81,6 +81,13 @@ header{position:sticky;top:0;z-index:50;background:#111;border-bottom:1px solid 
 .key-badge{background:#2a1018;color:#c4395a;border-radius:50px;padding:1px 7px;font-size:.6rem;font-weight:800;border:1px solid #3a1520;}
 .cat-badge{border-radius:50px;padding:1px 7px;font-size:.58rem;font-weight:800;border:1.5px solid;}
 .audio-badge{color:var(--success);font-size:.6rem;font-weight:700;}
+
+.sort-menu-item{
+  padding:.5rem .85rem;font-size:.7rem;font-weight:700;color:#c8b8b0;
+  cursor:pointer;transition:background .12s;white-space:nowrap;font-family:'Nunito',sans-serif;
+}
+.sort-menu-item:hover{background:#2a2020;}
+.sort-menu-item.active{color:#c4395a;}
 
 /* ── MAIN ── */
 .main-content{flex:1;overflow-y:auto;padding:1.8rem 2rem;background:#111;}
@@ -241,14 +248,28 @@ select.fi option{background:#252525;color:#f0ece8;}
 
   #mobileListView{
     display:flex;flex-direction:column;
-    position:fixed;top:60px;left:0;right:0;bottom:0;
+    position:fixed;top:62px;left:0;right:0;bottom:0;
     background:#111;z-index:10;overflow:hidden;
   }
   #mobileListView.hidden{display:none!important;}
 
+  /* Ligne 1 : onglets */
+  .mob-tab-row{
+    display:flex;flex-shrink:0;
+    background:#161616;border-bottom:1px solid #2a2020;
+  }
+  .mob-tab-btn{
+    flex:1;padding:.6rem .5rem;font-size:.72rem;font-weight:800;
+    border:none;background:transparent;color:#555;cursor:pointer;
+    font-family:'Nunito',sans-serif;letter-spacing:.01em;
+    border-bottom:2px solid transparent;transition:all .15s;
+  }
+  .mob-tab-btn.mob-tab-active{color:white;border-bottom-color:#8b1a2e;}
+
+  /* Ligne 2 : compteur + tri */
   .mob-count-row{
     display:flex;align-items:center;justify-content:space-between;
-    padding:.55rem 1.1rem;background:#1a1a1a;border-bottom:1px solid #2a2020;flex-shrink:0;
+    padding:.4rem 1rem;background:#1a1a1a;border-bottom:1px solid #2a2020;flex-shrink:0;
   }
   .mob-count-label{font-size:.65rem;font-weight:900;color:#555;text-transform:uppercase;letter-spacing:.1em;}
   .mob-sort-select{
@@ -256,6 +277,18 @@ select.fi option{background:#252525;color:#f0ece8;}
     border:1px solid #332220;border-radius:50px;padding:.2rem .6rem;
     cursor:pointer;font-family:'Nunito',sans-serif;outline:none;
   }
+  .mob-sort-row{
+    display:flex;flex-direction:column;gap:.22rem;padding:.45rem 1rem .45rem;
+    background:#161616;border-bottom:1px solid #2a2020;flex-shrink:0;
+  }
+  .mob-sort-line{display:flex;gap:.3rem;align-items:center;}
+  .mob-sort-btn{
+    flex:1;padding:.22rem .4rem;font-size:.6rem;font-weight:800;
+    border-radius:20px;border:1.5px solid #332220;background:transparent;
+    color:#666;cursor:pointer;font-family:'Nunito',sans-serif;text-align:center;
+    transition:all .15s;
+  }
+  .mob-sort-btn.active{background:#8b1a2e;color:white;border-color:#8b1a2e;}
 
   .mob-list-wrap{position:relative;flex:1;overflow:hidden;display:flex;}
   .mob-song-list{
@@ -383,6 +416,7 @@ select.fi option{background:#252525;color:#f0ece8;}
 }
 
 @media(min-width:769px){
+  .app-body{padding-top:62px;}
   .btn-menu{display:none!important;}
   .sidebar-overlay{display:none!important;}
   #mobileListView{display:none!important;}
@@ -422,7 +456,8 @@ select.fi option{background:#252525;color:#f0ece8;}
     </div>
   </div>
   <div class="header-actions">
-    <button class="btn btn-sm" onclick="openAdminPanel()">⚙</button>
+    <div id="contributorBadge" onclick="clearContributorSession();updateContributorBadge();toast('Session terminee');" title="Cliquer pour se deconnecter" style="display:none;align-items:center;gap:.4rem;background:#1e1e1e;color:white;padding:.28rem .7rem;border-radius:50px;font-size:.68rem;font-weight:700;border:1px solid #444;cursor:pointer;white-space:nowrap;"></div>
+    <button class="btn btn-sm" onclick="openAdminPanel()">&#9881;</button>
     <button class="btn btn-primary btn-sm" onclick="startAddSong()">+ Chant</button>
   </div>
 </header>
@@ -431,22 +466,26 @@ select.fi option{background:#252525;color:#f0ece8;}
 
 <!-- ── MOBILE LIST VIEW ── -->
 <div id="mobileListView">
-  <!-- Compteur + tri -->
-  <div class="mob-count-row">
-    <div style="display:flex;gap:.3rem;flex-shrink:0;">
-      <button id="mobTabRep" onclick="mobSwitchTab('rep')" style="padding:.25rem .6rem;font-size:.62rem;font-weight:800;border-radius:20px;border:none;background:#8b1a2e;color:white;cursor:pointer;font-family:'Nunito',sans-serif;">Repertoire</button>
-      <button id="mobTabSet" onclick="mobSwitchTab('set')" style="padding:.25rem .6rem;font-size:.62rem;font-weight:800;border-radius:20px;border:1.5px solid #332220;background:transparent;color:#888;cursor:pointer;font-family:'Nunito',sans-serif;">Setlist</button>
-    </div>
-    <span class="mob-count-label" id="mobSongsCount" style="display:none">0 chants</span>
-    <select class="mob-sort-select" id="mobSortSelect" onchange="renderMobList()">
-      <option value="alpha">A → Z</option>
-      <option value="alpha_desc">Z → A</option>
-      <option value="created_desc">Plus récents</option>
-      <option value="created_asc">Plus anciens</option>
-      <option value="bpm_asc">BPM ↑</option>
-      <option value="bpm_desc">BPM ↓</option>
-    </select>
+  <!-- Ligne 1 : onglets -->
+  <div class="mob-tab-row">
+    <button id="mobTabRep" onclick="mobSwitchTab('rep')" class="mob-tab-btn mob-tab-active">R&#233;pertoire</button>
+    <button id="mobTabSet" onclick="mobSwitchTab('set')" class="mob-tab-btn">Setlist</button>
   </div>
+  <!-- Ligne 2 : compteur + tri -->
+  <div class="mob-count-row" id="mobCountRow">
+    <span class="mob-count-label" id="mobSongsCount">0 chants</span>
+    <div style="position:relative;flex-shrink:0;">
+      <button class="mob-sort-select" id="mobSortBtn" onclick="toggleSortMenu('mob')" style="display:flex;align-items:center;gap:.3rem;">
+        <span id="mobSortLabel">A &#8594; Z</span><span style="opacity:.5;font-size:.55rem;">&#9660;</span>
+      </button>
+      <div id="mobSortMenu" style="display:none;position:absolute;right:0;top:110%;background:#1e1e1e;border:1px solid #332220;border-radius:10px;z-index:200;min-width:130px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+        <div class="sort-menu-item" data-group="alpha" onclick="applySort('alpha','mob')">A &#8594; Z</div>
+        <div class="sort-menu-item" data-group="date" onclick="applySort('created_desc','mob')">Plus r&#233;cent</div>
+        <div class="sort-menu-item" data-group="bpm" onclick="applySort('bpm_asc','mob')">BPM &#8593;</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Liste -->
   <div id="mobPanelRep" class="mob-list-wrap">
   <div class="mob-song-list" id="mobSongList"></div>
@@ -511,14 +550,16 @@ select.fi option{background:#252525;color:#f0ece8;}
     </div>
     <div class="songs-count-bar">
       <span class="songs-count" id="songsCount">0 chants</span>
-      <select class="sort-select" id="sortSelect" onchange="renderList()">
-        <option value="alpha">A → Z</option>
-        <option value="alpha_desc">Z → A</option>
-        <option value="created_desc">Plus récents</option>
-        <option value="created_asc">Plus anciens</option>
-        <option value="bpm_asc">BPM ↑</option>
-        <option value="bpm_desc">BPM ↓</option>
-      </select>
+      <div style="position:relative;">
+        <button class="sort-select" id="deskSortBtn" onclick="toggleSortMenu('desk')" style="display:flex;align-items:center;gap:.3rem;">
+          <span id="deskSortLabel">A &#8594; Z</span><span style="opacity:.5;font-size:.5rem;">&#9660;</span>
+        </button>
+        <div id="deskSortMenu" style="display:none;position:absolute;right:0;top:110%;background:#1e1e1e;border:1px solid #332220;border-radius:10px;z-index:200;min-width:130px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+          <div class="sort-menu-item" data-group="alpha" onclick="applySort('alpha','desk')">A &#8594; Z</div>
+          <div class="sort-menu-item" data-group="date" onclick="applySort('created_desc','desk')">Plus récent</div>
+          <div class="sort-menu-item" data-group="bpm" onclick="applySort('bpm_asc','desk')">BPM &#8593;</div>
+        </div>
+      </div>
     </div>
     <div class="song-list" id="songList"></div>
   </div><!-- end panelRepertoire -->
@@ -1046,10 +1087,91 @@ async function handleSearch(){
 }
 
 // ── SONG LIST ────────────────────────────────────────────────────────────────
+// ── SORT ─────────────────────────────────────────────────────────────────────
+let _deskSort = 'alpha';
+let _mobSort  = 'alpha';
+
+// Opposites for toggle behaviour
+const _sortOpposite = {
+  'alpha':'alpha_desc', 'alpha_desc':'alpha',
+  'created_desc':'created_asc', 'created_asc':'created_desc',
+  'bpm_asc':'bpm_desc', 'bpm_desc':'bpm_asc'
+};
+// Group each value belongs to (for menu item highlighting)
+const _sortGroup = {
+  'alpha':'alpha','alpha_desc':'alpha',
+  'created_desc':'date','created_asc':'date',
+  'bpm_asc':'bpm','bpm_desc':'bpm'
+};
+// Human-readable labels
+const _sortLabel = {
+  'alpha':'A \u2192 Z','alpha_desc':'Z \u2192 A',
+  'created_desc':'Plus r\u00e9cent','created_asc':'Plus ancien',
+  'bpm_asc':'BPM \u2191','bpm_desc':'BPM \u2193'
+};
+
+function toggleSortMenu(ctx){
+  const menuId = ctx==='mob' ? 'mobSortMenu' : 'deskSortMenu';
+  const otherId = ctx==='mob' ? 'deskSortMenu' : 'mobSortMenu';
+  const menu = document.getElementById(menuId);
+  const other = document.getElementById(otherId);
+  if(other) other.style.display = 'none';
+  if(!menu) return;
+  menu.style.display = menu.style.display==='none' ? 'block' : 'none';
+}
+
+function applySort(val, ctx){
+  const current = ctx==='mob' ? _mobSort : _deskSort;
+  // If same group already active → toggle to opposite
+  if(_sortGroup[current] === _sortGroup[val]) val = _sortOpposite[current];
+  if(ctx==='mob'){
+    _mobSort = val;
+    const lbl = document.getElementById('mobSortLabel');
+    if(lbl) lbl.innerHTML = _sortLabel[val];
+    const menu = document.getElementById('mobSortMenu');
+    if(menu){
+      menu.style.display = 'none';
+      menu.querySelectorAll('.sort-menu-item').forEach(i=>{
+        i.classList.toggle('active', _sortGroup[val]===i.dataset.group);
+        i.textContent = _sortGroup[val]===i.dataset.group ? _sortLabel[val] : _sortLabel[{alpha:'alpha',date:'created_desc',bpm:'bpm_asc'}[i.dataset.group]];
+      });
+    }
+    renderMobList();
+  } else {
+    _deskSort = val;
+    const lbl = document.getElementById('deskSortLabel');
+    if(lbl) lbl.innerHTML = _sortLabel[val];
+    const menu = document.getElementById('deskSortMenu');
+    if(menu){
+      menu.style.display = 'none';
+      menu.querySelectorAll('.sort-menu-item').forEach(i=>{
+        i.classList.toggle('active', _sortGroup[val]===i.dataset.group);
+        i.textContent = _sortGroup[val]===i.dataset.group ? _sortLabel[val] : _sortLabel[{alpha:'alpha',date:'created_desc',bpm:'bpm_asc'}[i.dataset.group]];
+      });
+    }
+    renderList();
+  }
+}
+
+// Close menus on outside click
+document.addEventListener('click', function(e){
+  ['mobSortMenu','deskSortMenu'].forEach(id=>{
+    const menu = document.getElementById(id);
+    const btn  = document.getElementById(id.replace('Menu','Btn'));
+    if(menu && !menu.contains(e.target) && btn && !btn.contains(e.target)){
+      menu.style.display = 'none';
+    }
+  });
+});
+
+function mobSetSort(val){ _mobSort=val; renderMobList(); }
+function toggleDesktopSort(){} // kept for safety, unused
+function deskSetSort(val){ _deskSort=val; renderList(); }
+
 function renderList(){
   const q = document.getElementById('searchInput').value.toLowerCase();
   const inLyrics = document.getElementById('searchLyrics').checked;
-  const sortVal = (document.getElementById('sortSelect')||{value:'alpha'}).value;
+  const sortVal = _deskSort || 'alpha';
 
   // Use server results if lyrics search active, else local filter
   let filtered = searchResults !== null
@@ -1066,12 +1188,13 @@ function renderList(){
   }
 
   filtered = [...filtered].sort((a,b)=>{
-    if(sortVal==='alpha') return a.title.localeCompare(b.title);
+    if(sortVal==='alpha') return a.title.localeCompare(b.title,'fr',{sensitivity:'base'});
+    if(sortVal==='alpha_desc') return b.title.localeCompare(a.title,'fr',{sensitivity:'base'});
     if(sortVal==='created_desc') return new Date(b.created_at)-new Date(a.created_at);
     if(sortVal==='created_asc') return new Date(a.created_at)-new Date(b.created_at);
-    if(sortVal==='updated') return new Date(b.updated_at)-new Date(a.updated_at);
-    if(sortVal==='bpm') return (a.bpm||9999)-(b.bpm||9999);
-    return a.title.localeCompare(b.title);
+    if(sortVal==='bpm_asc') return (a.bpm||9999)-(b.bpm||9999);
+    if(sortVal==='bpm_desc') return (b.bpm||0)-(a.bpm||0);
+    return a.title.localeCompare(b.title,'fr',{sensitivity:'base'});
   });
 
   document.getElementById('songsCount').textContent=`${filtered.length} chant${filtered.length>1?'s':''}`;
@@ -1149,7 +1272,7 @@ function renderMobList(prefiltered){
   if(!el) return;
 
   const q = (document.getElementById('mobSearchInput')?.value||'').toLowerCase();
-  const sortVal = document.getElementById('mobSortSelect')?.value || 'alpha';
+  const sortVal = _mobSort || 'alpha';
 
   const mobInLyrics = document.getElementById('mobSearchLyrics')?.checked;
   let filtered = prefiltered || songs.filter(s=>{
@@ -1159,12 +1282,13 @@ function renderMobList(prefiltered){
   });
 
   filtered = [...filtered].sort((a,b)=>{
-    if(sortVal==='alpha') return a.title.localeCompare(b.title);
+    if(sortVal==='alpha') return a.title.localeCompare(b.title,'fr',{sensitivity:'base'});
+    if(sortVal==='alpha_desc') return b.title.localeCompare(a.title,'fr',{sensitivity:'base'});
     if(sortVal==='created_desc') return new Date(b.created_at)-new Date(a.created_at);
     if(sortVal==='created_asc') return new Date(a.created_at)-new Date(b.created_at);
-    if(sortVal==='updated') return new Date(b.updated_at)-new Date(a.updated_at);
-    if(sortVal==='bpm') return (a.bpm||9999)-(b.bpm||9999);
-    return a.title.localeCompare(b.title);
+    if(sortVal==='bpm_asc') return (a.bpm||9999)-(b.bpm||9999);
+    if(sortVal==='bpm_desc') return (b.bpm||0)-(a.bpm||0);
+    return a.title.localeCompare(b.title,'fr',{sensitivity:'base'});
   });
 
   if(countEl) countEl.textContent = `${filtered.length} chant${filtered.length>1?'s':''}`;
@@ -1506,19 +1630,13 @@ async function verifyPin(){
 }
 
 function updateContributorBadge(){
-  let badge = document.getElementById('contributorBadge');
-  if(!badge){
-    badge = document.createElement('div');
-    badge.id = 'contributorBadge';
-    badge.style.cssText = 'position:fixed;top:.75rem;right:4rem;background:#1e1e1e;color:white;padding:.32rem .75rem;border-radius:50px;font-size:.68rem;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:200;border:1px solid #444;display:flex;align-items:center;gap:.4rem;cursor:pointer;';
-    badge.title = 'Cliquer pour se déconnecter';
-    badge.onclick = () => { clearContributorSession(); badge.remove(); toast('Session terminée'); };
-    document.body.appendChild(badge);
-  }
+  const badge = document.getElementById('contributorBadge');
+  if(!badge) return;
   if(currentContributor){
-    badge.innerHTML = `👤 ${currentContributor.name} <span style="opacity:.6;font-size:.62rem">✕</span>`;
+    badge.innerHTML = '&#128100; ' + currentContributor.name + ' <span style="opacity:.6;font-size:.62rem">&#10005;</span>';
+    badge.style.display = 'flex';
   } else {
-    badge.remove();
+    badge.style.display = 'none';
   }
 }
 
@@ -2127,12 +2245,56 @@ async function reviewChange(id, action){
   }catch(e){ toast(e.message||'Erreur','danger'); }
 }
 
+function _permCheckbox(id, label, checked){
+  return '<label style="display:flex;align-items:center;gap:.3rem;cursor:pointer;font-size:.68rem;font-weight:700;color:#c8b8b0;">'
+    + '<input type="checkbox" id="'+id+'" '+(checked?'checked':'')
+    +' style="accent-color:#8b1a2e;width:13px;height:13px;">'+label+'</label>';
+}
+
+function toggleContribEdit(id){
+  const row = document.getElementById('contribEdit_'+id);
+  if(!row) return;
+  const open = row.style.display === 'none';
+  document.querySelectorAll('[id^="contribEdit_"]').forEach(r=>r.style.display='none');
+  document.querySelectorAll('[id^="contribEditBtn_"]').forEach(b=>b.style.color='#888');
+  if(open){
+    row.style.display = '';
+    const btn = document.getElementById('contribEditBtn_'+id);
+    if(btn) btn.style.color='#c4395a';
+  }
+}
+
+async function saveContribEdit(id){
+  const name = document.getElementById('editName_'+id)?.value.trim();
+  const pin  = document.getElementById('editPin_'+id)?.value.trim();
+  if(!name){ toast('Nom requis','danger'); return; }
+  if(pin && !/^\d{4}$/.test(pin)){ toast('PIN : 4 chiffres','danger'); return; }
+  const body = {
+    name,
+    can_edit_lyrics:     document.getElementById('editPermLyrics_'+id)?.checked,
+    can_edit_author:     document.getElementById('editPermAuthor_'+id)?.checked,
+    can_edit_genre:      document.getElementById('editPermGenre_'+id)?.checked,
+    can_edit_categories: document.getElementById('editPermCategories_'+id)?.checked,
+    can_edit_link:       document.getElementById('editPermLink_'+id)?.checked,
+    can_edit_bpm:        document.getElementById('editPermBpm_'+id)?.checked,
+    can_edit_key:        document.getElementById('editPermKey_'+id)?.checked,
+    can_create_song:     document.getElementById('editPermCreate_'+id)?.checked,
+  };
+  if(pin) body.pin = pin;
+  try{
+    const updated = await apiFetch('/api/contributors/'+id,{method:'PATCH',body:JSON.stringify(body)});
+    contributors = contributors.map(c=>c.id===id?{...c,...updated}:c);
+    renderAdminContributors();
+    toast(updated.name+' mis a jour');
+  }catch(e){ toast(e.message||'Erreur','danger'); }
+}
+
 async function renderAdminContributors(){
   contributors = await apiFetch('/api/contributors');
   const el = document.getElementById('adminContributorList');
   if(!el) return;
   if(!contributors.length){
-    el.innerHTML = `<div style="padding:.6rem .8rem;font-size:.75rem;color:var(--muted);font-weight:600;border:1.5px dashed var(--border);border-radius:var(--r-sm);text-align:center;">Aucun contributeur — ajoutez-en ci-dessous.<br><span style="font-size:.65rem">Le PIN partagé actuel continue de fonctionner.</span></div>`;
+    el.innerHTML = '<div style="padding:.6rem .8rem;font-size:.75rem;color:var(--muted);font-weight:600;border:1.5px dashed var(--border);border-radius:var(--r-sm);text-align:center;">Aucun contributeur — ajoutez-en ci-dessous.<br><span style="font-size:.65rem">Le PIN partagé actuel continue de fonctionner.</span></div>';
     return;
   }
   el.innerHTML = contributors.map(c => {
@@ -2140,25 +2302,58 @@ async function renderAdminContributors(){
     if(c.can_edit_lyrics)     perms.push('Paroles');
     if(c.can_edit_author)     perms.push('Auteur');
     if(c.can_edit_genre)      perms.push('Genre');
-    if(c.can_edit_categories) perms.push('Categories');
+    if(c.can_edit_categories) perms.push('Catégories');
     if(c.can_edit_link)       perms.push('Lien');
     if(c.can_edit_bpm)        perms.push('BPM');
     if(c.can_edit_key)        perms.push('Gamme');
-    if(c.can_create_song)     perms.push('Creer');
-    return `
-    <div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;border:1.5px solid #332220;border-radius:var(--r-sm);background:#1e1e1e;margin-bottom:.35rem;">
-      <div style="width:28px;height:28px;border-radius:50%;background:${c.color};display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;font-weight:900;flex-shrink:0;">${c.name[0].toUpperCase()}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:.82rem;font-weight:800;color:var(--text)">${c.name}</div>
-        <div style="font-size:.62rem;color:var(--muted);margin-top:.15rem;display:flex;flex-wrap:wrap;gap:2px;">
-          ${perms.length ? perms.map(p=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;margin-right:3px;margin-bottom:2px;font-weight:700;display:inline-block;">${p}</span>`).join('') : '<span style="color:#555">Aucune permission</span>'}
-        </div>
-      </div>
-      <button class="btn btn-ghost btn-sm btn-danger" style="padding:.2rem .5rem;font-size:.65rem" onclick="deleteContributor(${c.id},'${c.name}')">✕</button>
-    </div>`;
+    if(c.can_create_song)     perms.push('Créer');
+    const permBadges = perms.length
+      ? perms.map(p=>'<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;margin-right:3px;font-weight:700;display:inline-block;">'+p+'</span>').join('')
+      : '<span style="color:#555">Aucune permission</span>';
+    return (
+      '<div style="border:1.5px solid #332220;border-radius:var(--r-sm);background:#1e1e1e;margin-bottom:.35rem;overflow:hidden;">'
+      // Summary row
+      +'<div style="display:flex;align-items:center;gap:.6rem;padding:.55rem .8rem;">'
+        +'<div style="width:28px;height:28px;border-radius:50%;background:'+c.color+';display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;font-weight:900;flex-shrink:0;">'+c.name[0].toUpperCase()+'</div>'
+        +'<div style="flex:1;min-width:0;">'
+          +'<div style="font-size:.82rem;font-weight:800;color:var(--text)">'+c.name+'</div>'
+          +'<div style="font-size:.62rem;color:var(--muted);margin-top:.15rem;display:flex;flex-wrap:wrap;gap:2px;">'+permBadges+'</div>'
+        +'</div>'
+        +'<button id="contribEditBtn_'+c.id+'" onclick="toggleContribEdit('+c.id+')" style="background:none;border:none;color:#888;cursor:pointer;font-size:.9rem;padding:.2rem .4rem;" title="Modifier">✎</button>'
+        +'<button class="btn btn-ghost btn-sm btn-danger" style="padding:.2rem .5rem;font-size:.65rem" onclick="deleteContributor('+c.id+',''+c.name+'')">&#10005;</button>'
+      +'</div>'
+      // Inline edit form (hidden by default)
+      +'<div id="contribEdit_'+c.id+'" style="display:none;padding:.65rem .8rem;border-top:1px solid #2a2020;background:#181818;">'
+        +'<div style="display:flex;gap:.5rem;margin-bottom:.55rem;">'
+          +'<div style="flex:1;">'
+            +'<div style="font-size:.58rem;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem;">Prénom</div>'
+            +'<input id="editName_'+c.id+'" value="'+c.name+'" style="width:100%;padding:.3rem .5rem;background:#252525;border:1px solid #332220;border-radius:5px;color:#f0ece8;font-size:.75rem;font-family:'Nunito',sans-serif;box-sizing:border-box;">'
+          +'</div>'
+          +'<div style="width:95px;">'
+            +'<div style="font-size:.58rem;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem;">Nouveau PIN</div>'
+            +'<input id="editPin_'+c.id+'" type="password" placeholder="••••" maxlength="4" style="width:100%;padding:.3rem .5rem;background:#252525;border:1px solid #332220;border-radius:5px;color:#f0ece8;font-size:.85rem;font-family:'Nunito',sans-serif;box-sizing:border-box;letter-spacing:.2em;">'
+          +'</div>'
+        +'</div>'
+        +'<div style="font-size:.58rem;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.3rem;">Permissions</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .8rem;margin-bottom:.6rem;">'
+          +_permCheckbox('editPermLyrics_'+c.id,'Paroles',c.can_edit_lyrics)
+          +_permCheckbox('editPermAuthor_'+c.id,'Auteur',c.can_edit_author)
+          +_permCheckbox('editPermGenre_'+c.id,'Genre',c.can_edit_genre)
+          +_permCheckbox('editPermCategories_'+c.id,'Catégories',c.can_edit_categories)
+          +_permCheckbox('editPermLink_'+c.id,'Lien',c.can_edit_link)
+          +_permCheckbox('editPermBpm_'+c.id,'BPM',c.can_edit_bpm)
+          +_permCheckbox('editPermKey_'+c.id,'Gamme',c.can_edit_key)
+          +_permCheckbox('editPermCreate_'+c.id,'Créer chant',c.can_create_song)
+        +'</div>'
+        +'<div style="display:flex;gap:.4rem;justify-content:flex-end;">'
+          +'<button onclick="toggleContribEdit('+c.id+')" class="btn btn-ghost btn-sm" style="font-size:.65rem;">Annuler</button>'
+          +'<button onclick="saveContribEdit('+c.id+')" class="btn btn-primary btn-sm" style="font-size:.65rem;">Enregistrer</button>'
+        +'</div>'
+      +'</div>'
+    +'</div>'
+    );
   }).join('');
 }
-
 async function addContributor(){
   const name = document.getElementById('newContribName').value.trim();
   const pin  = document.getElementById('newContribPin').value.trim();
@@ -2534,55 +2729,25 @@ function mobSwitchTab(tab){
   const setPanel = document.getElementById('mobPanelSet');
   const repBtn = document.getElementById('mobTabRep');
   const setBtn = document.getElementById('mobTabSet');
-  const countEl = document.getElementById('mobSongsCount');
+  const countRow = document.getElementById('mobCountRow');
   const bottomBar = document.querySelector('.mob-bottom-bar');
   const mobFilters = document.getElementById('mobFilters');
 
   if(repPanel) repPanel.style.display = isSet ? 'none' : '';
   if(setPanel) setPanel.style.display = isSet ? '' : 'none';
-  if(countEl) countEl.style.display = isSet ? 'none' : '';
+  if(countRow) countRow.style.display = isSet ? 'none' : '';
   if(bottomBar) bottomBar.style.display = isSet ? 'none' : '';
   if(mobFilters) mobFilters.style.display = isSet ? 'none' : '';
 
-  if(repBtn){ repBtn.style.background=isSet?'transparent':'#8b1a2e'; repBtn.style.color=isSet?'#888':'white'; repBtn.style.border=isSet?'1.5px solid #332220':'none'; }
-  if(setBtn){ setBtn.style.background=isSet?'#8b1a2e':'transparent'; setBtn.style.color=isSet?'white':'#888'; setBtn.style.border=isSet?'none':'1.5px solid #332220'; }
+  if(repBtn){ repBtn.classList.toggle('mob-tab-active', !isSet); }
+  if(setBtn){ setBtn.classList.toggle('mob-tab-active', isSet); }
 
   if(isSet){
     // Render mobile setlist
     const el = document.getElementById('mobSetlistView');
     if(el){
       loadSetlist().then(()=>{
-        const sections = ['principale','special','offrande','fin'];
-        const labels = {principale:'Principale',special:'Speciale',offrande:'Offrande',fin:'Chant de fin'};
-        let h = '';
-        sections.forEach(sec=>{
-          const items = setlistData.filter(i=>i.section===sec);
-          if(!items.length && sec!=='principale') return;
-          h += `<div style="margin-bottom:.9rem;">
-            <div style="font-size:.6rem;font-weight:900;color:#8b1a2e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;padding:.2rem .4rem;border-left:3px solid #8b1a2e;">${labels[sec]}</div>`;
-          if(!items.length){
-            h += '<div style="padding:.4rem .6rem;font-size:.75rem;color:#444;font-style:italic;">—</div>';
-          } else {
-            items.forEach((item,i)=>{
-              const clickStyle = item.song_id ? 'cursor:pointer;' : '';
-              const clickAttr = item.song_id ? `onclick="mobSelectSongById(${item.song_id})"` : '';
-              const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
-              const bpm = songData?.bpm ? `<span style="font-size:.58rem;color:#888;font-weight:600;">${songData.bpm} BPM</span>` : '';
-              const key = songData?.key_signature ? `<span style="font-size:.58rem;background:#2a1018;color:#c4395a;border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
-              h += `<div ${clickAttr} style="padding:.5rem .7rem;background:#1e1e1e;border-radius:8px;margin-bottom:.3rem;border:1px solid #2a2020;display:flex;align-items:center;gap:.4rem;${clickStyle}">
-                <span style="color:#555;min-width:1.2rem;font-size:.75rem;font-weight:700;">${i+1}.</span>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-size:.82rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</div>
-                  ${(bpm||key) ? `<div style="display:flex;gap:.3rem;margin-top:.15rem;align-items:center;">${key}${bpm}</div>` : ''}
-                </div>
-                ${item.song_id ? '<span style="color:#555;font-size:.75rem;flex-shrink:0;">›</span>' : ''}
-              </div>`;
-            });
-          }
-          h += '</div>';
-        });
-        if(!h) h = '<div style="padding:1.5rem;text-align:center;color:#555;font-size:.82rem;">Aucune setlist definie.</div>';
-        el.innerHTML = h;
+        el.innerHTML = _renderSetlistHTML('mobSelectSongById');
       });
     }
   }
@@ -2603,50 +2768,69 @@ function switchSidebarTab(tab){
 
 // ══ SETLIST ════════════════════════════════════════════════════════════════════
 let setlistData = [];
+// Ordered list of section keys (user can reorder all except 'principale' stays fixed at idx 1 within movable group)
+let _sectionOrder = ['intro','principale','special','offrande','fin'];
+
+const SECTION_DEFAULTS = {
+  intro:     { label:'Rubrique', multi:true,  movable:true  },
+  principale:{ label:'Principale', multi:true, movable:false },
+  special:   { label:'Speciale', multi:true,  movable:true  },
+  offrande:  { label:'Offrande', multi:true,  movable:true  },
+  fin:       { label:'Chant de fin', multi:true, movable:true }
+};
+
+function getSectionLabel(key){
+  const item = setlistData.find(i=>i.section===key);
+  if(item?.special_label) return item.special_label;
+  return SECTION_DEFAULTS[key]?.label || key;
+}
 
 async function loadSetlist(){
   try{
     setlistData = await apiFetch('/api/setlist');
+    // Restore section order from data if present
+    const orderItem = setlistData.find(i=>i.section==='_order');
+    if(orderItem?.special_label){
+      try{ _sectionOrder = JSON.parse(orderItem.special_label); }catch(e){}
+    }
     renderSetlistView();
   }catch(e){}
 }
 
-function renderSetlistView(){
-  const el = document.getElementById('setlistView');
-  if(!el) return;
-  if(!setlistData.length){
-    el.innerHTML = '<div style="padding:1rem;text-align:center;color:#555;font-size:.78rem;">Aucune setlist definie pour le moment.</div>';
-    return;
-  }
-  const sections = ['principale','special','offrande','fin'];
-  const sectionLabels = { principale:'Principale', special:'Speciale', offrande:'Offrande', fin:'Chant de fin' };
+function _renderSetlistHTML(clickFn){
+  const realData = setlistData.filter(i=>i.section!=='_order');
+  if(!realData.length) return '<div style="padding:1rem;text-align:center;color:#555;font-size:.78rem;">Aucune setlist definie.</div>';
   let html = '';
-  sections.forEach(sec => {
-    const items = setlistData.filter(i => i.section === sec);
-    if(!items.length && sec !== 'principale') return;
+  _sectionOrder.forEach(sec => {
+    const items = realData.filter(i => i.section === sec);
+    if(!items.length) return;
+    const label = getSectionLabel(sec);
     html += `<div style="margin-bottom:.8rem;">
-      <div style="font-size:.6rem;font-weight:900;color:#8b1a2e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;padding:.2rem .4rem;border-left:3px solid #8b1a2e;">${sectionLabels[sec]||sec}</div>`;
-    if(!items.length){
-      html += '<div style="padding:.4rem .6rem;font-size:.72rem;color:#444;font-style:italic;">—</div>';
-    } else {
-      items.forEach((item,i) => {
-        const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
-        const bpmTag = songData?.bpm ? `<span style="font-size:.55rem;color:#888;font-weight:600;">${songData.bpm} BPM</span>` : '';
-        const keyTag = songData?.key_signature ? `<span style="font-size:.55rem;background:#2a1018;color:#c4395a;border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
-        const clickable = item.song_id ? `onclick="selectSongById(${item.song_id})" style="padding:.4rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'"` : `style="padding:.4rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;display:flex;align-items:center;gap:.4rem;"`;
-        html += `<div ${clickable}>
-          <span style="color:#555;min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</div>
-            ${(bpmTag||keyTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;">${keyTag}${bpmTag}</div>` : ''}
-          </div>
-          ${item.song_id ? '<span style="color:#555;font-size:.62rem;">›</span>' : ''}
-        </div>`;
-      });
-    }
+      <div style="font-size:.6rem;font-weight:900;color:#8b1a2e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;padding:.2rem .4rem;border-left:3px solid #8b1a2e;">${label}</div>`;
+    items.forEach((item,i) => {
+      const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
+      const bpmTag = songData?.bpm ? `<span style="font-size:.55rem;color:#888;font-weight:600;">${songData.bpm} BPM</span>` : '';
+      const keyTag = songData?.key_signature ? `<span style="font-size:.55rem;background:#2a1018;color:#c4395a;border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
+      const clickable = item.song_id
+        ? `onclick="${clickFn}(${item.song_id})" style="padding:.4rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;" onmouseover="this.style.background='#252525'" onmouseout="this.style.background='#1e1e1e'"`
+        : `style="padding:.4rem .6rem;background:#1e1e1e;border-radius:6px;margin-bottom:.25rem;display:flex;align-items:center;gap:.4rem;"`;
+      html += `<div ${clickable}>
+        <span style="color:#555;min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</div>
+          ${(bpmTag||keyTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;">${keyTag}${bpmTag}</div>` : ''}
+        </div>
+        ${item.song_id ? '<span style="color:#555;font-size:.62rem;">&#8250;</span>' : ''}
+      </div>`;
+    });
     html += '</div>';
   });
-  el.innerHTML = html;
+  return html;
+}
+
+function renderSetlistView(){
+  const el = document.getElementById('setlistView');
+  if(el) el.innerHTML = _renderSetlistHTML('selectSongById');
 }
 
 // ══ ADMIN SETLIST MANAGEMENT ══════════════════════════════════════════════════
@@ -2672,50 +2856,80 @@ function setlistDrop(e, toIdx){
   renderAdminSetlist();
 }
 
+function _saveLabelsBeforeRender(){
+  _sectionOrder.forEach(key=>{
+    const input = document.getElementById('secLabel_'+key);
+    if(input){
+      const val = input.value.trim();
+      setlistData = setlistData.map(i=> i.section===key ? {...i, special_label: val||i.special_label} : i);
+    }
+  });
+}
+
+function moveSectionOrder(key, dir){
+  _saveLabelsBeforeRender();
+  const movable = _sectionOrder.filter(k=>SECTION_DEFAULTS[k]?.movable);
+  const idx = movable.indexOf(key);
+  if(idx===-1) return;
+  const newIdx = idx+dir;
+  if(newIdx<0||newIdx>=movable.length) return;
+  [movable[idx],movable[newIdx]] = [movable[newIdx],movable[idx]];
+  let mi = 0;
+  _sectionOrder = _sectionOrder.map(k=> SECTION_DEFAULTS[k]?.movable ? movable[mi++] : k);
+  renderAdminSetlist();
+}
+
 function renderAdminSetlist(){
   const el = document.getElementById('adminSetlistEditor');
   if(!el) return;
-  // Save current special label value before re-render
-  const existingSpecialInput = document.getElementById('specialLabel');
-  if(existingSpecialInput) {
-    const savedVal = existingSpecialInput.value;
-    setlistData = setlistData.map(i => i.section==='special' ? {...i, special_label: savedVal||i.special_label} : i);
-  }
-  const sections = [
-    { key:'principale', label:'Principale', multi:true },
-    { key:'special',    label:'Speciale (optionnelle)', multi:false },
-    { key:'offrande',   label:'Offrande', multi:false },
-    { key:'fin',        label:'Chant de fin', multi:false }
-  ];
-  el.innerHTML = sections.map(sec => {
-    const items = setlistData.filter(i=>i.section===sec.key);
-    const specialLabelHtml = sec.key==='special' ? `
-      <input id="specialLabel" placeholder="Nom de la rubrique..." value="${items[0]?.special_label||''}"
-        style="padding:.3rem .6rem;background:#252525;border:1px solid #332220;border-radius:6px;color:#f0ece8;font-size:.72rem;font-family:'Nunito',sans-serif;width:130px;margin-left:.5rem;">` : '';
+  _saveLabelsBeforeRender();
+  const movableSections = _sectionOrder.filter(k=>SECTION_DEFAULTS[k]?.movable);
+
+  el.innerHTML = _sectionOrder.map(key => {
+    const def = SECTION_DEFAULTS[key];
+    if(!def) return '';
+    const items = setlistData.filter(i=>i.section===key);
+    const currentLabel = getSectionLabel(key);
+    const isMovable = def.movable;
+    const movIdx = movableSections.indexOf(key);
+
+    const upBtn   = (isMovable && movIdx>0)
+      ? `<button onclick="moveSectionOrder('${key}',-1)" style="background:none;border:none;color:#666;cursor:pointer;font-size:.8rem;padding:0 .1rem;" title="Monter">&#8593;</button>` : '';
+    const downBtn = (isMovable && movIdx<movableSections.length-1)
+      ? `<button onclick="moveSectionOrder('${key}',1)" style="background:none;border:none;color:#666;cursor:pointer;font-size:.8rem;padding:0 .1rem;" title="Descendre">&#8595;</button>` : '';
+
+    const labelHtml = isMovable
+      ? `<input id="secLabel_${key}" value="${currentLabel}" placeholder="Nom..."
+           style="padding:.15rem .45rem;background:#252525;border:1px solid #332220;border-radius:5px;color:#f0ece8;font-size:.65rem;font-family:'Nunito',sans-serif;width:110px;margin-left:.35rem;">`
+      : `<span style="margin-left:.25rem;">${currentLabel}</span>`;
+
     const songCards = items.map((item,i)=>{
-      const isDraggable = sec.key==='principale';
+      const isDrag = key==='principale';
+      const cats = (item.song_categories||[]).map(c=>{
+        const color = c.color||'#c4395a';
+        return `<span style="background:${color}22;color:${color};border:1px solid ${color}55;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:700;">${c.name}</span>`;
+      }).join('');
       return `<div
-          ${isDraggable ? `draggable="true" ondragstart="setlistDragStart(${i})" ondragover="setlistDragOver(event)" ondrop="setlistDrop(event,${i})"` : ''}
-          style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;background:#252525;padding:.4rem .6rem;border-radius:6px;border:1px solid #332220;${isDraggable?'cursor:grab;':''}"
-        >
-        ${isDraggable ? '<span style="color:#444;font-size:.7rem;margin-right:.1rem;flex-shrink:0;">⠿</span>' : ''}
+        ${isDrag?`draggable="true" ondragstart="setlistDragStart(${i})" ondragover="setlistDragOver(event)" ondrop="setlistDrop(event,${i})"` : ''}
+        style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem;background:#252525;padding:.4rem .6rem;border-radius:6px;border:1px solid #332220;${isDrag?'cursor:grab;':''}"
+      >
+        ${isDrag?'<span style="color:#444;font-size:.7rem;flex-shrink:0;">&#8286;</span>':''}
         <span style="flex:1;font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</span>
-        ${item.song_id ? (item.song_categories||[]).map(c=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:700;">${c.name}</span>`).join('') : ''}
-        <button onclick="removeSetlistItem('${sec.key}',${i})" style="background:none;border:none;color:#e05577;cursor:pointer;font-size:.8rem;flex-shrink:0;">✕</button>
+        <span style="display:flex;gap:.2rem;flex-wrap:wrap;">${cats}</span>
+        <button onclick="removeSetlistItem('${key}',${i})" style="background:none;border:none;color:#e05577;cursor:pointer;font-size:.8rem;flex-shrink:0;">&#10005;</button>
       </div>`;
     }).join('');
-    const searchWidget = (sec.multi || items.length===0) ? `
-      <div style="position:relative;margin-top:.3rem;">
-        <input id="setlistSearch_${sec.key}" placeholder="Chercher un chant..." oninput="setlistSearchFilter('${sec.key}',this.value)"
-          style="width:100%;padding:.35rem .7rem;background:#1e1e1e;border:1.5px solid #332220;border-radius:6px;color:#f0ece8;font-size:.75rem;font-family:'Nunito',sans-serif;box-sizing:border-box;">
-        <div id="setlistResults_${sec.key}" style="display:none;position:absolute;left:0;right:0;background:#1a1a1a;border:1.5px solid #332220;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:200;"></div>
-      </div>` : '';
-    return `<div style="margin-bottom:1.2rem;">
+
+    return `<div style="margin-bottom:1.1rem;">
       <div style="font-size:.65rem;font-weight:900;color:#c4395a;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem;display:flex;align-items:center;">
-        ${sec.label}${specialLabelHtml}
+        ${upBtn}${downBtn}${labelHtml}
       </div>
-      <div id="setlistSection_${sec.key}">${songCards}</div>
-      ${searchWidget}
+      <div id="setlistSection_${key}">${songCards}</div>
+      <div style="position:relative;margin-top:.3rem;">
+        <input id="setlistSearch_${key}" placeholder="Chercher un chant..." oninput="setlistSearchFilter('${key}',this.value)"
+          style="width:100%;padding:.35rem .7rem;background:#1e1e1e;border:1.5px solid #332220;border-radius:6px;color:#f0ece8;font-size:.75rem;font-family:'Nunito',sans-serif;box-sizing:border-box;">
+        <div id="setlistResults_${key}" style="display:none;position:absolute;left:0;right:0;background:#1a1a1a;border:1.5px solid #332220;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;z-index:200;"></div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2728,8 +2942,11 @@ function setlistSearchFilter(section, q){
   if(!matches.length){ resultsEl.style.display='none'; return; }
   resultsEl.style.display = '';
   resultsEl.innerHTML = matches.map(s=>{
-    const cats = (s.categories||[]).map(c=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:700;">${c.name}</span>`).join('');
-    const catsJson = encodeURIComponent(JSON.stringify((s.categories||[]).map(c=>({id:c.id,name:c.name}))));
+    const cats = (s.categories||[]).map(c=>{
+      const color = c.color||'#c4395a';
+      return `<span style="background:${color}22;color:${color};border:1px solid ${color}55;border-radius:4px;padding:1px 5px;font-size:.58rem;font-weight:700;">${c.name}</span>`;
+    }).join('');
+    const catsJson = encodeURIComponent(JSON.stringify((s.categories||[]).map(c=>({id:c.id,name:c.name,color:c.color}))));
     return `<div
       data-section="${section}" data-song-id="${s.id}" data-cats="${catsJson}"
       style="padding:.45rem .7rem;cursor:pointer;border-bottom:1px solid #252525;display:flex;align-items:center;gap:.4rem;"
@@ -2739,7 +2956,6 @@ function setlistSearchFilter(section, q){
       <span style="display:flex;gap:.2rem;">${cats}</span>
     </div>`;
   }).join('');
-  // Attach click handlers via JS (avoids apostrophe issues)
   resultsEl.querySelectorAll('[data-song-id]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const sec = el.dataset.section;
@@ -2753,21 +2969,12 @@ function setlistSearchFilter(section, q){
 }
 
 function pickSetlistSong(section, songId, songTitle, songCats){
-  // Check if multi or single
-  const secConf = [{key:'principale',multi:true},{key:'special',multi:false},{key:'offrande',multi:false},{key:'fin',multi:false}].find(s=>s.key===section);
-  if(!secConf.multi){
-    setlistData = setlistData.filter(i=>i.section!==section);
-  }
+  // All sections now support multi — just append
   setlistData.push({section, song_id:songId, song_title:songTitle, song_categories:songCats, position:setlistData.length});
   const searchInput = document.getElementById('setlistSearch_'+section);
   if(searchInput) searchInput.value='';
   const resultsEl = document.getElementById('setlistResults_'+section);
   if(resultsEl) resultsEl.style.display='none';
-  renderAdminSetlist();
-}
-
-function addSetlistItem(section){
-  setlistData.push({section, song_id:null, song_title:'', position:setlistData.length});
   renderAdminSetlist();
 }
 
@@ -2783,11 +2990,12 @@ function removeSetlistItem(section, idx){
 async function saveSetlist(){
   const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
   if(!pin) return;
-  // Get special label if exists
-  const specialLabel = document.getElementById('specialLabel')?.value || '';
-  setlistData = setlistData.map(i => ({...i, special_label: i.section==='special' ? specialLabel : null}));
+  _saveLabelsBeforeRender();
+  // Encode section order as a special item
+  const orderItem = {section:'_order', song_id:null, song_title:'', special_label: JSON.stringify(_sectionOrder), position:-1};
+  const payload = setlistData.filter(i=>i.section!=='_order').concat([orderItem]);
   try{
-    await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:setlistData})});
+    await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:payload})});
     toast('Setlist sauvegardee');
     loadSetlist();
   }catch(e){ toast(e.message||'Erreur','danger'); }
