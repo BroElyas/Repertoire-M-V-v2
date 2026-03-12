@@ -215,6 +215,26 @@ body.light #tabRepertoire { color:#8a7068 !important; border-bottom-color:transp
 body.light #setlistView [onclick] { background:#fff !important; }
 body.light #setlistView [onclick]:hover { background:#fce8ed !important; }
 body.light #setlistView > div { background:transparent; }
+/* Permission badges & key badges */
+body.light { --perm-bg:#fce8ed; --perm-fg:#8b1a2e; }
+
+/* Setlist song titles in sidebar (light mode) */
+body.light #setlistView .song-title-text,
+body.light #setlistView [style*="font-weight:800"] { color:var(--text) !important; }
+body.light #setlistView [style*="text-transform:uppercase"] { color:var(--text-mid) !important; }
+
+/* Activity log header */
+body.light thead tr { background:var(--blue-paler) !important; }
+body.light #adminLogs table tr { background:var(--surface) !important; }
+body.light #adminLogs table tr:nth-child(even) { background:var(--surface2) !important; }
+
+/* Incomplete/pinned section */
+body.light #adminIncomplete > div { background:var(--surface) !important; }
+body.light #adminIncomplete > div[style*="var(--surface2)"] { background:#fef9ec !important; }
+/* Active card & info pills */
+body.light { --active-bg:#fce8ed; }
+body.light .song-card.active { background:#fce8ed; border-color:#8b1a2e; }
+body.light .info-pill { background:#fce8ed; border-color:#f5d0d8; color:var(--text-mid); }
 
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;-webkit-tap-highlight-color:transparent;}
@@ -225,8 +245,8 @@ body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-
 header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--border);padding:0 1.5rem;height:62px;display:flex;align-items:center;gap:1rem;overflow:hidden;}
 .logo{display:flex;align-items:center;gap:.7rem;flex:1;min-width:0;overflow:hidden;}
 .logo img{width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;}
-.logo-text{font-size:1rem;font-weight:900;color:#fff;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.logo-sub{font-size:.6rem;color:#888;font-weight:600;letter-spacing:.05em;white-space:nowrap;}
+.logo-text{font-size:1rem;font-weight:900;color:var(--text);letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.logo-sub{font-size:.6rem;color:var(--muted);font-weight:600;letter-spacing:.05em;white-space:nowrap;}
 .header-actions{display:flex;gap:.4rem;flex-shrink:0;margin-left:auto;}
 
 /* ── BUTTONS ── */
@@ -266,10 +286,10 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .song-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .song-card{padding:.75rem .85rem;border-radius:var(--r-sm);cursor:pointer;transition:all .18s;border:1.5px solid transparent;margin-bottom:3px;background:transparent;}
 .song-card:hover{background:var(--surface2);box-shadow:var(--shadow);transform:translateX(2px);}
-.song-card.active{background:#2a1018;border-color:#8b1a2e;box-shadow:0 4px 16px rgba(139,26,46,.2);}
+.song-card.active{background:var(--active-bg,#2a1018);border-color:#8b1a2e;box-shadow:0 4px 16px rgba(139,26,46,.2);}
 .song-card-title{font-size:.82rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
 .song-card-meta{font-size:.67rem;color:var(--muted);margin-top:3px;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;}
-.key-badge{background:#2a1018;color:#c4395a;border-radius:50px;padding:1px 7px;font-size:.6rem;font-weight:800;border:1px solid #3a1520;}
+.key-badge{background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:50px;padding:1px 7px;font-size:.6rem;font-weight:800;border:1px solid var(--border);}
 .cat-badge{border-radius:50px;padding:1px 7px;font-size:.58rem;font-weight:800;border:1.5px solid;}
 .audio-badge{color:var(--success);font-size:.6rem;font-weight:700;}
 
@@ -304,7 +324,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .detail-cats{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.6rem;}
 .detail-actions{display:flex;gap:.4rem;flex-shrink:0;}
 .info-pills{display:flex;gap:.7rem;margin-top:1rem;flex-wrap:wrap;}
-.info-pill{display:flex;align-items:center;gap:.4rem;background:#2a1018;border-radius:50px;padding:.35rem .9rem;font-size:.74rem;font-weight:700;color:var(--text-mid);border:1px solid #3a1520;}
+.info-pill{display:flex;align-items:center;gap:.4rem;background:var(--perm-bg,#2a1018);border-radius:50px;padding:.35rem .9rem;font-size:.74rem;font-weight:700;color:var(--text-mid);border:1px solid var(--border);}
 .info-pill .lbl{color:var(--muted);font-size:.62rem;font-weight:600;}
 .info-pill a{color:#c4395a;text-decoration:none;}
 .info-pill a:hover{text-decoration:underline;}
@@ -356,7 +376,7 @@ audio.vis{display:block;}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.3rem;}
 .modal-title{font-family:'Lora',serif;font-size:1.25rem;font-weight:700;color:var(--text);}
 .modal-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.9rem;transition:all .15s;}
-.modal-close:hover{background:#3a2020;color:#f0ece8;}
+.modal-close:hover{background:var(--surface2);color:var(--text);}
 .form-row{margin-bottom:.9rem;}
 .form-row label{display:block;font-size:.65rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.38rem;}
 .fi{width:100%;padding:.58rem .9rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-family:'Nunito',sans-serif;font-size:.83rem;font-weight:600;outline:none;transition:all .2s;-webkit-user-select:text;user-select:text;}
@@ -429,7 +449,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
 @media(max-width:768px){
   header{height:60px;padding:0 1rem;background:var(--bg) !important;border-bottom:none;}
   .logo img{width:54px;height:54px;border-radius:50%;}
-  .header-actions .btn{background:transparent;border-color:#444;color:#ccc;}
+  .header-actions .btn{background:transparent;border-color:var(--border);color:var(--text-mid);}
   .header-actions .btn-primary{display:none;}
   .sidebar{display:none;}
   .sidebar-overlay{display:none!important;}
@@ -451,7 +471,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
   }
   .mob-tab-btn{
     flex:1;padding:.6rem .5rem;font-size:.72rem;font-weight:800;
-    border:none;background:transparent;color:#555;cursor:pointer;
+    border:none;background:transparent;color:var(--muted);cursor:pointer;
     font-family:'Nunito',sans-serif;letter-spacing:.01em;
     border-bottom:2px solid transparent;transition:all .15s;
   }
@@ -462,7 +482,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
     display:flex;align-items:center;justify-content:space-between;
     padding:.4rem 1rem;background:var(--surface2);border-bottom:1px solid var(--border);flex-shrink:0;
   }
-  .mob-count-label{font-size:.65rem;font-weight:900;color:#555;text-transform:uppercase;letter-spacing:.1em;}
+  .mob-count-label{font-size:.65rem;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;}
   .mob-sort-select{
     font-size:.65rem;font-weight:700;color:var(--text-mid);background:var(--surface2);
     border:1px solid var(--border);border-radius:50px;padding:.2rem .6rem;
@@ -2425,7 +2445,7 @@ async function loadPendingChanges(){
     return '<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:.6rem .8rem;margin-bottom:.6rem;">' +
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.3rem;">' +
       '<div>' +
-      '<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 6px;font-size:.6rem;font-weight:900;">Modification</span>' +
+      '<span style="background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:4px;padding:1px 6px;font-size:.6rem;font-weight:900;">Modification</span>' +
       '<span style="font-weight:900;font-size:.8rem;margin-left:.5rem;">' + (c.song_title||'—') + '</span>' +
       '</div>' +
       '<span style="font-size:.62rem;color:#555;flex-shrink:0;">' + dateStr + '</span>' +
@@ -2434,7 +2454,7 @@ async function loadPendingChanges(){
       '<div style="margin-top:.3rem;line-height:1.6;">' + diffHtml + '</div>' +
       '<div style="display:flex;gap:.4rem;margin-top:.5rem;">' +
       '<button class="btn btn-sm" style="background:#1a3a1a;color:#3db87a;border-color:#2a4a2a;font-size:.68rem;" onclick="reviewChange(' + c.id + ',&quot;approve&quot;)">Valider</button>' +
-      '<button class="btn btn-sm" style="background:#2a1018;color:#e05577;border-color:#3a1520;font-size:.68rem;" onclick="reviewChange(' + c.id + ',&quot;reject&quot;)">Refuser</button>' +
+      '<button class="btn btn-sm" style="background:var(--perm-bg,#2a1018);color:var(--danger);border-color:var(--border);font-size:.68rem;" onclick="reviewChange(' + c.id + ',&quot;reject&quot;)">Refuser</button>' +
       '</div>' +
       '</div>';
   });
@@ -2518,7 +2538,7 @@ async function renderAdminContributors(){
     if(c.can_edit_key)        perms.push('Gamme');
     if(c.can_create_song)     perms.push('Créer');
     const permBadges = perms.length
-      ? perms.map(p=>'<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;margin-right:3px;font-weight:700;display:inline-block;">'+p+'</span>').join('')
+      ? perms.map(p=>'<span style="background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:4px;padding:1px 5px;margin-right:3px;font-weight:700;display:inline-block;">'+p+'</span>').join('')
       : '<span style="color:#555">Aucune permission</span>';
     return (
       '<div style="border:1.5px solid #332220;border-radius:var(--r-sm);background:var(--surface);margin-bottom:.35rem;overflow:hidden;">'
@@ -2741,13 +2761,13 @@ async function renderAdminIncomplete(){
       if(s.missing_key) missing.push('gamme');
       if(s.missing_bpm) missing.push('BPM');
       if(s.missing_lyrics) missing.push('paroles');
-      return `<div style="padding:.55rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;cursor:pointer;background:${s.is_pinned?'#2a1800':'#1e1e1e'}" onclick="closeAdmin();selectSong(${s.id})">
+      return `<div style="padding:.55rem .8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem;cursor:pointer;background:${s.is_pinned?'var(--surface2)':'var(--surface)'}" onclick="closeAdmin();selectSong(${s.id})">
         ${s.is_pinned?'<span title="Épinglé">📌</span>':'<span style="opacity:.3">○</span>'}
         <div style="flex:1;min-width:0;">
           <div style="font-size:.78rem;font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.title}</div>
           ${missing.length?`<div style="font-size:.62rem;color:var(--warn);font-weight:700">Manque : ${missing.join(', ')}</div>`:''}
         </div>
-        <button class="btn btn-sm" style="padding:.2rem .5rem;font-size:.62rem;background:var(--surface);color:#f0ece8;border-color:#444" onclick="event.stopPropagation();closeAdmin();startEditSong(${s.id})">Compléter</button>
+        <button class="btn btn-sm" style="padding:.2rem .5rem;font-size:.62rem;background:var(--surface2);color:var(--text);border-color:var(--border)" onclick="event.stopPropagation();closeAdmin();startEditSong(${s.id})">Compléter</button>
       </div>`;
     }).join('');
   }catch(e){el.innerHTML=`<div style="padding:.8rem;text-align:center;color:var(--muted);font-size:.75rem">Erreur</div>`;}
@@ -2783,7 +2803,7 @@ async function renderLogs(){
               ${l.contributor_name}
             </span>`
           : `<span style="color:var(--muted);font-style:italic">?</span>`;
-        return `<tr style="border-top:1px solid var(--border);background:${i%2===0?'white':'var(--surface2)'}">
+        return `<tr style="border-top:1px solid var(--border);background:${i%2===0?'var(--surface)':'var(--surface2)'}">
           <td style="padding:.45rem .7rem;color:var(--muted);white-space:nowrap">${date}</td>
           <td style="padding:.45rem .7rem">${whoHtml}</td>
           <td style="padding:.45rem .7rem;font-weight:700">${l.action}</td>
@@ -3009,7 +3029,7 @@ async function loadSetlist(){
 
 function _renderSetlistHTML(clickFn){
   const realData = setlistData.filter(i=>i.section!=='_order');
-  if(!realData.length) return '<div style="padding:1rem;text-align:center;color:#555;font-size:.78rem;">Aucune setlist definie.</div>';
+  if(!realData.length) return '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.78rem;">Aucune setlist definie.</div>';
   let html = '';
   _sectionOrder.forEach(sec => {
     const items = realData.filter(i => i.section === sec);
@@ -3019,18 +3039,18 @@ function _renderSetlistHTML(clickFn){
       <div style="font-size:.6rem;font-weight:900;color:#8b1a2e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;padding:.2rem .4rem;border-left:3px solid #8b1a2e;">${label}</div>`;
     items.forEach((item,i) => {
       const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
-      const bpmTag = songData?.bpm ? `<span style="font-size:.55rem;color:#888;font-weight:600;">${songData.bpm} BPM</span>` : '';
-      const keyTag = songData?.key_signature ? `<span style="font-size:.55rem;background:#2a1018;color:#c4395a;border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
+      const bpmTag = songData?.bpm ? `<span style="font-size:.55rem;color:var(--muted);font-weight:600;">${songData.bpm} BPM</span>` : '';
+      const keyTag = songData?.key_signature ? `<span style="font-size:.55rem;background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:3px;padding:1px 4px;font-weight:700;">${songData.key_signature}</span>` : '';
       const clickable = item.song_id
         ? `onclick="${clickFn}(${item.song_id})" style="padding:.4rem .6rem;background:var(--surface);border-radius:6px;margin-bottom:.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'"`
         : `style="padding:.4rem .6rem;background:var(--surface);border-radius:6px;margin-bottom:.25rem;display:flex;align-items:center;gap:.4rem;"`;
       html += `<div ${clickable}>
-        <span style="color:#555;min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
+        <span style="color:var(--muted);min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:.78rem;font-weight:800;color:#f0ece8;">${item.song_title||'—'}</div>
+          <div style="font-size:.78rem;font-weight:800;color:var(--text);">${item.song_title||'—'}</div>
           ${(bpmTag||keyTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;">${keyTag}${bpmTag}</div>` : ''}
         </div>
-        ${item.song_id ? '<span style="color:#555;font-size:.62rem;">&#8250;</span>' : ''}
+        ${item.song_id ? '<span style="color:var(--muted);font-size:.62rem;">&#8250;</span>' : ''}
       </div>`;
     });
     html += '</div>';
@@ -3159,10 +3179,10 @@ function setlistSearchFilter(section, q){
     const catsJson = encodeURIComponent(JSON.stringify((s.categories||[]).map(c=>({id:c.id,name:c.name,color:c.color}))));
     return `<div
       data-section="${section}" data-song-id="${s.id}" data-cats="${catsJson}"
-      style="padding:.45rem .7rem;cursor:pointer;border-bottom:1px solid #252525;display:flex;align-items:center;gap:.4rem;"
+      style="padding:.45rem .7rem;cursor:pointer;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.4rem;"
       onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-      <span style="flex:1;font-size:.78rem;font-weight:800;color:#f0ece8;">${s.title}</span>
-      <span style="font-size:.62rem;color:#888;">${s.author||''}</span>
+      <span style="flex:1;font-size:.78rem;font-weight:800;color:var(--text);">${s.title}</span>
+      <span style="font-size:.62rem;color:var(--muted);">${s.author||''}</span>
       <span style="display:flex;gap:.2rem;">${cats}</span>
     </div>`;
   }).join('');
