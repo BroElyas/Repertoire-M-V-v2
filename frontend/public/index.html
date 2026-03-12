@@ -548,19 +548,60 @@ select.fi option{background:var(--surface2);color:var(--text);}
     display:flex;gap:.4rem;align-items:center;
     z-index:50;border-radius:50px;
     box-shadow:var(--shadow-md);
-    transition:background .3s ease, backdrop-filter .3s ease, opacity .3s ease;
+    transition:background .4s ease, box-shadow .4s ease, border-color .4s ease;
+    border:1px solid transparent;
   }
   .mob-bottom-bar.frosted{
-    background:rgba(30,30,30,0.45);
-    backdrop-filter:blur(16px) saturate(180%);
-    -webkit-backdrop-filter:blur(16px) saturate(180%);
-    box-shadow:0 4px 24px rgba(0,0,0,.25);
+    background:rgba(20,20,20,0.12);
+    backdrop-filter:blur(24px) saturate(200%) brightness(1.1);
+    -webkit-backdrop-filter:blur(24px) saturate(200%) brightness(1.1);
+    border:1px solid rgba(255,255,255,0.18);
+    box-shadow:0 2px 20px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,0.12);
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.5);
-    backdrop-filter:blur(16px) saturate(180%);
-    -webkit-backdrop-filter:blur(16px) saturate(180%);
-    box-shadow:0 4px 24px rgba(0,0,0,.10);
+    background:rgba(255,255,255,0.15);
+    backdrop-filter:blur(24px) saturate(200%) brightness(1.05);
+    -webkit-backdrop-filter:blur(24px) saturate(200%) brightness(1.05);
+    border:1px solid rgba(255,255,255,0.55);
+    box-shadow:0 2px 20px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+
+  /* Contenu intérieur de la barre — devient transparent au frosted */
+  .mob-bottom-bar.frosted .mob-search-wrap input{
+    background:rgba(255,255,255,0.08);
+    color:rgba(255,255,255,0.75);
+    border:1px solid rgba(255,255,255,0.15);
+    transition:background .3s, color .3s;
+  }
+  body.light .mob-bottom-bar.frosted .mob-search-wrap input{
+    background:rgba(255,255,255,0.2);
+    color:rgba(0,0,0,0.55);
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{
+    color:rgba(255,255,255,0.4);
+  }
+  body.light .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{
+    color:rgba(0,0,0,0.3);
+  }
+  .mob-bottom-bar.frosted .mob-add-btn{
+    background:rgba(255,255,255,0.12);
+    color:rgba(255,255,255,0.8);
+    border:1px solid rgba(255,255,255,0.2);
+    transition:background .3s, color .3s;
+  }
+  body.light .mob-bottom-bar.frosted .mob-add-btn{
+    background:rgba(255,255,255,0.25);
+    color:rgba(0,0,0,0.6);
+    border:1px solid rgba(0,0,0,0.08);
+  }
+  /* Label "Paroles" checkbox */
+  .mob-bottom-bar.frosted label{
+    color:rgba(255,255,255,0.55) !important;
+    transition:color .3s;
+  }
+  body.light .mob-bottom-bar.frosted label{
+    color:rgba(0,0,0,0.4) !important;
   }
 
   .mob-filters{
@@ -571,17 +612,39 @@ select.fi option{background:var(--surface2);color:var(--text);}
     padding:.4rem .8rem;overflow-x:auto;display:flex;gap:.35rem;
     scrollbar-width:none;background:var(--surface);border-radius:50px;
     box-shadow:var(--shadow);z-index:49;
-    transition:background .3s ease, backdrop-filter .3s ease;
+    transition:background .4s ease, box-shadow .4s ease, border-color .4s ease;
+    border:1px solid transparent;
   }
   .mob-filters.frosted{
-    background:rgba(30,30,30,0.45);
-    backdrop-filter:blur(16px) saturate(180%);
-    -webkit-backdrop-filter:blur(16px) saturate(180%);
+    background:rgba(20,20,20,0.12);
+    backdrop-filter:blur(24px) saturate(200%) brightness(1.1);
+    -webkit-backdrop-filter:blur(24px) saturate(200%) brightness(1.1);
+    border:1px solid rgba(255,255,255,0.18);
+    box-shadow:0 2px 16px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,0.10);
   }
   body.light .mob-filters.frosted{
-    background:rgba(255,255,255,0.5);
-    backdrop-filter:blur(16px) saturate(180%);
-    -webkit-backdrop-filter:blur(16px) saturate(180%);
+    background:rgba(255,255,255,0.15);
+    backdrop-filter:blur(24px) saturate(200%) brightness(1.05);
+    -webkit-backdrop-filter:blur(24px) saturate(200%) brightness(1.05);
+    border:1px solid rgba(255,255,255,0.55);
+    box-shadow:0 2px 16px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,0.7);
+  }
+  /* Pills de filtre — quasi transparentes au frosted */
+  .mob-filters.frosted .mob-filter-pill{
+    background:rgba(255,255,255,0.07);
+    border-color:rgba(255,255,255,0.18);
+    color:rgba(255,255,255,0.6);
+    transition:all .3s;
+  }
+  body.light .mob-filters.frosted .mob-filter-pill{
+    background:rgba(255,255,255,0.2);
+    border-color:rgba(0,0,0,0.1);
+    color:rgba(0,0,0,0.45);
+  }
+  .mob-filters.frosted .mob-filter-pill.active{
+    background:rgba(139,26,46,0.7);
+    border-color:rgba(196,57,90,0.6);
+    color:rgba(255,255,255,0.9);
   }
   .mob-filters::-webkit-scrollbar{display:none;}
   .mob-filter-pill{
