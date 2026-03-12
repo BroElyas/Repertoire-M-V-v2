@@ -566,18 +566,18 @@ select.fi option{background:var(--surface2);color:var(--text);}
 
   /* ── BARRE DU BAS — état scroll (liquid glass) ── */
   .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.06);
-    backdrop-filter:blur(28px) saturate(200%) brightness(1.15);
-    -webkit-backdrop-filter:blur(28px) saturate(200%) brightness(1.15);
-    border:1px solid rgba(255,255,255,0.12);
-    box-shadow:0 1px 8px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,0.07);
+    background:rgba(255,255,255,0.03);
+    backdrop-filter:blur(18px) saturate(180%) brightness(1.1);
+    -webkit-backdrop-filter:blur(18px) saturate(180%) brightness(1.1);
+    border:1px solid rgba(255,255,255,0.08);
+    box-shadow:none;
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.08);
-    backdrop-filter:blur(28px) saturate(200%) brightness(1.04);
-    -webkit-backdrop-filter:blur(28px) saturate(200%) brightness(1.04);
-    border:1px solid rgba(255,255,255,0.30);
-    box-shadow:0 1px 8px rgba(0,0,0,.03), inset 0 1px 0 rgba(255,255,255,0.45);
+    background:rgba(255,255,255,0.04);
+    backdrop-filter:blur(18px) saturate(180%) brightness(1.03);
+    -webkit-backdrop-filter:blur(18px) saturate(180%) brightness(1.03);
+    border:1px solid rgba(255,255,255,0.22);
+    box-shadow:none;
   }
 
   /* ── INPUT RECHERCHE ── */
@@ -1572,29 +1572,49 @@ function renderList(){
 
 // ── FROSTED GLASS BOTTOM BAR ─────────────────────────────────────────────────
 (function(){
-  function initFrosted(){
-    const list    = document.getElementById('mobSongList');
-    const bar     = document.querySelector('.mob-bottom-bar');
-    const filters = document.getElementById('mobFilters');
-    const input   = document.getElementById('mobSearchInput');
-    if(!list || !bar) return;
+  let _scrollTimer = null;
+  let _isFrosted = false;
+  let _listEl = null;
+  let _barEl = null;
+  let _filtersEl = null;
+  let _inputEl = null;
 
-    function setFrosted(on){
-      bar.classList.toggle('frosted', on);
-      if(filters) filters.classList.toggle('frosted', on);
-    }
-
-    list.addEventListener('scroll', ()=>{ setFrosted(true); }, {passive:true});
-
-    // Revert to opaque when user taps the search input
-    if(input){
-      input.addEventListener('focus', ()=>{ setFrosted(false); });
-    }
+  function setFrosted(on){
+    if(_isFrosted === on) return;
+    _isFrosted = on;
+    if(_barEl) _barEl.classList.toggle('frosted', on);
+    if(_filtersEl) _filtersEl.classList.toggle('frosted', on);
   }
-  // Wait for DOM
+
+  function onScroll(){
+    setFrosted(true);
+  }
+
+  function onFocus(){
+    // Revert everything when user taps search
+    setFrosted(false);
+    if(_listEl) _listEl.scrollTop = 0; // optionnel : reset scroll position
+  }
+
+  function initFrosted(){
+    // Remove old listeners before re-attaching
+    if(_listEl) _listEl.removeEventListener('scroll', onScroll);
+    if(_inputEl) _inputEl.removeEventListener('focus', onFocus);
+
+    _listEl    = document.getElementById('mobSongList');
+    _barEl     = document.querySelector('.mob-bottom-bar');
+    _filtersEl = document.getElementById('mobFilters');
+    _inputEl   = document.getElementById('mobSearchInput');
+
+    if(!_listEl || !_barEl) return;
+
+    _listEl.addEventListener('scroll', onScroll, {passive:true});
+    if(_inputEl) _inputEl.addEventListener('focus', onFocus);
+  }
+
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFrosted);
   else initFrosted();
-  // Also re-init after renderMobList in case list is replaced
+
   window._reinitFrosted = initFrosted;
 })();
 
