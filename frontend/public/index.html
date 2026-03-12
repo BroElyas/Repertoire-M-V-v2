@@ -539,6 +539,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
   .mob-song-card-author{font-size:.72rem;color:#555;font-weight:600;margin-bottom:.38rem;}
   .mob-song-card-tags{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;}
 
+  /* ── BARRE DU BAS — état normal (verre léger) ── */
   .mob-bottom-bar{
     position:fixed;
     bottom:calc(.65rem + env(safe-area-inset-bottom));
@@ -547,108 +548,132 @@ select.fi option{background:var(--surface2);color:var(--text);}
     padding:.45rem .6rem;
     display:flex;gap:.4rem;align-items:center;
     z-index:50;border-radius:50px;
-    /* État normal : verre frosted léger */
-    background:rgba(20,20,20,0.25);
+    background:rgba(20,20,20,0.30);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
     border:1px solid rgba(255,255,255,0.18);
     box-shadow:0 2px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,0.12);
-    transition:background .4s ease, border-color .4s ease, box-shadow .4s ease;
+    transition:background .35s, border-color .35s, box-shadow .35s;
   }
   body.light .mob-bottom-bar{
-    background:rgba(255,255,255,0.35);
+    background:rgba(255,255,255,0.40);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.65);
-    box-shadow:0 2px 20px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,0.8);
+    border:1px solid rgba(255,255,255,0.70);
+    box-shadow:0 2px 20px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,0.85);
   }
 
-  /* État scroll : verre total, contenu quasi invisible */
+  /* ── BARRE DU BAS — état scroll (verre total) ── */
   .mob-bottom-bar.frosted{
-    background:rgba(20,20,20,0.08);
-    backdrop-filter:blur(28px) saturate(220%) brightness(1.15);
-    -webkit-backdrop-filter:blur(28px) saturate(220%) brightness(1.15);
-    border:1px solid rgba(255,255,255,0.12);
-    box-shadow:0 1px 12px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,0.08);
+    background:rgba(255,255,255,0.04);
+    backdrop-filter:blur(30px) saturate(220%) brightness(1.2);
+    -webkit-backdrop-filter:blur(30px) saturate(220%) brightness(1.2);
+    border:1px solid rgba(255,255,255,0.10);
+    box-shadow:0 1px 12px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.06);
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.08);
-    backdrop-filter:blur(28px) saturate(220%) brightness(1.05);
-    -webkit-backdrop-filter:blur(28px) saturate(220%) brightness(1.05);
-    border:1px solid rgba(255,255,255,0.4);
-    box-shadow:0 1px 12px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,0.6);
+    background:rgba(255,255,255,0.06);
+    backdrop-filter:blur(30px) saturate(220%) brightness(1.05);
+    -webkit-backdrop-filter:blur(30px) saturate(220%) brightness(1.05);
+    border:1px solid rgba(255,255,255,0.35);
+    box-shadow:0 1px 12px rgba(0,0,0,.03), inset 0 1px 0 rgba(255,255,255,0.5);
   }
 
-  /* Contenu intérieur — état normal : lisible */
+  /* ── INPUT RECHERCHE — état normal ── */
+  .mob-search-wrap{flex:1;position:relative;}
+  .mob-search-wrap::before{
+    content:'🔍';
+    position:absolute;left:.65rem;top:50%;transform:translateY(-50%);
+    font-size:.6rem;pointer-events:none;
+    opacity:.4;transition:opacity .35s;
+  }
   .mob-search-wrap input{
     width:100%;padding:.5rem .9rem .5rem 2rem;border-radius:50px;
-    border:1px solid rgba(255,255,255,0.15);
+    font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:600;outline:none;
     background:rgba(255,255,255,0.10);
-    font-family:'Nunito',sans-serif;
-    font-size:.8rem;font-weight:600;color:rgba(255,255,255,0.9);outline:none;
-    transition:background .4s, color .4s, border-color .4s;
+    border:1px solid rgba(255,255,255,0.20);
+    color:rgba(255,255,255,0.92);
+    transition:background .35s, border-color .35s, color .35s, box-shadow .35s;
   }
   body.light .mob-search-wrap input{
-    background:rgba(255,255,255,0.4);
-    border:1px solid rgba(0,0,0,0.08);
-    color:rgba(0,0,0,0.75);
+    background:rgba(255,255,255,0.45);
+    border:1px solid rgba(0,0,0,0.10);
+    color:rgba(0,0,0,0.80);
   }
-  .mob-search-wrap input::placeholder{color:rgba(255,255,255,0.5);}
-  body.light .mob-search-wrap input::placeholder{color:rgba(0,0,0,0.35);}
+  .mob-search-wrap input::placeholder{
+    color:rgba(255,255,255,0.50);
+    transition:color .35s;
+  }
+  body.light .mob-search-wrap input::placeholder{
+    color:rgba(0,0,0,0.38);
+  }
   .mob-search-wrap input:focus{
-    background:var(--surface2) !important;
-    color:var(--text) !important;
+    background:var(--surface) !important;
     border-color:#8b1a2e !important;
+    color:var(--text) !important;
+    box-shadow:0 0 0 3px rgba(139,26,46,.15) !important;
+  }
+  .mob-search-wrap input:focus::placeholder{
+    color:var(--muted) !important;
   }
 
-  /* Contenu intérieur — état scroll : invisible */
+  /* ── INPUT RECHERCHE — état scroll (verre liquide pur) ── */
   .mob-bottom-bar.frosted .mob-search-wrap input{
-    background:transparent;
-    border-color:rgba(255,255,255,0.06);
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.14);
     color:transparent;
-    transition:background .4s, color .4s, border-color .4s;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
   }
   body.light .mob-bottom-bar.frosted .mob-search-wrap input{
-    background:transparent;
-    border-color:rgba(0,0,0,0.04);
+    background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.40);
     color:transparent;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.5);
   }
   .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{color:transparent;}
   .mob-bottom-bar.frosted .mob-search-wrap::before{opacity:0;}
 
+  /* ── BOUTON +CHANT — état normal ── */
+  .mob-add-btn{
+    flex-shrink:0;padding:.42rem .85rem;border-radius:50px;
+    background:rgba(255,255,255,0.15);
+    border:1px solid rgba(255,255,255,0.22);
+    color:rgba(255,255,255,0.92);
+    font-size:.75rem;font-weight:900;cursor:pointer;white-space:nowrap;
+    -webkit-tap-highlight-color:transparent;
+    transition:opacity .15s, color .35s, background .35s, border-color .35s;
+  }
+  body.light .mob-add-btn{
+    background:rgba(255,255,255,0.50);
+    border:1px solid rgba(0,0,0,0.10);
+    color:rgba(0,0,0,0.80);
+  }
+  .mob-add-btn:active{opacity:.7;}
+
+  /* ── BOUTON +CHANT — état scroll (invisible) ── */
   .mob-bottom-bar.frosted .mob-add-btn{
     color:transparent;
     background:transparent;
     border-color:transparent;
     box-shadow:none;
-  }
-  body.light .mob-bottom-bar.frosted .mob-add-btn{
-    color:transparent;
-    background:transparent;
-    border-color:transparent;
-  }
-  .mob-bottom-bar.frosted label,
-  .mob-bottom-bar.frosted label *{
-    color:transparent !important;
-    border-color:transparent !important;
-    transition:color .4s;
+    pointer-events:none;
   }
 
-  .mob-add-btn{
-    flex-shrink:0;padding:.42rem .85rem;border-radius:50px;
-    background:rgba(255,255,255,0.15);
-    border:1px solid rgba(255,255,255,0.2);
-    color:rgba(255,255,255,0.9);
-    font-size:.75rem;font-weight:900;cursor:pointer;white-space:nowrap;
-    -webkit-tap-highlight-color:transparent;
-    transition:opacity .15s, color .4s, background .4s, border-color .4s;
+  /* ── LABEL PAROLES — état normal ── */
+  .mob-paroles-label{
+    display:flex;align-items:center;gap:.3rem;
+    font-size:.62rem;font-weight:700;
+    color:rgba(255,255,255,0.75);
+    white-space:nowrap;cursor:pointer;flex-shrink:0;
+    transition:opacity .35s;
   }
-  body.light .mob-add-btn{
-    background:rgba(255,255,255,0.45);
-    border:1px solid rgba(0,0,0,0.08);
-    color:rgba(0,0,0,0.75);
+  body.light .mob-paroles-label{color:rgba(0,0,0,0.60);}
+
+  /* ── LABEL PAROLES — état scroll (invisible) ── */
+  .mob-bottom-bar.frosted .mob-paroles-label{
+    opacity:0;
+    pointer-events:none;
   }
-  .mob-add-btn:active{opacity:.7;}
 
   .mob-filters{
     position:fixed;
@@ -689,11 +714,11 @@ select.fi option{background:var(--surface2);color:var(--text);}
     background:transparent;
     border-color:transparent;
     color:transparent;
-    transition:all .4s;
+    transition:all .35s;
   }
   .mob-filters.frosted .mob-filter-pill.active{
-    background:rgba(139,26,46,0.25);
-    border-color:rgba(196,57,90,0.2);
+    background:transparent;
+    border-color:transparent;
     color:transparent;
   }
   .mob-filters::-webkit-scrollbar{display:none;}
@@ -838,7 +863,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
     <div class="mob-search-wrap">
       <input type="text" id="mobSearchInput" placeholder="Rechercher un chant…" oninput="handleMobSearch()">
     </div>
-    <label style="display:flex;align-items:center;gap:.3rem;font-size:.62rem;font-weight:700;color:#888;white-space:nowrap;cursor:pointer;flex-shrink:0;">
+    <label class="mob-paroles-label">
       <input type="checkbox" id="mobSearchLyrics" onchange="handleMobSearch()" style="accent-color:#8b1a2e;width:13px;height:13px;">
       Paroles
     </label>
