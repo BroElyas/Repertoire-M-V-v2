@@ -548,19 +548,19 @@ select.fi option{background:var(--surface2);color:var(--text);}
     padding:.45rem .6rem;
     display:flex;gap:.4rem;align-items:center;
     z-index:50;border-radius:50px;
-    background:rgba(20,20,20,0.30);
+    background:rgba(20,20,20,0.18);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.18);
-    box-shadow:0 2px 20px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.14);
+    box-shadow:0 2px 16px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,0.10);
     transition:background .35s, border-color .35s, box-shadow .35s;
   }
   body.light .mob-bottom-bar{
-    background:rgba(255,255,255,0.40);
+    background:rgba(255,255,255,0.28);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.70);
-    box-shadow:0 2px 20px rgba(0,0,0,.08), inset 0 1px 0 rgba(255,255,255,0.85);
+    border:1px solid rgba(255,255,255,0.60);
+    box-shadow:0 2px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.80);
   }
 
   /* ── BARRE DU BAS — état scroll (verre total) ── */
@@ -585,37 +585,40 @@ select.fi option{background:var(--surface2);color:var(--text);}
     content:'🔍';
     position:absolute;left:.65rem;top:50%;transform:translateY(-50%);
     font-size:.6rem;pointer-events:none;
-    opacity:.4;transition:opacity .35s;
+    opacity:.5;transition:opacity .35s;
   }
   .mob-search-wrap input{
-    width:100%;padding:.5rem .9rem .5rem 2rem;border-radius:50px;
+    width:100%;padding:.5rem .9rem .5rem 2rem;
+    border-radius:50px;
     font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:600;outline:none;
-    background:rgba(255,255,255,0.10);
-    border:1px solid rgba(255,255,255,0.20);
+    background:transparent;
+    border:none;
     color:rgba(255,255,255,0.92);
-    transition:background .35s, border-color .35s, color .35s, box-shadow .35s;
+    transition:color .35s;
   }
   body.light .mob-search-wrap input{
-    background:rgba(255,255,255,0.45);
-    border:1px solid rgba(0,0,0,0.10);
     color:rgba(0,0,0,0.80);
   }
   .mob-search-wrap input::placeholder{
-    color:rgba(255,255,255,0.50);
+    color:rgba(255,255,255,0.55);
     transition:color .35s;
   }
   body.light .mob-search-wrap input::placeholder{
-    color:rgba(0,0,0,0.38);
+    color:rgba(0,0,0,0.42);
   }
   .mob-search-wrap input:focus{
-    background:var(--surface) !important;
-    border-color:#8b1a2e !important;
     color:var(--text) !important;
-    box-shadow:0 0 0 3px rgba(139,26,46,.15) !important;
   }
   .mob-search-wrap input:focus::placeholder{
     color:var(--muted) !important;
   }
+
+  /* État scroll — texte invisible, icône disparaît */
+  .mob-bottom-bar.frosted .mob-search-wrap input{
+    color:transparent;
+  }
+  .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{color:transparent;}
+  .mob-bottom-bar.frosted .mob-search-wrap::before{opacity:0;}
 
   /* ── INPUT RECHERCHE — état scroll (verre liquide pur) ── */
   .mob-bottom-bar.frosted .mob-search-wrap input{
@@ -683,43 +686,27 @@ select.fi option{background:var(--surface2);color:var(--text);}
     padding:.4rem .8rem;overflow-x:auto;display:flex;gap:.35rem;
     scrollbar-width:none;border-radius:50px;
     z-index:49;
-    /* État normal : verre */
-    background:rgba(20,20,20,0.25);
+    background:rgba(20,20,20,0.30);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
     border:1px solid rgba(255,255,255,0.15);
-    box-shadow:0 2px 16px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,0.10);
-    transition:background .4s ease, border-color .4s ease;
+    box-shadow:0 2px 16px rgba(0,0,0,.14);
+    transition:opacity .35s ease, transform .35s ease;
+    opacity:1;
   }
   body.light .mob-filters{
-    background:rgba(255,255,255,0.35);
+    background:rgba(255,255,255,0.40);
     backdrop-filter:blur(20px) saturate(180%);
     -webkit-backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.65);
-    box-shadow:0 2px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.8);
+    border:1px solid rgba(255,255,255,0.70);
+    box-shadow:0 2px 16px rgba(0,0,0,.06);
   }
 
-  /* État scroll : pills invisibles */
+  /* État scroll : toute la barre catégories disparaît complètement */
   .mob-filters.frosted{
-    background:rgba(20,20,20,0.08);
-    backdrop-filter:blur(28px) saturate(220%);
-    -webkit-backdrop-filter:blur(28px) saturate(220%);
-    border:1px solid rgba(255,255,255,0.08);
-  }
-  body.light .mob-filters.frosted{
-    background:rgba(255,255,255,0.08);
-    border:1px solid rgba(255,255,255,0.35);
-  }
-  .mob-filters.frosted .mob-filter-pill{
-    background:transparent;
-    border-color:transparent;
-    color:transparent;
-    transition:all .35s;
-  }
-  .mob-filters.frosted .mob-filter-pill.active{
-    background:transparent;
-    border-color:transparent;
-    color:transparent;
+    opacity:0;
+    pointer-events:none;
+    transform:translateX(-50%) translateY(6px);
   }
   .mob-filters::-webkit-scrollbar{display:none;}
   .mob-filter-pill{
