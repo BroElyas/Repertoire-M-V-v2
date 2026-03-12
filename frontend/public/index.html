@@ -211,8 +211,8 @@ body.light .lyric-blk-body { background:#fff !important; color:#1a1008 !importan
 body.light [style*="background:#1a1a1a"] { background:#f8f4f0 !important; }
 
 /* Tab buttons (desktop sidebar) */
-body.light #tabRepertoire, body.light #tabSetlist { color:#8a7068 !important; background:transparent !important; border-bottom-color:transparent !important; }
-body.light #tabRepertoire.tab-active, body.light #tabSetlist.tab-active { background:#8b1a2e !important; color:white !important; border-bottom-color:#c4395a !important; }
+body.light #tabRepertoire, body.light #tabSetlist { background:transparent !important; }
+body.light #tabRepertoire.tab-active, body.light #tabSetlist.tab-active { background:transparent !important; color:#1a1008 !important; border-bottom-color:#8b1a2e !important; }
 
 /* Setlist view items (JS-generated inline styles) */
 body.light #setlistView [onclick] { background:#fff !important; }
@@ -569,17 +569,17 @@ select.fi option{background:var(--surface2);color:var(--text);}
 
   /* ── BARRE DU BAS — état scroll (liquid glass) ── */
   .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.01);
-    backdrop-filter:blur(16px) saturate(160%) brightness(1.08);
-    -webkit-backdrop-filter:blur(16px) saturate(160%) brightness(1.08);
-    border:1px solid rgba(255,255,255,0.06);
+    background:rgba(30,30,30,0.12);
+    backdrop-filter:blur(12px) saturate(140%);
+    -webkit-backdrop-filter:blur(12px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.07);
     box-shadow:none;
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.02);
-    backdrop-filter:blur(16px) saturate(160%) brightness(1.02);
-    -webkit-backdrop-filter:blur(16px) saturate(160%) brightness(1.02);
-    border:1px solid rgba(255,255,255,0.18);
+    background:rgba(245,240,235,0.15);
+    backdrop-filter:blur(12px) saturate(140%);
+    -webkit-backdrop-filter:blur(12px) saturate(140%);
+    border:1px solid rgba(255,255,255,0.25);
     box-shadow:none;
   }
 
@@ -849,10 +849,10 @@ select.fi option{background:var(--surface2);color:var(--text);}
 <div class="app-body">
   <aside class="sidebar" id="sidebar">
     <div style="display:flex;border-bottom:1px solid #2a2020;flex-shrink:0;">
-    <button id="tabRepertoire" onclick="switchSidebarTab('repertoire')" style="flex:1;padding:.55rem;font-size:.72rem;font-weight:800;background:#8b1a2e;color:white;border:none;cursor:pointer;font-family:'Nunito',sans-serif;border-bottom:2px solid #c4395a;">
+    <button id="tabRepertoire" onclick="switchSidebarTab('repertoire')" style="flex:1;padding:.55rem;font-size:.72rem;font-weight:800;background:transparent;color:var(--text);border:none;cursor:pointer;font-family:'Nunito',sans-serif;border-bottom:2px solid #8b1a2e;">
       Repertoire
     </button>
-    <button id="tabSetlist" onclick="switchSidebarTab('setlist')" style="flex:1;padding:.55rem;font-size:.72rem;font-weight:800;background:transparent;color:#888;border:none;cursor:pointer;font-family:'Nunito',sans-serif;border-bottom:2px solid transparent;">
+    <button id="tabSetlist" onclick="switchSidebarTab('setlist')" style="flex:1;padding:.55rem;font-size:.72rem;font-weight:800;background:transparent;color:var(--muted);border:none;cursor:pointer;font-family:'Nunito',sans-serif;border-bottom:2px solid transparent;">
       Setlist
     </button>
   </div>
@@ -3153,24 +3153,23 @@ function switchSidebarTab(tab){
 
   const tabRep = document.getElementById('tabRepertoire');
   const tabSet = document.getElementById('tabSetlist');
+  const isLight = document.body.classList.contains('light');
+  const mutedColor = isLight ? '#8a7068' : '#888';
+  const activeColor = isLight ? '#1a1008' : '#f0ece8';
 
-  // Reset inline styles — let CSS classes handle theming
-  [tabRep, tabSet].forEach(t => {
-    t.style.background = '';
-    t.style.color = '';
-    t.style.borderBottom = '';
-    t.classList.remove('tab-active');
-  });
-
-  const activeTab = isSetlist ? tabSet : tabRep;
+  // Onglet actif : juste barre bordeaux en dessous, pas de fond
+  const activeTab  = isSetlist ? tabSet : tabRep;
   const inactiveTab = isSetlist ? tabRep : tabSet;
 
+  activeTab.style.background = 'transparent';
+  activeTab.style.color = activeColor;
+  activeTab.style.borderBottom = '2px solid #8b1a2e';
   activeTab.classList.add('tab-active');
-  activeTab.style.background = '#8b1a2e';
-  activeTab.style.color = 'white';
-  activeTab.style.borderBottom = '2px solid #c4395a';
-  inactiveTab.style.color = document.body.classList.contains('light') ? '#8a7068' : '#888';
+
+  inactiveTab.style.background = 'transparent';
+  inactiveTab.style.color = mutedColor;
   inactiveTab.style.borderBottom = '2px solid transparent';
+  inactiveTab.classList.remove('tab-active');
 
   if(isSetlist) loadSetlist();
 }
