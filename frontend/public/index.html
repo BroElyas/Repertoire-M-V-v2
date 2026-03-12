@@ -197,7 +197,10 @@ body.light #deskSortMenu { background:#fff !important; border-color:#d4c4bc !imp
 
 /* Mobile detail view */
 body.light #mobileDetailView { background:#f5f0eb !important; }
-body.light #mobileDetailView .mob-detail-header { background:#f5f0eb; border-bottom-color:#d4c4bc; }
+body.light #mobileDetailView .mob-detail-header { background:#f5f0eb; border-bottom:1px solid #d4c4bc; }
+body.light .mob-back-btn { border-color:#b8a8a0; color:#1a1008; }
+body.light .mob-back-btn:active { background:#ede8e3; }
+body.light .mob-detail-header-title { color:#1a1008; }
 
 /* Detail panel background */
 body.light .detail-card { background:#fff !important; border-color:#d4c4bc !important; }
@@ -208,8 +211,8 @@ body.light .lyric-blk-body { background:#fff !important; color:#1a1008 !importan
 body.light [style*="background:#1a1a1a"] { background:#f8f4f0 !important; }
 
 /* Tab buttons (desktop sidebar) */
-body.light #tabRepertoire, body.light #tabSetlist { background:transparent !important; }
-body.light #tabRepertoire { color:#8a7068 !important; border-bottom-color:transparent !important; }
+body.light #tabRepertoire, body.light #tabSetlist { color:#8a7068 !important; background:transparent !important; border-bottom-color:transparent !important; }
+body.light #tabRepertoire.tab-active, body.light #tabSetlist.tab-active { background:#8b1a2e !important; color:white !important; border-bottom-color:#c4395a !important; }
 
 /* Setlist view items (JS-generated inline styles) */
 body.light #setlistView [onclick] { background:#fff !important; }
@@ -566,17 +569,17 @@ select.fi option{background:var(--surface2);color:var(--text);}
 
   /* ── BARRE DU BAS — état scroll (liquid glass) ── */
   .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.03);
-    backdrop-filter:blur(18px) saturate(180%) brightness(1.1);
-    -webkit-backdrop-filter:blur(18px) saturate(180%) brightness(1.1);
-    border:1px solid rgba(255,255,255,0.08);
+    background:rgba(255,255,255,0.01);
+    backdrop-filter:blur(16px) saturate(160%) brightness(1.08);
+    -webkit-backdrop-filter:blur(16px) saturate(160%) brightness(1.08);
+    border:1px solid rgba(255,255,255,0.06);
     box-shadow:none;
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.04);
-    backdrop-filter:blur(18px) saturate(180%) brightness(1.03);
-    -webkit-backdrop-filter:blur(18px) saturate(180%) brightness(1.03);
-    border:1px solid rgba(255,255,255,0.22);
+    background:rgba(255,255,255,0.02);
+    backdrop-filter:blur(16px) saturate(160%) brightness(1.02);
+    -webkit-backdrop-filter:blur(16px) saturate(160%) brightness(1.02);
+    border:1px solid rgba(255,255,255,0.18);
     box-shadow:none;
   }
 
@@ -3147,12 +3150,28 @@ function switchSidebarTab(tab){
   const isSetlist = tab === 'setlist';
   document.getElementById('panelRepertoire').style.display = isSetlist ? 'none' : '';
   document.getElementById('panelSetlist').style.display = isSetlist ? '' : 'none';
-  document.getElementById('tabRepertoire').style.background = isSetlist ? 'transparent' : '#8b1a2e';
-  document.getElementById('tabRepertoire').style.color = isSetlist ? '#888' : 'white';
-  document.getElementById('tabRepertoire').style.borderBottom = isSetlist ? '2px solid transparent' : '2px solid #c4395a';
-  document.getElementById('tabSetlist').style.background = isSetlist ? '#8b1a2e' : 'transparent';
-  document.getElementById('tabSetlist').style.color = isSetlist ? 'white' : '#888';
-  document.getElementById('tabSetlist').style.borderBottom = isSetlist ? '2px solid #c4395a' : '2px solid transparent';
+
+  const tabRep = document.getElementById('tabRepertoire');
+  const tabSet = document.getElementById('tabSetlist');
+
+  // Reset inline styles — let CSS classes handle theming
+  [tabRep, tabSet].forEach(t => {
+    t.style.background = '';
+    t.style.color = '';
+    t.style.borderBottom = '';
+    t.classList.remove('tab-active');
+  });
+
+  const activeTab = isSetlist ? tabSet : tabRep;
+  const inactiveTab = isSetlist ? tabRep : tabSet;
+
+  activeTab.classList.add('tab-active');
+  activeTab.style.background = '#8b1a2e';
+  activeTab.style.color = 'white';
+  activeTab.style.borderBottom = '2px solid #c4395a';
+  inactiveTab.style.color = document.body.classList.contains('light') ? '#8a7068' : '#888';
+  inactiveTab.style.borderBottom = '2px solid transparent';
+
   if(isSetlist) loadSetlist();
 }
 
