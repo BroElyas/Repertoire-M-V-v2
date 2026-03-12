@@ -2150,8 +2150,8 @@ async function renderAdminContributors(){
       <div style="width:28px;height:28px;border-radius:50%;background:${c.color};display:flex;align-items:center;justify-content:center;color:white;font-size:.75rem;font-weight:900;flex-shrink:0;">${c.name[0].toUpperCase()}</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:.82rem;font-weight:800;color:var(--text)">${c.name}</div>
-        <div style="font-size:.62rem;color:var(--muted);margin-top:.15rem;">
-          ${perms.length ? perms.map(p=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;margin-right:3px;font-weight:700;">${p}</span>`).join('') : '<span style="color:#555">Aucune permission</span>'}
+        <div style="font-size:.62rem;color:var(--muted);margin-top:.15rem;display:flex;flex-wrap:wrap;gap:2px;">
+          ${perms.length ? perms.map(p=>`<span style="background:#2a1018;color:#c4395a;border-radius:4px;padding:1px 5px;margin-right:3px;margin-bottom:2px;font-weight:700;display:inline-block;">${p}</span>`).join('') : '<span style="color:#555">Aucune permission</span>'}
         </div>
       </div>
       <button class="btn btn-ghost btn-sm btn-danger" style="padding:.2rem .5rem;font-size:.65rem" onclick="deleteContributor(${c.id},'${c.name}')">✕</button>
@@ -2675,6 +2675,12 @@ function setlistDrop(e, toIdx){
 function renderAdminSetlist(){
   const el = document.getElementById('adminSetlistEditor');
   if(!el) return;
+  // Save current special label value before re-render
+  const existingSpecialInput = document.getElementById('specialLabel');
+  if(existingSpecialInput) {
+    const savedVal = existingSpecialInput.value;
+    setlistData = setlistData.map(i => i.section==='special' ? {...i, special_label: savedVal||i.special_label} : i);
+  }
   const sections = [
     { key:'principale', label:'Principale', multi:true },
     { key:'special',    label:'Speciale (optionnelle)', multi:false },
