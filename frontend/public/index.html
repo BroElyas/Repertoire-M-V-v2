@@ -540,6 +540,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
   .mob-song-card-tags{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center;}
 
   /* ── BARRE DU BAS — état normal (verre léger) ── */
+  /* ── BARRE DU BAS — état normal (verre léger) ── */
   .mob-bottom-bar{
     position:fixed;
     bottom:calc(.65rem + env(safe-area-inset-bottom));
@@ -548,93 +549,67 @@ select.fi option{background:var(--surface2);color:var(--text);}
     padding:.45rem .6rem;
     display:flex;gap:.4rem;align-items:center;
     z-index:50;border-radius:50px;
-    background:rgba(20,20,20,0.18);
-    backdrop-filter:blur(20px) saturate(180%);
-    -webkit-backdrop-filter:blur(20px) saturate(180%);
+    background:rgba(20,20,20,0.22);
+    backdrop-filter:blur(20px) saturate(160%);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
     border:1px solid rgba(255,255,255,0.14);
-    box-shadow:0 2px 16px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,0.10);
-    transition:background .35s, border-color .35s, box-shadow .35s;
+    box-shadow:0 2px 16px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,0.08);
+    transition:background .4s, border-color .4s, box-shadow .4s;
   }
   body.light .mob-bottom-bar{
-    background:rgba(255,255,255,0.28);
-    backdrop-filter:blur(20px) saturate(180%);
-    -webkit-backdrop-filter:blur(20px) saturate(180%);
-    border:1px solid rgba(255,255,255,0.60);
-    box-shadow:0 2px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.80);
+    background:rgba(255,255,255,0.30);
+    backdrop-filter:blur(20px) saturate(160%);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
+    border:1px solid rgba(255,255,255,0.55);
+    box-shadow:0 2px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.75);
   }
 
-  /* ── BARRE DU BAS — état scroll (verre total) ── */
+  /* ── BARRE DU BAS — état scroll (liquid glass) ── */
   .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.04);
-    backdrop-filter:blur(30px) saturate(220%) brightness(1.2);
-    -webkit-backdrop-filter:blur(30px) saturate(220%) brightness(1.2);
-    border:1px solid rgba(255,255,255,0.10);
-    box-shadow:0 1px 12px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.06);
+    background:rgba(255,255,255,0.06);
+    backdrop-filter:blur(28px) saturate(200%) brightness(1.15);
+    -webkit-backdrop-filter:blur(28px) saturate(200%) brightness(1.15);
+    border:1px solid rgba(255,255,255,0.12);
+    box-shadow:0 1px 8px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,0.07);
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.06);
-    backdrop-filter:blur(30px) saturate(220%) brightness(1.05);
-    -webkit-backdrop-filter:blur(30px) saturate(220%) brightness(1.05);
-    border:1px solid rgba(255,255,255,0.35);
-    box-shadow:0 1px 12px rgba(0,0,0,.03), inset 0 1px 0 rgba(255,255,255,0.5);
+    background:rgba(255,255,255,0.08);
+    backdrop-filter:blur(28px) saturate(200%) brightness(1.04);
+    -webkit-backdrop-filter:blur(28px) saturate(200%) brightness(1.04);
+    border:1px solid rgba(255,255,255,0.30);
+    box-shadow:0 1px 8px rgba(0,0,0,.03), inset 0 1px 0 rgba(255,255,255,0.45);
   }
 
-  /* ── INPUT RECHERCHE — état normal ── */
+  /* ── INPUT RECHERCHE ── */
   .mob-search-wrap{flex:1;position:relative;}
   .mob-search-wrap::before{
     content:'🔍';
     position:absolute;left:.65rem;top:50%;transform:translateY(-50%);
     font-size:.6rem;pointer-events:none;
-    opacity:.5;transition:opacity .35s;
+    opacity:.5;transition:opacity .4s;
   }
+  /* L'input est INVISIBLE comme conteneur — pas de fond, pas de bordure */
   .mob-search-wrap input{
     width:100%;padding:.5rem .9rem .5rem 2rem;
-    border-radius:50px;
+    border-radius:0;
     font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:600;outline:none;
-    background:transparent;
-    border:none;
-    color:rgba(255,255,255,0.92);
-    transition:color .35s;
+    background:transparent !important;
+    border:none !important;
+    box-shadow:none !important;
+    color:rgba(255,255,255,0.90);
+    transition:color .4s;
+    -webkit-appearance:none;
   }
-  body.light .mob-search-wrap input{
-    color:rgba(0,0,0,0.80);
-  }
-  .mob-search-wrap input::placeholder{
-    color:rgba(255,255,255,0.55);
-    transition:color .35s;
-  }
-  body.light .mob-search-wrap input::placeholder{
-    color:rgba(0,0,0,0.42);
-  }
-  .mob-search-wrap input:focus{
-    color:var(--text) !important;
-  }
-  .mob-search-wrap input:focus::placeholder{
-    color:var(--muted) !important;
-  }
+  body.light .mob-search-wrap input{ color:rgba(0,0,0,0.78); }
+  .mob-search-wrap input::placeholder{ color:rgba(255,255,255,0.52); transition:color .4s; }
+  body.light .mob-search-wrap input::placeholder{ color:rgba(0,0,0,0.40); }
+  .mob-search-wrap input:focus{ color:var(--text) !important; }
+  .mob-search-wrap input:focus::placeholder{ color:var(--muted) !important; }
 
-  /* État scroll — texte invisible, icône disparaît */
-  .mob-bottom-bar.frosted .mob-search-wrap input{
-    color:transparent;
-  }
-  .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{color:transparent;}
-  .mob-bottom-bar.frosted .mob-search-wrap::before{opacity:0;}
-
-  /* ── INPUT RECHERCHE — état scroll (verre liquide pur) ── */
-  .mob-bottom-bar.frosted .mob-search-wrap input{
-    background:rgba(255,255,255,0.05);
-    border:1px solid rgba(255,255,255,0.14);
-    color:transparent;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
-  }
-  body.light .mob-bottom-bar.frosted .mob-search-wrap input{
-    background:rgba(255,255,255,0.08);
-    border:1px solid rgba(255,255,255,0.40);
-    color:transparent;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,0.5);
-  }
-  .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{color:transparent;}
-  .mob-bottom-bar.frosted .mob-search-wrap::before{opacity:0;}
+  /* État scroll — tout disparaît */
+  .mob-bottom-bar.frosted .mob-search-wrap input{ color:transparent; }
+  .mob-bottom-bar.frosted .mob-search-wrap input::placeholder{ color:transparent; }
+  .mob-bottom-bar.frosted .mob-search-wrap::before{ opacity:0; }
 
   /* ── BOUTON +CHANT — état normal ── */
   .mob-add-btn{
