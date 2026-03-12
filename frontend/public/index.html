@@ -25,6 +25,108 @@
   --r: 18px; --r-sm: 12px; --r-xs: 8px;
   --danger: #e05577; --success: #3db87a; --warn: #e08c35;
 }
+
+/* ── LIGHT MODE ── */
+body.light {
+  --bg: #f5f0eb;
+  --surface: #ffffff;
+  --surface2: #ede8e3;
+  --blue-deep: #6b0f22;
+  --blue-mid: #8b1a2e;
+  --blue-light: #c4395a;
+  --blue-pale: #fce8ed;
+  --blue-paler: #fdf3f5;
+  --text: #1a1008;
+  --text-mid: #4a3830;
+  --muted: #8a7068;
+  --border: #d4c4bc;
+  --shadow: 0 4px 24px rgba(0,0,0,0.10);
+  --shadow-md: 0 8px 32px rgba(0,0,0,0.14);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.18);
+}
+body.light header {
+  background: #fff;
+  border-bottom-color: #d4c4bc;
+}
+body.light .btn {
+  background: #fff;
+  border-color: #d4c4bc;
+  color: #4a3830;
+}
+body.light .btn:hover {
+  background: #fce8ed;
+  border-color: #8b1a2e;
+  color: #1a1008;
+}
+body.light .btn-primary {
+  background: #8b1a2e;
+  color: #fff;
+  border-color: #8b1a2e;
+}
+body.light .btn-primary:hover {
+  background: #6b0f22;
+  color: #fff;
+  border-color: #6b0f22;
+}
+body.light .btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #4a3830;
+}
+body.light .alpha-sep { background: #f5f0eb; color: #8a7068; }
+body.light .mob-tab-row { background: #f0ebe6; border-bottom-color: #d4c4bc; }
+body.light .mob-count-row { background: #f8f4f0; border-bottom-color: #d4c4bc; }
+body.light .mob-sort-select { background: #fff; border-color: #d4c4bc; color: #4a3830; }
+body.light .sort-menu-item { color: #4a3830; }
+body.light .sort-menu-item:hover { background: #fce8ed; }
+body.light .cat-badge { filter: none; }
+body.light input, body.light textarea, body.light select {
+  background: #fff !important;
+  border-color: #d4c4bc !important;
+  color: #1a1008 !important;
+}
+body.light .overlay-box, body.light .admin-panel {
+  background: #fff;
+  border-color: #d4c4bc;
+}
+body.light .song-card {
+  background: #fff;
+  border-color: #d4c4bc;
+}
+body.light .song-card:hover {
+  background: #fce8ed;
+  border-color: #c4395a;
+}
+body.light .mob-song-card {
+  background: #fff;
+  border-color: #d4c4bc;
+}
+body.light .detail-panel, body.light #mobileDetailView {
+  background: #f5f0eb;
+}
+body.light .lyrics-block {
+  background: #fff;
+  border-color: #d4c4bc;
+}
+body.light .mob-bottom-bar {
+  background: rgba(245,240,235,0.97);
+  border-top-color: #d4c4bc;
+}
+body.light .mob-filters {
+  background: transparent;
+}
+body.light aside {
+  background: #f8f4f0;
+  border-right-color: #d4c4bc;
+}
+body.light .sidebar-search input {
+  background: #fff !important;
+}
+body.light .toast {
+  background: #fff;
+  color: #1a1008;
+  border: 1px solid #d4c4bc;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;-webkit-tap-highlight-color:transparent;}
 body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;overscroll-behavior:none;}
@@ -457,6 +559,7 @@ select.fi option{background:#252525;color:#f0ece8;}
   </div>
   <div class="header-actions">
     <div id="contributorBadge" onclick="clearContributorSession();updateContributorBadge();toast('Session terminee');" title="Cliquer pour se deconnecter" style="display:none;align-items:center;gap:.4rem;background:#1e1e1e;color:white;padding:.28rem .7rem;border-radius:50px;font-size:.68rem;font-weight:700;border:1px solid #444;cursor:pointer;white-space:nowrap;"></div>
+    <button class="btn btn-sm btn-ghost btn-icon" id="themeToggleBtn" onclick="toggleTheme()" title="Mode jour / nuit">🌙</button>
     <button class="btn btn-sm" onclick="openAdminPanel()">&#9881;</button>
     <button class="btn btn-primary btn-sm" onclick="startAddSong()">+ Chant</button>
   </div>
@@ -972,6 +1075,24 @@ async function apiFetch(url, opts={}) {
   if (!r.ok) { const e=await r.json().catch(()=>({error:'Erreur réseau'})); throw new Error(e.error||'Erreur'); }
   return r.json();
 }
+
+// ── THEME ─────────────────────────────────────────────────────────────────────
+function toggleTheme(){
+  const isLight = document.body.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  const btn = document.getElementById('themeToggleBtn');
+  if(btn) btn.textContent = isLight ? '☀️' : '🌙';
+}
+function applyStoredTheme(){
+  const stored = localStorage.getItem('theme');
+  const preferLight = stored ? stored === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches;
+  if(preferLight){
+    document.body.classList.add('light');
+    const btn = document.getElementById('themeToggleBtn');
+    if(btn) btn.textContent = '☀️';
+  }
+}
+applyStoredTheme();
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 async function init() {
