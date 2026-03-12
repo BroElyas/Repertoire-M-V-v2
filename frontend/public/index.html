@@ -548,6 +548,19 @@ select.fi option{background:var(--surface2);color:var(--text);}
     display:flex;gap:.4rem;align-items:center;
     z-index:50;border-radius:50px;
     box-shadow:var(--shadow-md);
+    transition:background .3s ease, backdrop-filter .3s ease, opacity .3s ease;
+  }
+  .mob-bottom-bar.frosted{
+    background:rgba(30,30,30,0.45);
+    backdrop-filter:blur(16px) saturate(180%);
+    -webkit-backdrop-filter:blur(16px) saturate(180%);
+    box-shadow:0 4px 24px rgba(0,0,0,.25);
+  }
+  body.light .mob-bottom-bar.frosted{
+    background:rgba(255,255,255,0.5);
+    backdrop-filter:blur(16px) saturate(180%);
+    -webkit-backdrop-filter:blur(16px) saturate(180%);
+    box-shadow:0 4px 24px rgba(0,0,0,.10);
   }
 
   .mob-filters{
@@ -558,6 +571,17 @@ select.fi option{background:var(--surface2);color:var(--text);}
     padding:.4rem .8rem;overflow-x:auto;display:flex;gap:.35rem;
     scrollbar-width:none;background:var(--surface);border-radius:50px;
     box-shadow:var(--shadow);z-index:49;
+    transition:background .3s ease, backdrop-filter .3s ease;
+  }
+  .mob-filters.frosted{
+    background:rgba(30,30,30,0.45);
+    backdrop-filter:blur(16px) saturate(180%);
+    -webkit-backdrop-filter:blur(16px) saturate(180%);
+  }
+  body.light .mob-filters.frosted{
+    background:rgba(255,255,255,0.5);
+    backdrop-filter:blur(16px) saturate(180%);
+    -webkit-backdrop-filter:blur(16px) saturate(180%);
   }
   .mob-filters::-webkit-scrollbar{display:none;}
   .mob-filter-pill{
@@ -1459,6 +1483,35 @@ function renderList(){
 }
 
 // ── MOBILE LIST ───────────────────────────────────────────────────────────────
+
+// ── FROSTED GLASS BOTTOM BAR ─────────────────────────────────────────────────
+(function(){
+  function initFrosted(){
+    const list    = document.getElementById('mobSongList');
+    const bar     = document.querySelector('.mob-bottom-bar');
+    const filters = document.getElementById('mobFilters');
+    const input   = document.getElementById('mobSearchInput');
+    if(!list || !bar) return;
+
+    function setFrosted(on){
+      bar.classList.toggle('frosted', on);
+      if(filters) filters.classList.toggle('frosted', on);
+    }
+
+    list.addEventListener('scroll', ()=>{ setFrosted(true); }, {passive:true});
+
+    // Revert to opaque when user taps the search input
+    if(input){
+      input.addEventListener('focus', ()=>{ setFrosted(false); });
+    }
+  }
+  // Wait for DOM
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFrosted);
+  else initFrosted();
+  // Also re-init after renderMobList in case list is replaced
+  window._reinitFrosted = initFrosted;
+})();
+
 let mobActiveFilter = 'all';
 let mobSearchTimer = null;
 
@@ -1567,7 +1620,8 @@ function renderMobList(prefiltered){
       alphaEl.classList.remove('active');
     }
   }
-
+  // Re-attach frosted glass scroll listener after list re-render
+  if(window._reinitFrosted) window._reinitFrosted();
 }
 
 // ── MOBILE DETAIL ─────────────────────────────────────────────────────────────
