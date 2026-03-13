@@ -658,7 +658,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
 
   .mob-filters{
     position:fixed;
-    bottom:calc(3.6rem + env(safe-area-inset-bottom));
+    bottom:calc(3.6rem + env(safe-area-inset-bottom) + 6px);
     left:50%;transform:translateX(-50%);
     width:min(92vw,400px);
     padding:.4rem .8rem;overflow-x:auto;display:flex;gap:.35rem;
@@ -1655,6 +1655,9 @@ function renderMobList(prefiltered){
   const el = document.getElementById('mobSongList');
   const countEl = document.getElementById('mobSongsCount');
   if(!el) return;
+
+  // Remonter en haut de la liste à chaque mise à jour
+  el.scrollTop = 0;
 
   const q = (document.getElementById('mobSearchInput')?.value||'').toLowerCase();
   const sortVal = _mobSort || 'alpha';
