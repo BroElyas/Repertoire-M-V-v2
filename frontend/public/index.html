@@ -557,7 +557,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
     -webkit-backdrop-filter:blur(20px) saturate(160%);
     border:1px solid rgba(255,255,255,0.14);
     box-shadow:0 2px 16px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,0.08);
-    transition:background .4s, border-color .4s, box-shadow .4s;
+    transition:background .25s, border-color .25s, box-shadow .25s, backdrop-filter .25s;
   }
   body.light .mob-bottom-bar{
     background:rgba(255,255,255,0.30);
@@ -567,18 +567,18 @@ select.fi option{background:var(--surface2);color:var(--text);}
     box-shadow:0 2px 16px rgba(0,0,0,.06), inset 0 1px 0 rgba(255,255,255,0.75);
   }
 
-  /* ── BARRE DU BAS — état scroll (liquid glass) ── */
+  /* ── BARRE DU BAS — état scroll (transparent total) ── */
   .mob-bottom-bar.frosted{
-    background:rgba(0,0,0,0.05);
-    backdrop-filter:blur(4px);
-    -webkit-backdrop-filter:blur(4px);
-    border:1px solid rgba(255,255,255,0.06);
+    background:rgba(0,0,0,0.04);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+    border:1px solid rgba(255,255,255,0.05);
     box-shadow:none;
   }
   body.light .mob-bottom-bar.frosted{
-    background:rgba(255,255,255,0.05);
-    backdrop-filter:blur(4px);
-    -webkit-backdrop-filter:blur(4px);
+    background:rgba(255,255,255,0.04);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
     border:1px solid rgba(0,0,0,0.04);
     box-shadow:none;
   }
@@ -1591,18 +1591,13 @@ function renderList(){
 
   function onScroll(){
     setFrosted(true);
-  }
-
-  function onFocus(){
-    // Revert everything when user taps search
-    setFrosted(false);
-    if(_listEl) _listEl.scrollTop = 0; // optionnel : reset scroll position
+    clearTimeout(_scrollTimer);
+    // Retour automatique 600ms après l'arrêt du scroll
+    _scrollTimer = setTimeout(()=>{ setFrosted(false); }, 600);
   }
 
   function initFrosted(){
-    // Remove old listeners before re-attaching
     if(_listEl) _listEl.removeEventListener('scroll', onScroll);
-    if(_inputEl) _inputEl.removeEventListener('focus', onFocus);
 
     _listEl    = document.getElementById('mobSongList');
     _barEl     = document.querySelector('.mob-bottom-bar');
@@ -1610,9 +1605,7 @@ function renderList(){
     _inputEl   = document.getElementById('mobSearchInput');
 
     if(!_listEl || !_barEl) return;
-
     _listEl.addEventListener('scroll', onScroll, {passive:true});
-    if(_inputEl) _inputEl.addEventListener('focus', onFocus);
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFrosted);
