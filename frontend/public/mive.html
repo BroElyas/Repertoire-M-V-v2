@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Mive Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0a0a;
+  --surface:  #111114;
+  --surface2: #1a1a1e;
+  --border:   #2a2a2e;
+  --text:     #ffffff;
+  --muted:    #6b6b78;
+  --btn-bg:   #363539;
+  --blue:     #3b82f6;
+  --blue-dim: rgba(59,130,246,0.15);
+  --blue-glow:rgba(59,130,246,0.35);
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --mono:     'Space Mono', monospace;
+  --sans:     'Syne', sans-serif;
+  --r:        10px;
+  --r-sm:     6px;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden;}
+
+/* -- SCROLLBAR -- */
+::-webkit-scrollbar{width:3px;height:3px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* -- HEADER -- */
+#miveHeader{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  height:56px;
+  background:rgba(10,10,10,0.92);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 1.2rem;gap:1rem;
+}
+.mive-logo{
+  display:flex;align-items:center;gap:.6rem;
+  text-decoration:none;
+}
+.mive-logo-mark{
+  width:34px;height:34px;border-radius:8px;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--sans);font-weight:800;font-size:1.1rem;color:#fff;
+  box-shadow:0 0 12px var(--blue-glow);
+  flex-shrink:0;
+}
+.mive-logo-text{font-family:var(--sans);font-weight:800;font-size:1rem;letter-spacing:-.02em;}
+.mive-logo-sub{font-size:.6rem;color:var(--muted);font-weight:400;font-family:var(--mono);}
+
+.header-spacer{flex:1;}
+
+.nav-tabs{display:flex;gap:.2rem;}
+.nav-tab{
+  padding:.4rem .85rem;border-radius:var(--r-sm);
+  font-family:var(--sans);font-size:.72rem;font-weight:700;
+  border:none;cursor:pointer;transition:all .15s;
+  background:transparent;color:var(--muted);
+  letter-spacing:.03em;
+}
+.nav-tab.active{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(59,130,246,0.3);}
+.nav-tab:hover:not(.active){color:var(--text);background:var(--surface2);}
+
+.btn-back-mv{
+  display:flex;align-items:center;gap:.4rem;
+  padding:.35rem .75rem;border-radius:var(--r-sm);
+  background:var(--btn-bg);border:1px solid var(--border);
+  color:var(--muted);font-family:var(--sans);font-size:.68rem;font-weight:700;
+  cursor:pointer;text-decoration:none;transition:all .15s;
+}
+.btn-back-mv:hover{color:var(--text);border-color:var(--muted);}
+
+/* -- MAIN -- */
+#miveMain{
+  margin-top:56px;
+  height:calc(100vh - 56px);
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+
+/* -- SCREENS -- */
+.screen{display:none;flex:1;overflow:hidden;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* == SCREEN: BIBLIOTHEQUE ================================================== */
+#screenLib{padding:1.4rem;}
+
+.lib-toolbar{
+  display:flex;align-items:center;gap:.7rem;
+  margin-bottom:1.2rem;flex-wrap:wrap;
+}
+.lib-title{
+  font-family:var(--sans);font-size:1rem;font-weight:800;
+  letter-spacing:-.02em;flex:1;
+}
+.lib-search{
+  position:relative;
+}
+.lib-search input{
+  padding:.42rem .8rem .42rem 2rem;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--text);
+  font-family:var(--sans);font-size:.75rem;outline:none;
+  width:180px;transition:border-color .15s;
+}
+.lib-search input:focus{border-color:var(--blue);}
+.lib-search::before{
+  content:'';position:absolute;left:.65rem;top:50%;transform:translateY(-50%);
+  width:10px;height:10px;
+  border:1.5px solid var(--muted);border-radius:50%;
+  pointer-events:none;
+}
+.lib-search::after{
+  content:'';position:absolute;left:1.25rem;top:calc(50% + 3px);
+  width:4px;height:1.5px;background:var(--muted);
+  transform:rotate(45deg);pointer-events:none;
+}
+
+.filter-group{display:flex;gap:.35rem;align-items:center;}
+.filter-select{
+  padding:.38rem .65rem;background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--text);font-family:var(--sans);font-size:.7rem;
+  outline:none;cursor:pointer;
+}
+.filter-select:focus{border-color:var(--blue);}
+
+.btn{
+  padding:.42rem .9rem;border-radius:var(--r-sm);
+  font-family:var(--sans);font-size:.72rem;font-weight:700;
+  border:1px solid var(--border);background:var(--btn-bg);color:var(--text);
+  cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:.35rem;
+  white-space:nowrap;
+}
+.btn:hover{border-color:var(--muted);}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff;}
+.btn-primary:hover{background:#2563eb;border-color:#2563eb;}
+.btn-danger{background:transparent;border-color:transparent;color:var(--red);}
+.btn-danger:hover{background:rgba(239,68,68,.1);border-color:var(--red);}
+.btn-sm{padding:.28rem .6rem;font-size:.65rem;}
+
+/* Loop grid */
+.loop-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:.7rem;
+  overflow-y:auto;
+  padding-bottom:1rem;
+}
+.loop-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:.9rem;
+  transition:border-color .15s, box-shadow .15s;
+  cursor:pointer;position:relative;
+}
+.loop-card:hover{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue-dim);}
+.loop-card.playing{border-color:var(--blue);box-shadow:0 0 16px var(--blue-glow);}
+.loop-card-title{
+  font-weight:700;font-size:.85rem;margin-bottom:.5rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.loop-card-meta{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
+.loop-badge{
+  font-family:var(--mono);font-size:.6rem;
+  padding:.15rem .45rem;border-radius:4px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--muted);
+}
+.loop-badge.bpm{color:var(--blue);border-color:rgba(59,130,246,.3);background:var(--blue-dim);}
+.loop-badge.source-mv{color:var(--green);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.1);}
+
+.loop-card-actions{
+  display:flex;gap:.3rem;margin-top:.65rem;
+}
+.btn-play{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--blue-dim);border:1px solid rgba(59,130,246,.3);
+  color:var(--blue);font-size:.7rem;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.btn-play:hover,.btn-play.playing{background:var(--blue);color:#fff;box-shadow:0 0 8px var(--blue-glow);}
+.loop-card-source{
+  position:absolute;top:.6rem;right:.6rem;
+  font-size:.55rem;font-family:var(--mono);color:var(--muted);
+}
+
+/* Upload modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.75);
+  backdrop-filter:blur(6px);z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:1rem;
+}
+.overlay.hidden{display:none;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:1.4rem;width:100%;max-width:440px;
+  max-height:90vh;overflow-y:auto;
+  box-shadow:0 20px 60px rgba(0,0,0,.6);
+}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;}
+.modal-title{font-weight:800;font-size:.95rem;}
+.modal-close{
+  width:28px;height:28px;border-radius:50%;border:none;
+  background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.85rem;
+  transition:all .15s;
+}
+.modal-close:hover{background:var(--border);color:var(--text);}
+.form-row{margin-bottom:.8rem;}
+.form-row label{
+  display:block;font-size:.62rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.08em;margin-bottom:.32rem;
+}
+.fi{
+  width:100%;padding:.5rem .75rem;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r-sm);color:var(--text);
+  font-family:var(--sans);font-size:.8rem;outline:none;transition:border-color .15s;
+}
+.fi:focus{border-color:var(--blue);}
+.upload-zone{
+  border:2px dashed var(--border);border-radius:var(--r-sm);
+  padding:1.2rem;text-align:center;cursor:pointer;transition:all .2s;
+  background:var(--surface2);font-size:.75rem;color:var(--muted);font-weight:600;
+  display:block;
+}
+.upload-zone:hover{border-color:var(--blue);color:var(--blue);}
+.upload-zone input{display:none;}
+.form-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem;padding-top:.9rem;border-top:1px solid var(--border);}
+
+/* Empty state */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:300px;gap:.8rem;text-align:center;color:var(--muted);
+}
+.empty-icon{font-size:2.5rem;opacity:.3;}
+.empty-state p{font-size:.78rem;font-weight:600;}
+
+/* == SCREEN: ARRANGEMENT =================================================== */
+#screenArr{flex-direction:column;}
+
+/* Toolbar arrangement */
+.arr-toolbar{
+  display:flex;align-items:center;gap:.7rem;padding:.8rem 1.2rem;
+  border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;
+}
+.arr-setlist-name{
+  font-weight:800;font-size:.9rem;letter-spacing:-.01em;
+}
+.arr-view-toggle{display:flex;gap:.2rem;}
+.view-btn{
+  padding:.3rem .7rem;border-radius:var(--r-sm);
+  font-family:var(--sans);font-size:.65rem;font-weight:700;
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  cursor:pointer;transition:all .15s;
+}
+.view-btn.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.3);}
+
+/* Vue Liste */
+#arrListView{
+  flex:1;overflow-y:auto;padding:1rem 1.2rem;
+}
+.setlist-item-row{
+  display:flex;align-items:center;gap:.8rem;
+  padding:.7rem .9rem;border-radius:var(--r);
+  border:1px solid var(--border);background:var(--surface);
+  margin-bottom:.45rem;cursor:pointer;transition:all .15s;
+}
+.setlist-item-row:hover{border-color:var(--blue-dim);background:var(--surface2);}
+.setlist-item-row.active-section{border-color:var(--blue);background:var(--blue-dim);}
+.sil-num{
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);
+  width:18px;text-align:center;flex-shrink:0;
+}
+.sil-title{flex:1;font-weight:700;font-size:.85rem;}
+.sil-meta{display:flex;gap:.4rem;align-items:center;}
+
+/* Vue Arrangement */
+#arrGridView{
+  flex:1;overflow:hidden;display:flex;flex-direction:column;
+}
+
+/* Section nav */
+.section-nav{
+  display:flex;align-items:center;gap:.8rem;padding:.7rem 1.2rem;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.section-nav-prev,.section-nav-next{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--btn-bg);border:1px solid var(--border);
+  color:var(--text);font-size:.85rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;flex-shrink:0;
+}
+.section-nav-prev:hover,.section-nav-next:hover{border-color:var(--blue);color:var(--blue);}
+.section-nav-prev:disabled,.section-nav-next:disabled{opacity:.3;cursor:not-allowed;}
+.section-info{flex:1;text-align:center;}
+.section-name{font-weight:800;font-size:.95rem;letter-spacing:-.01em;}
+.section-counter{font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-top:2px;}
+
+/* BPM control */
+.bpm-control{
+  display:flex;align-items:center;gap:.5rem;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:.35rem .6rem;
+}
+.bpm-btn{
+  width:22px;height:22px;border-radius:4px;
+  background:var(--btn-bg);border:1px solid var(--border);
+  color:var(--text);font-size:.8rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .1s;flex-shrink:0;
+  font-family:var(--mono);
+}
+.bpm-btn:hover{background:var(--blue-dim);border-color:var(--blue);color:var(--blue);}
+.bpm-value{
+  font-family:var(--mono);font-size:.8rem;font-weight:700;
+  color:var(--blue);min-width:40px;text-align:center;
+}
+.bpm-label{font-family:var(--mono);font-size:.55rem;color:var(--muted);}
+
+/* Grille pistes */
+.grid-container{
+  flex:1;overflow-y:auto;padding:1rem 1.2rem;
+  display:flex;flex-direction:column;gap:.8rem;
+}
+
+.track-row{
+  display:flex;gap:.7rem;align-items:stretch;
+}
+.track-label{
+  width:110px;flex-shrink:0;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:.6rem .75rem;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.track-label-name{font-size:.68rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+.track-label-loop{font-size:.72rem;font-weight:700;margin-top:.25rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.track-label-loop.empty{color:var(--muted);font-style:italic;font-weight:400;}
+
+.track-cell{
+  flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:.6rem .85rem;
+  display:flex;align-items:center;gap:.7rem;
+  min-height:60px;cursor:pointer;transition:all .15s;
+  position:relative;overflow:hidden;
+}
+.track-cell:hover{border-color:var(--blue);}
+.track-cell.has-loop{border-color:rgba(59,130,246,.3);}
+.track-cell.playing{
+  border-color:var(--blue);
+  background:var(--blue-dim);
+}
+.track-cell.playing::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--blue);
+  animation:pulseBar 1s ease-in-out infinite;
+}
+@keyframes pulseBar{0%,100%{opacity:1}50%{opacity:.4}}
+
+.track-cell-name{flex:1;font-size:.78rem;font-weight:700;}
+.track-cell-empty{font-size:.72rem;color:var(--muted);font-style:italic;}
+.track-cell-bpm{font-family:var(--mono);font-size:.62rem;color:var(--muted);}
+
+/* Waveform visual (fake) */
+.waveform{
+  display:flex;align-items:center;gap:2px;height:24px;
+  opacity:.6;
+}
+.waveform-bar{
+  width:2px;background:var(--blue);border-radius:1px;
+  animation:wave 1.2s ease-in-out infinite;
+}
+@keyframes wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+
+/* Mixeur / faders */
+.mixer-panel{
+  border-top:1px solid var(--border);padding:.9rem 1.2rem;
+  display:flex;gap:1.2rem;align-items:flex-end;flex-shrink:0;
+  background:var(--surface);
+}
+.mixer-channel{
+  display:flex;flex-direction:column;align-items:center;gap:.4rem;
+  min-width:60px;
+}
+.mixer-channel-label{
+  font-size:.6rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em;text-align:center;
+}
+.mixer-btns{display:flex;gap:.25rem;}
+.mixer-btn{
+  padding:.22rem .4rem;border-radius:4px;
+  font-family:var(--mono);font-size:.58rem;font-weight:700;
+  border:1px solid var(--border);background:var(--surface2);color:var(--muted);
+  cursor:pointer;transition:all .12s;
+}
+.mixer-btn.mute.active{background:rgba(239,68,68,.2);border-color:var(--red);color:var(--red);}
+.mixer-btn.solo.active{background:rgba(234,179,8,.2);border-color:#eab308;color:#eab308;}
+
+/* Fader vertical */
+.fader-wrap{
+  display:flex;flex-direction:column;align-items:center;gap:.3rem;height:90px;
+}
+input[type=range].fader-v{
+  -webkit-appearance:slider-vertical;
+  appearance:slider-vertical;
+  writing-mode:vertical-lr;
+  direction:rtl;
+  width:20px;height:70px;
+  accent-color:var(--blue);cursor:pointer;
+  background:transparent;
+}
+.fader-val{font-family:var(--mono);font-size:.58rem;color:var(--muted);}
+
+/* Live controls bottom bar */
+.live-bar{
+  display:flex;align-items:center;gap:.7rem;padding:.75rem 1.2rem;
+  border-top:1px solid var(--border);flex-shrink:0;
+  background:rgba(10,10,10,.95);
+}
+.live-status{
+  display:flex;align-items:center;gap:.4rem;
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);
+}
+.live-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--border);
+  transition:background .3s;flex-shrink:0;
+}
+.live-dot.active{background:var(--blue);box-shadow:0 0 6px var(--blue-glow);animation:blink 1.5s ease-in-out infinite;}
+.live-dot.playing{background:var(--green);box-shadow:0 0 6px rgba(34,197,94,.5);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+
+.btn-live-play{
+  padding:.5rem 1.4rem;border-radius:var(--r-sm);
+  background:var(--blue);border:none;color:#fff;
+  font-family:var(--sans);font-size:.78rem;font-weight:800;
+  cursor:pointer;transition:all .15s;
+  box-shadow:0 0 12px var(--blue-glow);
+}
+.btn-live-play:hover{background:#2563eb;}
+.btn-live-play.playing{background:var(--red);box-shadow:0 0 12px rgba(239,68,68,.4);}
+
+.btn-next-section{
+  padding:.5rem 1.1rem;border-radius:var(--r-sm);
+  background:var(--btn-bg);border:1px solid var(--border);color:var(--text);
+  font-family:var(--sans);font-size:.75rem;font-weight:700;
+  cursor:pointer;transition:all .15s;margin-left:auto;
+}
+.btn-next-section:hover{border-color:var(--blue);color:var(--blue);}
+.btn-next-section:disabled{opacity:.3;cursor:not-allowed;}
+
+/* Quantize indicator */
+.quant-indicator{
+  font-family:var(--mono);font-size:.6rem;color:var(--muted);
+  display:flex;align-items:center;gap:.3rem;
+}
+.beat-dots{display:flex;gap:3px;}
+.beat-dot{
+  width:5px;height:5px;border-radius:50%;
+  background:var(--border);transition:background .05s;
+}
+.beat-dot.on{background:var(--blue);}
+
+/* == SCREEN: SETLISTS ======================================================= */
+#screenSetlists{padding:1.4rem;overflow-y:auto;}
+.setlist-cards{display:flex;flex-direction:column;gap:.5rem;margin-top:1rem;}
+.setlist-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:.9rem 1.1rem;
+  display:flex;align-items:center;gap:.8rem;cursor:pointer;
+  transition:all .15s;
+}
+.setlist-card:hover{border-color:var(--blue);}
+.setlist-card-name{flex:1;font-weight:700;font-size:.88rem;}
+.setlist-card-meta{font-family:var(--mono);font-size:.6rem;color:var(--muted);}
+.setlist-card-source{
+  font-size:.6rem;padding:.15rem .45rem;border-radius:4px;
+  background:var(--surface2);color:var(--muted);border:1px solid var(--border);
+  font-family:var(--mono);
+}
+.setlist-card-source.mv{color:var(--green);border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.1);}
+
+/* -- TOAST -- */
+#miveToast{
+  position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--text);padding:.55rem 1.1rem;border-radius:50px;
+  font-size:.75rem;font-weight:700;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  z-index:500;opacity:0;transition:opacity .25s;pointer-events:none;
+  font-family:var(--sans);
+}
+#miveToast.show{opacity:1;}
+
+/* -- LOOP PICKER MODAL -- */
+#loopPickerModal .modal{max-width:520px;}
+.loop-picker-list{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:.3rem;margin-top:.7rem;}
+.loop-picker-item{
+  display:flex;align-items:center;gap:.7rem;
+  padding:.55rem .8rem;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface2);
+  cursor:pointer;transition:all .12s;
+}
+.loop-picker-item:hover{border-color:var(--blue);background:var(--blue-dim);}
+.loop-picker-item-title{flex:1;font-size:.8rem;font-weight:700;}
+.loop-picker-tabs{display:flex;gap:.3rem;margin-bottom:.6rem;}
+.loop-picker-tab{
+  padding:.3rem .7rem;border-radius:var(--r-sm);
+  font-size:.65rem;font-weight:700;border:1px solid var(--border);
+  background:transparent;color:var(--muted);cursor:pointer;transition:all .12s;
+}
+.loop-picker-tab.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.3);}
+
+/* -- NEW SETLIST MODAL -- */
+.radio-group{display:flex;flex-direction:column;gap:.5rem;margin-top:.3rem;}
+.radio-option{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.55rem .75rem;border-radius:var(--r-sm);
+  border:1px solid var(--border);cursor:pointer;transition:all .12s;
+}
+.radio-option:hover{border-color:var(--blue);}
+.radio-option input{accent-color:var(--blue);}
+.radio-option-label{font-size:.78rem;font-weight:700;}
+.radio-option-sub{font-size:.65rem;color:var(--muted);}
+
+/* Mobile adjustments */
+@media(max-width:600px){
+  .loop-grid{grid-template-columns:1fr 1fr;}
+  .track-row{flex-direction:column;}
+  .track-label{width:100%;flex-direction:row;align-items:center;justify-content:space-between;}
+  .mixer-panel{overflow-x:auto;}
+  .arr-toolbar{gap:.4rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header id="miveHeader">
+  <a href="/" class="mive-logo">
+    <div class="mive-logo-mark">m</div>
+    <div>
+      <div class="mive-logo-text">Mive</div>
+      <div class="mive-logo-sub">STUDIO</div>
+    </div>
+  </a>
+
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchScreen('lib')">Biblioth&egrave;que</button>
+    <button class="nav-tab" onclick="switchScreen('setlists')">Setlists</button>
+    <button class="nav-tab" onclick="switchScreen('arr')" id="tabArr">Arrangement</button>
+  </div>
+
+  <div class="header-spacer"></div>
+  <a href="/" class="btn-back-mv">&#8592; M&amp;V</a>
+</header>
+
+<main id="miveMain">
+
+  <!-- == SCREEN BIBLIOTHEQUE == -->
+  <div class="screen active" id="screenLib">
+    <div style="padding:1.4rem 1.4rem .8rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;flex-shrink:0;">
+      <div style="font-weight:800;font-size:1rem;letter-spacing:-.02em;flex:1;">Loops</div>
+      <div class="lib-search">
+        <input type="text" id="libSearch" placeholder="Rechercher..." oninput="filterLoops()">
+      </div>
+      <select class="filter-select" id="filterGenre" onchange="filterLoops()">
+        <option value="">Tous les genres</option>
+      </select>
+      <select class="filter-select" id="filterBpmRange" onchange="filterLoops()">
+        <option value="">Tous BPM</option>
+        <option value="0-80">Lent (&lt;80)</option>
+        <option value="80-100">Modere (80-100)</option>
+        <option value="100-120">Rapide (100-120)</option>
+        <option value="120-999">Tres rapide (&gt;120)</option>
+      </select>
+      <button class="btn btn-primary" onclick="openUploadModal()">+ Loop</button>
+    </div>
+
+    <!-- Tabs: Mive / M&V -->
+    <div style="padding:0 1.4rem .7rem;display:flex;gap:.3rem;flex-shrink:0;">
+      <button class="loop-picker-tab active" id="libTabMive" onclick="switchLibTab('mive')">Mive</button>
+      <button class="loop-picker-tab" id="libTabMv" onclick="switchLibTab('mv')">M&amp;V (loops)</button>
+    </div>
+
+    <div class="loop-grid" style="padding:0 1.4rem 1.4rem;" id="loopGrid">
+      <div class="empty-state">
+        <div class="empty-icon">&#127925;</div>
+        <p>Aucune loop pour l'instant</p>
+        <button class="btn btn-primary" onclick="openUploadModal()">Ajouter une loop</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- == SCREEN SETLISTS == -->
+  <div class="screen" id="screenSetlists">
+    <div style="padding:1.4rem 1.4rem .8rem;display:flex;align-items:center;gap:.7rem;flex-shrink:0;">
+      <div style="font-weight:800;font-size:1rem;letter-spacing:-.02em;flex:1;">Mes Setlists</div>
+      <button class="btn btn-primary" onclick="openNewSetlistModal()">+ Setlist</button>
+    </div>
+    <div class="setlist-cards" id="setlistCards" style="padding:0 1.4rem 1.4rem;overflow-y:auto;flex:1;">
+      <div class="empty-state">
+        <div class="empty-icon">&#9776;</div>
+        <p>Aucune setlist Mive</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- == SCREEN ARRANGEMENT == -->
+  <div class="screen" id="screenArr">
+
+    <!-- Toolbar -->
+    <div class="arr-toolbar">
+      <div class="arr-setlist-name" id="arrSetlistName">Aucune setlist</div>
+      <div class="header-spacer"></div>
+      <div class="arr-view-toggle">
+        <button class="view-btn active" id="btnViewList" onclick="switchArrView('list')">Liste</button>
+        <button class="view-btn" id="btnViewGrid" onclick="switchArrView('grid')">Arrangement</button>
+      </div>
+    </div>
+
+    <!-- VUE LISTE -->
+    <div id="arrListView" style="flex:1;overflow-y:auto;padding:1rem 1.2rem;">
+      <div class="empty-state">
+        <div class="empty-icon">&#9776;</div>
+        <p>S&eacute;lectionnez une setlist</p>
+      </div>
+    </div>
+
+    <!-- VUE ARRANGEMENT (cach&eacute;e par d&eacute;faut) -->
+    <div id="arrGridView" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+
+      <!-- Navigation section -->
+      <div class="section-nav">
+        <button class="section-nav-prev" id="btnPrevSection" onclick="prevSection()" disabled>&#8592;</button>
+        <div class="section-info">
+          <div class="section-name" id="sectionName">-</div>
+          <div class="section-counter" id="sectionCounter">0 / 0</div>
+        </div>
+        <button class="section-nav-next" id="btnNextSection2" onclick="nextSection()">&#8594;</button>
+        <div class="bpm-control">
+          <button class="bpm-btn" onclick="adjustBpm(-1)">-</button>
+          <div>
+            <div class="bpm-value" id="bpmDisplay">--</div>
+            <div class="bpm-label">BPM</div>
+          </div>
+          <button class="bpm-btn" onclick="adjustBpm(1)">+</button>
+        </div>
+      </div>
+
+      <!-- Grille pistes -->
+      <div class="grid-container" id="gridContainer">
+        <!-- Piste 1 -->
+        <div class="track-row" id="trackRow1">
+          <div class="track-label">
+            <div class="track-label-name">Rythmique</div>
+            <div class="track-label-loop empty" id="track1Label">Aucune loop</div>
+          </div>
+          <div class="track-cell" id="trackCell1" onclick="openLoopPicker(1)">
+            <div class="track-cell-empty" id="trackCell1Content">Cliquer pour assigner une loop</div>
+          </div>
+        </div>
+        <!-- Piste 2 -->
+        <div class="track-row" id="trackRow2">
+          <div class="track-label">
+            <div class="track-label-name">Pad Harm.</div>
+            <div class="track-label-loop empty" id="track2Label">Aucune loop</div>
+          </div>
+          <div class="track-cell" id="trackCell2" onclick="openLoopPicker(2)">
+            <div class="track-cell-empty" id="trackCell2Content">Cliquer pour assigner un pad</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mixeur -->
+      <div class="mixer-panel" id="mixerPanel">
+        <!-- Piste 1 -->
+        <div class="mixer-channel">
+          <div class="mixer-channel-label">Rythmique</div>
+          <div class="mixer-btns">
+            <button class="mixer-btn mute" id="muteBtn1" onclick="toggleMute(1)">M</button>
+            <button class="mixer-btn solo" id="soloBtn1" onclick="toggleSolo(1)">S</button>
+          </div>
+          <div class="fader-wrap">
+            <input type="range" class="fader-v" id="fader1" min="0" max="100" value="80" oninput="setVolume(1,this.value)">
+            <div class="fader-val" id="faderVal1">80</div>
+          </div>
+        </div>
+        <!-- Piste 2 -->
+        <div class="mixer-channel">
+          <div class="mixer-channel-label">Pad Harm.</div>
+          <div class="mixer-btns">
+            <button class="mixer-btn mute" id="muteBtn2" onclick="toggleMute(2)">M</button>
+            <button class="mixer-btn solo" id="soloBtn2" onclick="toggleSolo(2)">S</button>
+          </div>
+          <div class="fader-wrap">
+            <input type="range" class="fader-v" id="fader2" min="0" max="100" value="70" oninput="setVolume(2,this.value)">
+            <div class="fader-val" id="faderVal2">70</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live bar -->
+      <div class="live-bar">
+        <div class="live-status">
+          <div class="live-dot" id="liveDot"></div>
+          <span id="liveStatusText">En attente</span>
+        </div>
+        <div class="quant-indicator">
+          <span style="font-size:.55rem;margin-right:2px;">BEAT</span>
+          <div class="beat-dots" id="beatDots">
+            <div class="beat-dot"></div>
+            <div class="beat-dot"></div>
+            <div class="beat-dot"></div>
+            <div class="beat-dot"></div>
+          </div>
+        </div>
+        <button class="btn-live-play" id="btnLivePlay" onclick="toggleLive()">&#9654; PLAY</button>
+        <button class="btn-next-section" id="btnNextSection" onclick="nextSection()" disabled>Section suivante &#8594;</button>
+      </div>
+
+    </div><!-- end arrGridView -->
+  </div><!-- end screenArr -->
+
+</main>
+
+<!-- TOAST -->
+<div id="miveToast"></div>
+
+<!-- MODAL UPLOAD LOOP -->
+<div class="overlay hidden" id="uploadOverlay">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Ajouter une loop</div>
+      <button class="modal-close" onclick="closeUploadModal()">&#x2715;</button>
+    </div>
+    <div class="form-row">
+      <label>Titre *</label>
+      <input type="text" class="fi" id="uploadTitle" placeholder="Ex: Groove gospel 100bpm">
+    </div>
+    <div style="display:flex;gap:.6rem;">
+      <div class="form-row" style="flex:1;">
+        <label>BPM</label>
+        <input type="number" class="fi" id="uploadBpm" placeholder="100" min="40" max="240">
+      </div>
+      <div class="form-row" style="flex:1;">
+        <label>Genre / Style</label>
+        <input type="text" class="fi" id="uploadGenre" placeholder="Gospel, Worship...">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Fichier audio (MP3, WAV, M4A)</label>
+      <label class="upload-zone" id="uploadZone">
+        <input type="file" id="uploadFile" accept="audio/*" onchange="handleFileSelect(this)">
+        <span id="uploadZoneText">Cliquer pour s&eacute;lectionner un fichier</span>
+      </label>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeUploadModal()">Annuler</button>
+      <button class="btn btn-primary" onclick="submitUpload()" id="btnSubmitUpload">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOUVELLE SETLIST -->
+<div class="overlay hidden" id="newSetlistOverlay">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Nouvelle setlist</div>
+      <button class="modal-close" onclick="document.getElementById('newSetlistOverlay').classList.add('hidden')">&#x2715;</button>
+    </div>
+    <div class="form-row">
+      <label>Nom de la setlist</label>
+      <input type="text" class="fi" id="newSetlistName" placeholder="Ex: Culte du 15 mars">
+    </div>
+    <div class="form-row">
+      <label>Source</label>
+      <div class="radio-group">
+        <label class="radio-option">
+          <input type="radio" name="setlistSource" value="mive" checked>
+          <div>
+            <div class="radio-option-label">Cr&eacute;er depuis z&eacute;ro</div>
+            <div class="radio-option-sub">Setlist vide, tu ajoutes les chants manuellement</div>
+          </div>
+        </label>
+        <label class="radio-option">
+          <input type="radio" name="setlistSource" value="mv">
+          <div>
+            <div class="radio-option-label">Importer depuis M&amp;V</div>
+            <div class="radio-option-sub">Copier la setlist active de Musique &amp; Vie</div>
+          </div>
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="document.getElementById('newSetlistOverlay').classList.add('hidden')">Annuler</button>
+      <button class="btn btn-primary" onclick="createSetlist()">Cr&eacute;er</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL LOOP PICKER -->
+<div class="overlay hidden" id="loopPickerModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-hdr">
+      <div class="modal-title" id="loopPickerTitle">Choisir une loop</div>
+      <button class="modal-close" onclick="closeLoopPicker()">&#x2715;</button>
+    </div>
+    <div class="loop-picker-tabs">
+      <button class="loop-picker-tab active" id="lpTabMive" onclick="switchLpTab('mive')">Mive</button>
+      <button class="loop-picker-tab" id="lpTabMv" onclick="switchLpTab('mv')">M&amp;V</button>
+    </div>
+    <div class="loop-picker-list" id="loopPickerList"></div>
+  </div>
+</div>
+
+<script>
+// -- STATE ----------------------------------------------------------------------
+let _loops      = [];        // loops Mive
+let _loopsMv    = [];        // loops M&V (stem_type=loop)
+let _setlists   = [];
+let _activeSetlist  = null;
+let _setlistItems   = [];
+let _currentSection = 0;
+let _currentBpm     = 120;
+let _libTab     = 'mive';
+let _lpTab      = 'mive';
+let _lpTrack    = 1;         // quelle piste on assigne
+
+// Audio engine
+let _audioCtx   = null;
+let _sources    = { 1: null, 2: null };
+let _gainNodes  = { 1: null, 2: null };
+let _volumes    = { 1: 0.8,  2: 0.7  };
+let _muted      = { 1: false, 2: false };
+let _soloed     = { 1: false, 2: false };
+let _isPlaying  = false;
+let _metronome  = null;
+let _beat       = 0;
+let _fadeTimers = {};
+
+// -- UTILS ----------------------------------------------------------------------
+function toast(msg, dur=2500){
+  const el = document.getElementById('miveToast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), dur);
+}
+
+function switchScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('screen'+id.charAt(0).toUpperCase()+id.slice(1))?.classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// -- AUDIO ENGINE ---------------------------------------------------------------
+function getAudioCtx(){
+  if(!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+
+async function loadAudio(url){
+  const ctx = getAudioCtx();
+  const resp = await fetch(url);
+  const buf  = await resp.arrayBuffer();
+  return ctx.decodeAudioData(buf);
+}
+
+async function playTrack(track, url, vol){
+  const ctx = getAudioCtx();
+  if(_sources[track]){ try{_sources[track].stop();}catch(e){} _sources[track]=null; }
+  if(!url) return;
+  try {
+    const buf = await loadAudio(url);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(_muted[track] ? 0 : vol, ctx.currentTime);
+    src.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(0);
+    _sources[track]  = src;
+    _gainNodes[track] = gain;
+  } catch(e){ toast('Erreur lecture audio'); }
+}
+
+function stopTrack(track, fade=true){
+  if(!_sources[track]) return;
+  const ctx = getAudioCtx();
+  const gain = _gainNodes[track];
+  if(fade && gain){
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 1.5);
+    setTimeout(()=>{
+      try{_sources[track]?.stop();}catch(e){}
+      _sources[track] = null;
+    }, 1600);
+  } else {
+    try{_sources[track].stop();}catch(e){}
+    _sources[track] = null;
+  }
+}
+
+function setVolume(track, val){
+  _volumes[track] = val/100;
+  document.getElementById('faderVal'+track).textContent = val;
+  if(_gainNodes[track] && !_muted[track]){
+    const ctx = getAudioCtx();
+    _gainNodes[track].gain.setValueAtTime(val/100, ctx.currentTime);
+  }
+}
+
+function toggleMute(track){
+  _muted[track] = !_muted[track];
+  const btn = document.getElementById('muteBtn'+track);
+  btn.classList.toggle('active', _muted[track]);
+  if(_gainNodes[track]){
+    const ctx = getAudioCtx();
+    _gainNodes[track].gain.setValueAtTime(_muted[track] ? 0 : _volumes[track], ctx.currentTime);
+  }
+}
+
+function toggleSolo(track){
+  _soloed[track] = !_soloed[track];
+  document.getElementById('soloBtn'+track).classList.toggle('active', _soloed[track]);
+  const anySolo = _soloed[1] || _soloed[2];
+  [1,2].forEach(t=>{
+    if(_gainNodes[t]){
+      const ctx = getAudioCtx();
+      const active = !_muted[t] && (!anySolo || _soloed[t]);
+      _gainNodes[t].gain.setValueAtTime(active ? _volumes[t] : 0, ctx.currentTime);
+    }
+  });
+}
+
+// Metronome
+function startMetronome(bpm){
+  stopMetronome();
+  _beat = 0;
+  const interval = (60/bpm)*1000;
+  updateBeatDots();
+  _metronome = setInterval(()=>{
+    _beat = (_beat+1)%4;
+    updateBeatDots();
+  }, interval);
+  document.getElementById('liveDot').classList.add('active');
+}
+
+function stopMetronome(){
+  if(_metronome){ clearInterval(_metronome); _metronome=null; }
+  _beat=0; updateBeatDots();
+  document.getElementById('liveDot').classList.remove('active','playing');
+}
+
+function updateBeatDots(){
+  document.querySelectorAll('.beat-dot').forEach((d,i)=>{
+    d.classList.toggle('on', i===_beat);
+  });
+}
+
+// -- LIVE CONTROLS --------------------------------------------------------------
+async function toggleLive(){
+  const section = _setlistItems[_currentSection];
+  const btn = document.getElementById('btnLivePlay');
+
+  if(_isPlaying){
+    // STOP
+    stopTrack(1); stopTrack(2);
+    stopMetronome();
+    _isPlaying = false;
+    btn.innerHTML = '&#9654; PLAY'; btn.classList.remove('playing');
+    document.getElementById('liveStatusText').textContent = 'En attente';
+    document.getElementById('liveDot').classList.remove('playing');
+    setTrackCellState(1, false); setTrackCellState(2, false);
+    return;
+  }
+
+  if(!section){ toast('Aucune section selectionnee'); return; }
+
+  // Resume audio context if suspended
+  if(_audioCtx?.state === 'suspended') await _audioCtx.resume();
+
+  _isPlaying = true;
+  btn.innerHTML = '&#9646;&#9646; STOP'; btn.classList.add('playing');
+  document.getElementById('liveStatusText').textContent = 'En lecture';
+  document.getElementById('liveDot').classList.add('playing');
+  document.getElementById('btnNextSection').disabled = false;
+
+  // Fade in + start metronome
+  startMetronome(section.bpm || _currentBpm);
+
+  // Jouer les deux pistes avec fade in
+  if(section.loop_rythmique_url){
+    await playTrack(1, section.loop_rythmique_url, 0);
+    setTrackCellState(1, true);
+    fadeIn(1, _volumes[1]);
+  }
+  if(section.loop_harmonique_url){
+    await playTrack(2, section.loop_harmonique_url, 0);
+    setTrackCellState(2, true);
+    fadeIn(2, _volumes[2]);
+  }
+}
+
+function fadeIn(track, targetVol){
+  const ctx = getAudioCtx();
+  const gain = _gainNodes[track];
+  if(!gain) return;
+  const fadeDuration = Math.max(1.5, (60/_currentBpm)*2);
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(_muted[track]?0:targetVol, ctx.currentTime+fadeDuration);
+}
+
+function setTrackCellState(track, playing){
+  const cell = document.getElementById('trackCell'+track);
+  cell?.classList.toggle('playing', playing);
+}
+
+async function nextSection(){
+  if(_currentSection >= _setlistItems.length-1) return;
+
+  const wasPlaying = _isPlaying;
+  const nextIdx = _currentSection + 1;
+  const nextSection = _setlistItems[nextIdx];
+
+  if(wasPlaying){
+    // Crossfade intelligent
+    const currBpm = _setlistItems[_currentSection]?.bpm || _currentBpm;
+    const nextBpmVal = nextSection?.bpm || _currentBpm;
+    const bpmDiff = Math.abs(currBpm - nextBpmVal);
+
+    if(bpmDiff <= 15){
+      // Crossfade progressif
+      crossfadeToSection(nextIdx);
+    } else {
+      // Transition nette - attendre fin de mesure courante
+      const ctx = getAudioCtx();
+      const beatsPerMeasure = 4;
+      const secPerBeat = 60/currBpm;
+      const timeToNextMeasure = (beatsPerMeasure - _beat) * secPerBeat;
+      setTimeout(()=>{ hardCutToSection(nextIdx); }, timeToNextMeasure*1000);
+      toast('Transition en cours...');
+    }
+  } else {
+    _currentSection = nextIdx;
+    renderSection();
+  }
+}
+
+async function crossfadeToSection(nextIdx){
+  const ctx = getAudioCtx();
+  const fadeDur = 2.5;
+
+  // Fade out pistes courantes
+  [1,2].forEach(t=>{
+    if(_gainNodes[t]){
+      _gainNodes[t].gain.linearRampToValueAtTime(0, ctx.currentTime+fadeDur);
+    }
+  });
+
+  _currentSection = nextIdx;
+  renderSection();
+
+  const section = _setlistItems[_currentSection];
+  updateBpmDisplay(section?.bpm || _currentBpm);
+  stopMetronome();
+  startMetronome(section?.bpm || _currentBpm);
+
+  setTimeout(async()=>{
+    stopTrack(1,false); stopTrack(2,false);
+    if(section?.loop_rythmique_url){ await playTrack(1,section.loop_rythmique_url,0); setTrackCellState(1,true); fadeIn(1,_volumes[1]); }
+    if(section?.loop_harmonique_url){ await playTrack(2,section.loop_harmonique_url,0); setTrackCellState(2,true); fadeIn(2,_volumes[2]); }
+  }, fadeDur*1000);
+}
+
+async function hardCutToSection(nextIdx){
+  stopTrack(1,false); stopTrack(2,false); stopMetronome();
+  _currentSection = nextIdx;
+  renderSection();
+  const section = _setlistItems[_currentSection];
+  updateBpmDisplay(section?.bpm||_currentBpm);
+  startMetronome(section?.bpm||_currentBpm);
+  if(section?.loop_rythmique_url){ await playTrack(1,section.loop_rythmique_url,0); setTrackCellState(1,true); fadeIn(1,_volumes[1]); }
+  if(section?.loop_harmonique_url){ await playTrack(2,section.loop_harmonique_url,0); setTrackCellState(2,true); fadeIn(2,_volumes[2]); }
+}
+
+function prevSection(){
+  if(_currentSection <= 0) return;
+  if(_isPlaying){ toast('Stoppe la lecture avant de reculer'); return; }
+  _currentSection--;
+  renderSection();
+}
+
+function adjustBpm(delta){
+  _currentBpm = Math.max(40, Math.min(240, _currentBpm+delta));
+  updateBpmDisplay(_currentBpm);
+  if(_metronome){ stopMetronome(); startMetronome(_currentBpm); }
+}
+
+function updateBpmDisplay(bpm){
+  _currentBpm = bpm;
+  document.getElementById('bpmDisplay').textContent = bpm||'--';
+}
+
+// -- ARRANGEMENT VIEW -----------------------------------------------------------
+function switchArrView(view){
+  const listView = document.getElementById('arrListView');
+  const gridView = document.getElementById('arrGridView');
+  document.getElementById('btnViewList').classList.toggle('active', view==='list');
+  document.getElementById('btnViewGrid').classList.toggle('active', view==='grid');
+  if(view==='list'){
+    listView.style.display=''; gridView.style.display='none';
+  } else {
+    listView.style.display='none'; gridView.style.display='flex';
+    if(_setlistItems.length) renderSection();
+  }
+}
+
+function renderSection(){
+  const section = _setlistItems[_currentSection];
+  if(!section) return;
+
+  // Nav
+  document.getElementById('sectionName').textContent    = section.song_title || 'Chant sans titre';
+  document.getElementById('sectionCounter').textContent = `${_currentSection+1} / ${_setlistItems.length}`;
+  document.getElementById('btnPrevSection').disabled     = _currentSection === 0;
+  document.getElementById('btnNextSection2').disabled    = _currentSection >= _setlistItems.length-1;
+  document.getElementById('btnNextSection').disabled     = !_isPlaying || _currentSection >= _setlistItems.length-1;
+
+  // BPM
+  updateBpmDisplay(section.bpm || _currentBpm);
+
+  // Piste 1
+  const hasR = !!section.loop_rythmique_id;
+  document.getElementById('track1Label').textContent = section.loop_rythmique_title || 'Aucune loop';
+  document.getElementById('track1Label').classList.toggle('empty', !hasR);
+  const cell1 = document.getElementById('trackCell1');
+  if(hasR){
+    cell1.innerHTML = `
+      <div style="flex:1">
+        <div class="track-cell-name">${section.loop_rythmique_title||''}</div>
+        <div class="track-cell-bpm">${section.loop_rythmique_bpm||''} BPM &middot; ${section.loop_rythmique_genre||''}</div>
+      </div>
+      <div class="waveform" id="waveform1">${Array.from({length:12},(_,i)=>`<div class="waveform-bar" style="height:${4+Math.sin(i)*8+8}px;animation-delay:${i*0.08}s"></div>`).join('')}</div>
+    `;
+    cell1.classList.add('has-loop');
+  } else {
+    cell1.innerHTML = `<div class="track-cell-empty">Cliquer pour assigner une loop</div>`;
+    cell1.classList.remove('has-loop','playing');
+  }
+
+  // Piste 2
+  const hasH = !!section.loop_harmonique_id;
+  document.getElementById('track2Label').textContent = section.loop_harmonique_title || 'Aucune loop';
+  document.getElementById('track2Label').classList.toggle('empty', !hasH);
+  const cell2 = document.getElementById('trackCell2');
+  if(hasH){
+    cell2.innerHTML = `
+      <div style="flex:1">
+        <div class="track-cell-name">${section.loop_harmonique_title||''}</div>
+        <div class="track-cell-bpm">${section.loop_harmonique_genre||''}</div>
+      </div>
+      <div class="waveform" id="waveform2">${Array.from({length:12},(_,i)=>`<div class="waveform-bar" style="height:${4+Math.cos(i)*8+8}px;animation-delay:${i*0.1}s;background:#22c55e"></div>`).join('')}</div>
+    `;
+    cell2.classList.add('has-loop');
+  } else {
+    cell2.innerHTML = `<div class="track-cell-empty">Cliquer pour assigner un pad</div>`;
+    cell2.classList.remove('has-loop','playing');
+  }
+
+  // Surligner item actif dans la liste
+  document.querySelectorAll('.setlist-item-row').forEach((r,i)=>{
+    r.classList.toggle('active-section', i===_currentSection);
+  });
+}
+
+// -- LOOP PICKER ----------------------------------------------------------------
+function openLoopPicker(track){
+  _lpTrack = track;
+  document.getElementById('loopPickerTitle').textContent = track===1 ? 'Choisir loop rythmique' : 'Choisir pad harmonique';
+  _lpTab = 'mive';
+  document.getElementById('lpTabMive').classList.add('active');
+  document.getElementById('lpTabMv').classList.remove('active');
+  renderLoopPickerList();
+  document.getElementById('loopPickerModal').classList.remove('hidden');
+}
+
+function closeLoopPicker(){ document.getElementById('loopPickerModal').classList.add('hidden'); }
+
+function switchLpTab(tab){
+  _lpTab = tab;
+  document.getElementById('lpTabMive').classList.toggle('active', tab==='mive');
+  document.getElementById('lpTabMv').classList.toggle('active', tab==='mv');
+  renderLoopPickerList();
+}
+
+function renderLoopPickerList(){
+  const list = document.getElementById('loopPickerList');
+  const loops = _lpTab==='mive' ? _loops : _loopsMv;
+  if(!loops.length){
+    list.innerHTML = `<div class="empty-state" style="min-height:100px;"><p>Aucune loop disponible</p></div>`;
+    return;
+  }
+  list.innerHTML = loops.map(l=>`
+    <div class="loop-picker-item" onclick="assignLoop(${l.id},'${_lpTab}')">
+      <div class="loop-picker-item-title">${l.title||l.stem_label||l.original_name}</div>
+      <span class="loop-badge bpm">${l.bpm||l.song_bpm||'?'} BPM</span>
+      ${l.genre?`<span class="loop-badge">${l.genre}</span>`:''}
+    </div>
+  `).join('');
+}
+
+async function assignLoop(loopId, source){
+  const section = _setlistItems[_currentSection];
+  if(!section) return;
+
+  const loop = source==='mive'
+    ? _loops.find(l=>l.id===loopId)
+    : _loopsMv.find(l=>l.id===loopId);
+  if(!loop) return;
+
+  const field = _lpTrack===1 ? 'loop_rythmique_id' : 'loop_harmonique_id';
+  const urlField = _lpTrack===1 ? 'loop_rythmique_url' : 'loop_harmonique_url';
+  const titleField = _lpTrack===1 ? 'loop_rythmique_title' : 'loop_harmonique_title';
+  const bpmField = _lpTrack===1 ? 'loop_rythmique_bpm' : 'loop_harmonique_bpm';
+  const genreField = _lpTrack===1 ? 'loop_rythmique_genre' : 'loop_harmonique_genre';
+
+  section[field] = loopId;
+  section[urlField] = loop.file_url;
+  section[titleField] = loop.title||loop.stem_label||loop.original_name;
+  section[bpmField] = loop.bpm||loop.song_bpm;
+  section[genreField] = loop.genre||'';
+
+  // Sauvegarder en BDD
+  try {
+    await fetch(`/api/mive/setlists/${_activeSetlist.id}/items/${section.id}`, {
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({[field]: loopId})
+    });
+    toast('Loop assign\u00e9e');
+  } catch(e){ toast('Erreur sauvegarde'); }
+
+  closeLoopPicker();
+  renderSection();
+}
+
+// -- BIBLIOTHEQUE ---------------------------------------------------------------
+function switchLibTab(tab){
+  _libTab = tab;
+  document.getElementById('libTabMive').classList.toggle('active', tab==='mive');
+  document.getElementById('libTabMv').classList.toggle('active', tab==='mv');
+  renderLoopGrid();
+}
+
+function filterLoops(){
+  renderLoopGrid();
+}
+
+function renderLoopGrid(){
+  const grid = document.getElementById('loopGrid');
+  const q    = (document.getElementById('libSearch').value||'').toLowerCase();
+  const genre = document.getElementById('filterGenre').value;
+  const bpmRange = document.getElementById('filterBpmRange').value;
+
+  let loops = _libTab==='mive' ? _loops : _loopsMv;
+
+  if(q) loops = loops.filter(l=>(l.title||l.stem_label||'').toLowerCase().includes(q)||(l.genre||'').toLowerCase().includes(q));
+  if(genre) loops = loops.filter(l=>(l.genre||'').toLowerCase()===genre.toLowerCase());
+  if(bpmRange){
+    const [min,max] = bpmRange.split('-').map(Number);
+    loops = loops.filter(l=>{ const b=l.bpm||l.song_bpm||0; return b>=min&&b<=max; });
+  }
+
+  if(!loops.length){
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">&#127925;</div><p>Aucune loop trouv\u00e9e</p>${_libTab==='mive'?`<button class="btn btn-primary" onclick="openUploadModal()">Ajouter une loop</button>`:''}</div>`;
+    return;
+  }
+
+  grid.innerHTML = loops.map(l=>`
+    <div class="loop-card" id="lcard-${l.id}">
+      <div class="loop-card-source">${_libTab==='mv'?'M&amp;V':''}</div>
+      <div class="loop-card-title">${l.title||l.stem_label||l.original_name}</div>
+      <div class="loop-card-meta">
+        ${(l.bpm||l.song_bpm)?`<span class="loop-badge bpm">${l.bpm||l.song_bpm} BPM</span>`:''}
+        ${l.genre?`<span class="loop-badge">${l.genre}</span>`:''}
+        ${_libTab==='mv'?`<span class="loop-badge source-mv">${l.song_title||''}</span>`:''}
+      </div>
+      <div class="loop-card-actions">
+        <button class="btn-play" id="lplay-${l.id}" onclick="previewLoop(${l.id},'${_libTab}',event)">&#9654;</button>
+        <div style="flex:1;"></div>
+        ${_libTab==='mive'?`<button class="btn btn-sm btn-danger" onclick="deleteLoop(${l.id},event)">&#x2715;</button>`:''}
+      </div>
+    </div>
+  `).join('');
+
+  // Mettre a jour le select genre
+  const genres = [...new Set(loops.map(l=>l.genre).filter(Boolean))];
+  const sel = document.getElementById('filterGenre');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Tous les genres</option>' + genres.map(g=>`<option value="${g}" ${g===cur?'selected':''}>${g}</option>`).join('');
+}
+
+// Preview audio
+let _previewSource = null;
+let _previewId     = null;
+
+async function previewLoop(id, source, e){
+  e.stopPropagation();
+  const loop = source==='mive' ? _loops.find(l=>l.id===id) : _loopsMv.find(l=>l.id===id);
+  if(!loop) return;
+
+  // Si deja en lecture, stopper
+  if(_previewId===id){
+    try{_previewSource?.stop();}catch(e){}
+    _previewSource=null; _previewId=null;
+    document.querySelectorAll('.btn-play').forEach(b=>b.classList.remove('playing'));
+    document.getElementById('lcard-'+id)?.classList.remove('playing');
+    return;
+  }
+
+  // Stopper preview precedent
+  try{_previewSource?.stop();}catch(e){}
+  document.querySelectorAll('.btn-play').forEach(b=>b.classList.remove('playing'));
+  document.querySelectorAll('.loop-card').forEach(c=>c.classList.remove('playing'));
+
+  _previewId = id;
+  document.getElementById('lplay-'+id)?.classList.add('playing');
+  document.getElementById('lcard-'+id)?.classList.add('playing');
+
+  try{
+    const ctx = getAudioCtx();
+    if(ctx.state==='suspended') await ctx.resume();
+    const buf = await loadAudio(loop.file_url);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(ctx.destination);
+    src.start(0);
+    src.onended = ()=>{
+      _previewId=null; _previewSource=null;
+      document.getElementById('lplay-'+id)?.classList.remove('playing');
+      document.getElementById('lcard-'+id)?.classList.remove('playing');
+    };
+    _previewSource = src;
+  } catch(e){ toast('Erreur lecture'); }
+}
+
+async function deleteLoop(id, e){
+  e.stopPropagation();
+  if(!confirm('Supprimer cette loop ?')) return;
+  try {
+    await fetch('/api/mive/loops/'+id, {method:'DELETE'});
+    _loops = _loops.filter(l=>l.id!==id);
+    renderLoopGrid();
+    toast('Loop supprim\u00e9e');
+  } catch(e){ toast('Erreur suppression'); }
+}
+
+// -- UPLOAD LOOP ----------------------------------------------------------------
+function openUploadModal(){ document.getElementById('uploadOverlay').classList.remove('hidden'); }
+function closeUploadModal(){ document.getElementById('uploadOverlay').classList.add('hidden'); }
+
+function handleFileSelect(input){
+  const file = input.files[0];
+  if(!file) return;
+  document.getElementById('uploadZoneText').textContent = file.name;
+  if(!document.getElementById('uploadTitle').value){
+    document.getElementById('uploadTitle').value = file.name.replace(/\.[^.]+$/,'');
+  }
+}
+
+async function submitUpload(){
+  const title = document.getElementById('uploadTitle').value.trim();
+  const bpm   = document.getElementById('uploadBpm').value;
+  const genre = document.getElementById('uploadGenre').value.trim();
+  const file  = document.getElementById('uploadFile').files[0];
+  if(!title){ toast('Titre requis'); return; }
+  if(!file) { toast('Fichier requis'); return; }
+
+  const btn = document.getElementById('btnSubmitUpload');
+  btn.textContent='Envoi...'; btn.disabled=true;
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('title', title);
+  if(bpm) fd.append('bpm', bpm);
+  if(genre) fd.append('genre', genre);
+
+  try {
+    const r = await fetch('/api/mive/loops', {method:'POST', body:fd});
+    if(!r.ok) throw new Error(await r.text());
+    const loop = await r.json();
+    _loops.unshift(loop);
+    renderLoopGrid();
+    closeUploadModal();
+    toast('Loop ajout\u00e9e !');
+    document.getElementById('uploadTitle').value='';
+    document.getElementById('uploadBpm').value='';
+    document.getElementById('uploadGenre').value='';
+    document.getElementById('uploadFile').value='';
+    document.getElementById('uploadZoneText').textContent='Cliquer pour s\u00e9lectionner un fichier';
+  } catch(e){ toast('Erreur: '+e.message); }
+  finally{ btn.textContent='Ajouter'; btn.disabled=false; }
+}
+
+// -- SETLISTS -------------------------------------------------------------------
+function renderSetlistCards(){
+  const cont = document.getElementById('setlistCards');
+  if(!_setlists.length){
+    cont.innerHTML=`<div class="empty-state"><div class="empty-icon">&#9776;</div><p>Aucune setlist Mive</p></div>`;
+    return;
+  }
+  cont.innerHTML = _setlists.map(s=>`
+    <div class="setlist-card" onclick="openSetlist(${s.id})">
+      <div class="setlist-card-name">${s.name}</div>
+      <span class="setlist-card-source ${s.source==='mv'?'mv':''}">${s.source==='mv'?'Depuis M&amp;V':'Mive'}</span>
+      <button class="btn btn-sm btn-danger" onclick="deleteSetlist(${s.id},event)">&#x2715;</button>
+    </div>
+  `).join('');
+}
+
+function openNewSetlistModal(){ document.getElementById('newSetlistOverlay').classList.remove('hidden'); }
+
+async function createSetlist(){
+  const name   = document.getElementById('newSetlistName').value.trim();
+  const source = document.querySelector('input[name=setlistSource]:checked')?.value||'mive';
+  if(!name){ toast('Nom requis'); return; }
+  try {
+    const r = await fetch('/api/mive/setlists',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,source})});
+    const sl = await r.json();
+    _setlists.unshift(sl);
+    renderSetlistCards();
+    document.getElementById('newSetlistOverlay').classList.add('hidden');
+    document.getElementById('newSetlistName').value='';
+    toast('Setlist cr\u00e9\u00e9e !');
+  } catch(e){ toast('Erreur'); }
+}
+
+async function deleteSetlist(id, e){
+  e.stopPropagation();
+  if(!confirm('Supprimer cette setlist ?')) return;
+  await fetch('/api/mive/setlists/'+id,{method:'DELETE'});
+  _setlists = _setlists.filter(s=>s.id!==id);
+  if(_activeSetlist?.id===id){ _activeSetlist=null; _setlistItems=[]; }
+  renderSetlistCards();
+  toast('Setlist supprim\u00e9e');
+}
+
+async function openSetlist(id){
+  _activeSetlist = _setlists.find(s=>s.id===id);
+  if(!_activeSetlist) return;
+
+  const r = await fetch('/api/mive/setlists/'+id+'/items');
+  _setlistItems = await r.json();
+  _currentSection = 0;
+
+  document.getElementById('arrSetlistName').textContent = _activeSetlist.name;
+
+  // Rendre la vue liste
+  renderArrList();
+
+  // Aller sur l'ecran arrangement
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('screenArr').classList.add('active');
+  document.getElementById('tabArr').classList.add('active');
+  switchArrView('list');
+}
+
+function renderArrList(){
+  const cont = document.getElementById('arrListView');
+  if(!_setlistItems.length){
+    cont.innerHTML=`<div class="empty-state"><div class="empty-icon">&#9776;</div><p>Setlist vide</p></div>`;
+    return;
+  }
+  cont.innerHTML = _setlistItems.map((item,i)=>`
+    <div class="setlist-item-row ${i===_currentSection?'active-section':''}" onclick="goToSection(${i})">
+      <div class="sil-num">${i+1}</div>
+      <div class="sil-title">${item.song_title||'Chant sans titre'}</div>
+      <div class="sil-meta">
+        ${item.bpm?`<span class="loop-badge bpm">${item.bpm} BPM</span>`:''}
+        ${item.key_signature?`<span class="loop-badge">${item.key_signature}</span>`:''}
+        ${item.loop_rythmique_id?`<span class="loop-badge" style="color:var(--blue);">&#9654; R</span>`:''}
+        ${item.loop_harmonique_id?`<span class="loop-badge" style="color:var(--green);">&#9654; H</span>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function goToSection(idx){
+  _currentSection = idx;
+  renderArrList();
+  switchArrView('grid');
+}
+
+// -- INIT -----------------------------------------------------------------------
+async function init(){
+  try {
+    const [loopsRes, loopsMvRes, setlistsRes] = await Promise.all([
+      fetch('/api/mive/loops'),
+      fetch('/api/mive/loops-mv'),
+      fetch('/api/mive/setlists')
+    ]);
+    _loops     = await loopsRes.json();
+    _loopsMv   = await loopsMvRes.json();
+    _setlists  = await setlistsRes.json();
+  } catch(e){ console.warn('Init error:', e); }
+
+  renderLoopGrid();
+  renderSetlistCards();
+}
+
+init();
+</script>
+</body>
+</html>
