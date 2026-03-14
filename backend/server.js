@@ -5,12 +5,42 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '..', 'data', 'uploads');
 
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// -- SUPABASE STORAGE ---------------------------------------------------------
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+
+const BUCKET_MV   = 'mv-audio';
+const BUCKET_MIVE = 'mive-audio';
+
+async function initBuckets() {
+  for (const bucket of [BUCKET_MV, BUCKET_MIVE]) {
+    const { data, error } = await supabase.storage.getBucket(bucket);
+    if (!data) {
+      await supabase.storage.createBucket(bucket, { public: true });
+      console.log(` Bucket cree: ${bucket}`);
+    }
+  }
+}
+
+async function uploadToSupabase(bucket, filename, buffer, mimetype) {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(filename, buffer, { contentType: mimetype, upsert: true });
+  if (error) throw new Error(`Supabase upload error: ${error.message}`);
+  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filename);
+  return urlData.publicUrl;
+}
+
+async function deleteFromSupabase(bucket, filename) {
+  await supabase.storage.from(bucket).remove([filename]);
+}
 
 // -- DATABASE ------------------------------------------------------------------
 const pool = new Pool({
@@ -64,10 +94,12 @@ async function initDB() {
       stem_category TEXT NOT NULL,
       stem_label TEXT NOT NULL,
       file_size INTEGER DEFAULT 0,
+      file_url TEXT,
       uploaded_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
+    ALTER TABLE audio_files ADD COLUMN IF NOT EXISTS file_url TEXT;
     CREATE TABLE IF NOT EXISTS activity_logs (
       id SERIAL PRIMARY KEY,
       action TEXT NOT NULL,
@@ -145,6 +177,40 @@ async function initDB() {
       special_after TEXT DEFAULT 'principale',
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    -- MIVE TABLES --------------------------------------------------------------
+    CREATE TABLE IF NOT EXISTS mive_loops (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      bpm INTEGER,
+      genre TEXT,
+      filename TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      file_size INTEGER DEFAULT 0,
+      source TEXT NOT NULL DEFAULT 'mive',
+      song_id INTEGER REFERENCES songs(id) ON DELETE SET NULL,
+      uploaded_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS mive_setlists (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      source TEXT NOT NULL DEFAULT 'mive',
+      mv_setlist_id INTEGER DEFAULT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS mive_setlist_items (
+      id SERIAL PRIMARY KEY,
+      setlist_id INTEGER NOT NULL REFERENCES mive_setlists(id) ON DELETE CASCADE,
+      song_id INTEGER REFERENCES songs(id) ON DELETE SET NULL,
+      song_title TEXT,
+      bpm INTEGER,
+      key_signature TEXT,
+      position INTEGER DEFAULT 0,
+      loop_rythmique_id INTEGER REFERENCES mive_loops(id) ON DELETE SET NULL,
+      loop_harmonique_id INTEGER REFERENCES mive_loops(id) ON DELETE SET NULL
+    );
+
     INSERT INTO settings (key, value) VALUES
       ('group_name', 'Repertoire Musical'),
       ('group_subtitle', 'Groupe de Musique'),
@@ -157,14 +223,13 @@ async function initDB() {
 // -- MIDDLEWARE ----------------------------------------------------------------
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.round(Math.random()*1e6) + path.extname(file.originalname))
+// Multer - stockage en memoire (on envoie vers Supabase ensuite)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 200 * 1024 * 1024 }
 });
-const upload = multer({ storage, limits: { fileSize: 100*1024*1024 } });
 
 // -- PIN -----------------------------------------------------------------------
 app.post('/api/verify-pin', async (req, res) => {
@@ -173,7 +238,6 @@ app.post('/api/verify-pin', async (req, res) => {
     const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
     return rows[0]?.value === String(pin) ? res.json({ ok: true, level: 'admin' }) : res.status(401).json({ ok: false });
   }
-  // Check individual contributor PINs first
   const { rows: contribs } = await pool.query('SELECT * FROM contributors WHERE pin = $1', [String(pin)]);
   if (contribs[0]) {
     const c = contribs[0];
@@ -181,7 +245,6 @@ app.post('/api/verify-pin', async (req, res) => {
       permissions: { can_edit_lyrics: c.can_edit_lyrics, can_edit_bpm: c.can_edit_bpm, can_edit_key: c.can_edit_key, can_create_song: c.can_create_song, can_edit_author: c.can_edit_author, can_edit_genre: c.can_edit_genre, can_edit_categories: c.can_edit_categories, can_edit_link: c.can_edit_link }
     });
   }
-  // No match found
   return res.status(401).json({ ok: false });
 });
 
@@ -220,14 +283,14 @@ app.patch('/api/contributors/:id', async (req, res) => {
   if (name !== undefined)  { fields.push(`name=$${fields.length+1}`);  vals.push(name.trim()); }
   if (pin !== undefined)   { fields.push(`pin=$${fields.length+1}`);   vals.push(String(pin)); }
   if (color !== undefined) { fields.push(`color=$${fields.length+1}`); vals.push(color); }
-  if (can_edit_lyrics !== undefined) { fields.push(`can_edit_lyrics=$${fields.length+1}`); vals.push(can_edit_lyrics); }
-  if (can_edit_author !== undefined)     { fields.push(`can_edit_author=$${fields.length+1}`); vals.push(can_edit_author); }
-  if (can_edit_genre !== undefined)      { fields.push(`can_edit_genre=$${fields.length+1}`); vals.push(can_edit_genre); }
+  if (can_edit_lyrics !== undefined)     { fields.push(`can_edit_lyrics=$${fields.length+1}`);     vals.push(can_edit_lyrics); }
+  if (can_edit_author !== undefined)     { fields.push(`can_edit_author=$${fields.length+1}`);     vals.push(can_edit_author); }
+  if (can_edit_genre !== undefined)      { fields.push(`can_edit_genre=$${fields.length+1}`);      vals.push(can_edit_genre); }
   if (can_edit_categories !== undefined) { fields.push(`can_edit_categories=$${fields.length+1}`); vals.push(can_edit_categories); }
-  if (can_edit_link !== undefined)       { fields.push(`can_edit_link=$${fields.length+1}`); vals.push(can_edit_link); }
-  if (can_edit_bpm !== undefined)    { fields.push(`can_edit_bpm=$${fields.length+1}`);    vals.push(can_edit_bpm); }
-  if (can_edit_key !== undefined)    { fields.push(`can_edit_key=$${fields.length+1}`);    vals.push(can_edit_key); }
-  if (can_create_song !== undefined) { fields.push(`can_create_song=$${fields.length+1}`); vals.push(can_create_song); }
+  if (can_edit_link !== undefined)       { fields.push(`can_edit_link=$${fields.length+1}`);       vals.push(can_edit_link); }
+  if (can_edit_bpm !== undefined)        { fields.push(`can_edit_bpm=$${fields.length+1}`);        vals.push(can_edit_bpm); }
+  if (can_edit_key !== undefined)        { fields.push(`can_edit_key=$${fields.length+1}`);        vals.push(can_edit_key); }
+  if (can_create_song !== undefined)     { fields.push(`can_create_song=$${fields.length+1}`);     vals.push(can_create_song); }
   if (!fields.length) return res.status(400).json({ error: 'Rien a modifier' });
   vals.push(req.params.id);
   const { rows } = await pool.query(`UPDATE contributors SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING id,name,color,can_edit_lyrics,can_edit_bpm,can_edit_key,can_create_song,can_edit_author,can_edit_genre,can_edit_categories,can_edit_link,created_at`, vals);
@@ -274,28 +337,22 @@ app.patch('/api/categories/:id', async (req, res) => {
   res.json(rows[0]);
 });
 
-// -- SEARCH (full-text in lyrics) ---------------------------------------------
+// -- SEARCH --------------------------------------------------------------------
 app.get('/api/search', async (req, res) => {
   const q = (req.query.q||'').trim();
   if(!q) return res.json([]);
   const pattern = `%${q}%`;
-  // Search in title, author, AND lyrics content
   const { rows } = await pool.query(`
-    SELECT DISTINCT s.*, 
+    SELECT DISTINCT s.*,
       (SELECT string_agg(lb.content, ' ') FROM lyrics_blocks lb WHERE lb.song_id = s.id) as lyrics_preview
     FROM songs s
     LEFT JOIN lyrics_blocks lb ON lb.song_id = s.id
-    WHERE 
-      s.title ILIKE $1 OR 
-      s.author ILIKE $1 OR 
-      lb.content ILIKE $1
-    ORDER BY s.title
-    LIMIT 50
+    WHERE s.title ILIKE $1 OR s.author ILIKE $1 OR lb.content ILIKE $1
+    ORDER BY s.title LIMIT 50
   `, [pattern]);
   const songs = await Promise.all(rows.map(async s => {
     const { rows: cats } = await pool.query('SELECT c.* FROM categories c JOIN song_categories sc ON sc.category_id=c.id WHERE sc.song_id=$1', [s.id]);
     const { rows: cnt } = await pool.query('SELECT COUNT(*) as n FROM audio_files WHERE song_id=$1', [s.id]);
-    // Find matching lyric excerpt
     const matchInLyrics = s.lyrics_preview && s.lyrics_preview.toLowerCase().includes(q.toLowerCase());
     return { ...s, categories: cats, audio_count: parseInt(cnt[0].n), match_in_lyrics: matchInLyrics };
   }));
@@ -312,7 +369,7 @@ app.patch('/api/songs/:id/pin', async (req, res) => {
 // -- INCOMPLETE SONGS ----------------------------------------------------------
 app.get('/api/songs/incomplete', async (req, res) => {
   const { rows } = await pool.query(`
-    SELECT s.*, 
+    SELECT s.*,
       (s.bpm IS NULL) as missing_bpm,
       (s.key_signature IS NULL OR s.key_signature = '') as missing_key,
       (s.author IS NULL OR s.author = '') as missing_author,
@@ -333,10 +390,8 @@ app.get('/api/songs/incomplete', async (req, res) => {
 app.post('/api/feedback', async (req, res) => {
   const { song_id, song_title, message, browser, os } = req.body;
   if(!message) return res.status(400).json({ error: 'Message requis' });
-  await pool.query(
-    'INSERT INTO feedback(song_id,song_title,message,browser,os) VALUES($1,$2,$3,$4,$5)',
-    [song_id||null, song_title||null, message, browser||null, os||null]
-  );
+  await pool.query('INSERT INTO feedback(song_id,song_title,message,browser,os) VALUES($1,$2,$3,$4,$5)',
+    [song_id||null, song_title||null, message, browser||null, os||null]);
   res.json({ ok: true });
 });
 
@@ -355,36 +410,23 @@ app.delete('/api/feedback/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// -- STATS (for pie chart) -----------------------------------------------------
+// -- STATS ---------------------------------------------------------------------
 app.get('/api/stats', async (req, res) => {
   const { rows: catStats } = await pool.query(`
     SELECT c.name, c.color, COUNT(sc.song_id) as count
-    FROM categories c
-    LEFT JOIN song_categories sc ON sc.category_id = c.id
-    GROUP BY c.id, c.name, c.color
-    ORDER BY count DESC
+    FROM categories c LEFT JOIN song_categories sc ON sc.category_id = c.id
+    GROUP BY c.id, c.name, c.color ORDER BY count DESC
   `);
-  const { rows: total } = await pool.query('SELECT COUNT(*) as n FROM songs');
-  const { rows: nocat } = await pool.query(`
-    SELECT COUNT(*) as n FROM songs s 
-    WHERE NOT EXISTS (SELECT 1 FROM song_categories sc WHERE sc.song_id = s.id)
-  `);
+  const { rows: total }  = await pool.query('SELECT COUNT(*) as n FROM songs');
+  const { rows: nocat }  = await pool.query('SELECT COUNT(*) as n FROM songs s WHERE NOT EXISTS (SELECT 1 FROM song_categories sc WHERE sc.song_id = s.id)');
   const { rows: pinned } = await pool.query('SELECT COUNT(*) as n FROM songs WHERE pinned = true');
   const { rows: unread } = await pool.query('SELECT COUNT(*) as n FROM feedback WHERE read = false');
-  res.json({
-    categories: catStats,
-    total_songs: parseInt(total[0].n),
-    no_category: parseInt(nocat[0].n),
-    pinned: parseInt(pinned[0].n),
-    unread_feedback: parseInt(unread[0].n)
-  });
+  res.json({ categories: catStats, total_songs: parseInt(total[0].n), no_category: parseInt(nocat[0].n), pinned: parseInt(pinned[0].n), unread_feedback: parseInt(unread[0].n) });
 });
 
 // -- DUPLICATE DETECTION -------------------------------------------------------
-// Normalize: remove accents, punctuation, lowercase
 function normalize(str){
-  return (str||'').toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+  return (str||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim();
 }
 
@@ -393,19 +435,16 @@ app.get('/api/songs/check-duplicate', async (req, res) => {
   if(!title) return res.json([]);
   const normInput = normalize(title);
   const { rows } = await pool.query('SELECT id, title FROM songs ORDER BY title');
-  // Find songs whose normalized title shares significant overlap
   const matches = rows.filter(s => {
     const normTitle = normalize(s.title);
     if(normTitle === normInput) return true;
-    // Check if one contains the other (min 4 chars)
     if(normInput.length >= 4 && normTitle.includes(normInput)) return true;
     if(normTitle.length >= 4 && normInput.includes(normTitle)) return true;
-    // Word overlap: if 60%+ of words match
     const wordsA = normInput.split(' ').filter(w=>w.length>2);
     const wordsB = normTitle.split(' ').filter(w=>w.length>2);
     if(!wordsA.length || !wordsB.length) return false;
-    const matches = wordsA.filter(w=>wordsB.includes(w)).length;
-    return matches / Math.max(wordsA.length, wordsB.length) >= 0.6;
+    const m = wordsA.filter(w=>wordsB.includes(w)).length;
+    return m / Math.max(wordsA.length, wordsB.length) >= 0.6;
   });
   res.json(matches.slice(0, 5));
 });
@@ -414,22 +453,18 @@ app.get('/api/songs/duplicates', async (req, res) => {
   const { rows } = await pool.query('SELECT id, title FROM songs ORDER BY title');
   const { rows: ignored } = await pool.query('SELECT song_id1, song_id2 FROM ignored_duplicates');
   const ignoredSet = new Set(ignored.map(r => `${Math.min(r.song_id1,r.song_id2)}_${Math.max(r.song_id1,r.song_id2)}`));
-
   const pairs = [];
   for(let i=0; i<rows.length; i++){
     for(let j=i+1; j<rows.length; j++){
       const key = `${Math.min(rows[i].id,rows[j].id)}_${Math.max(rows[i].id,rows[j].id)}`;
       if(ignoredSet.has(key)) continue;
-      const a = normalize(rows[i].title);
-      const b = normalize(rows[j].title);
+      const a = normalize(rows[i].title), b = normalize(rows[j].title);
       const wordsA = a.split(' ').filter(w=>w.length>2);
       const wordsB = b.split(' ').filter(w=>w.length>2);
       if(!wordsA.length || !wordsB.length) continue;
       const shared = wordsA.filter(w=>wordsB.includes(w)).length;
       const similarity = Math.round(shared / Math.max(wordsA.length, wordsB.length) * 100);
-      if(similarity >= 60){
-        pairs.push({ id1:rows[i].id, title1:rows[i].title, id2:rows[j].id, title2:rows[j].title, similarity });
-      }
+      if(similarity >= 60) pairs.push({ id1:rows[i].id, title1:rows[i].title, id2:rows[j].id, title2:rows[j].title, similarity });
     }
   }
   pairs.sort((a,b)=>b.similarity-a.similarity);
@@ -439,15 +474,11 @@ app.get('/api/songs/duplicates', async (req, res) => {
 app.post('/api/songs/ignore-duplicate', async (req, res) => {
   const { id1, id2 } = req.body;
   const a = Math.min(id1, id2), b = Math.max(id1, id2);
-  await pool.query(
-    'INSERT INTO ignored_duplicates(song_id1, song_id2) VALUES($1,$2) ON CONFLICT DO NOTHING',
-    [a, b]
-  );
+  await pool.query('INSERT INTO ignored_duplicates(song_id1, song_id2) VALUES($1,$2) ON CONFLICT DO NOTHING', [a, b]);
   res.json({ ok: true });
 });
 
-// -- SONGS ---------------------------------------------------------------------
-// -- PENDING CHANGES --
+// -- PENDING CHANGES -----------------------------------------------------------
 app.get('/api/pending-changes', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM pending_changes ORDER BY created_at DESC');
   res.json(rows);
@@ -456,12 +487,9 @@ app.get('/api/pending-changes', async (req, res) => {
 app.post('/api/pending-changes', async (req, res) => {
   const { song_id, song_title, contributor_id, contributor_name, field_name, old_value, new_value, affected_fields } = req.body;
   if (!song_id || !field_name) return res.status(400).json({ error: 'Donnees manquantes' });
-  // Check for conflicts: if any of the affected fields already has a pending change
   if (affected_fields && affected_fields.length) {
     const { rows: conflicts } = await pool.query(
-      `SELECT field_name FROM pending_changes
-       WHERE song_id=$1 AND status='pending'
-       AND affected_fields && $2::text[]`,
+      `SELECT field_name FROM pending_changes WHERE song_id=$1 AND status='pending' AND affected_fields && $2::text[]`,
       [song_id, affected_fields]
     );
     if (conflicts.length) {
@@ -484,13 +512,10 @@ app.patch('/api/pending-changes/:id/review', async (req, res) => {
   const { rows: change } = await pool.query('SELECT * FROM pending_changes WHERE id=$1', [req.params.id]);
   if (!change[0]) return res.status(404).json({ error: 'Modification introuvable' });
   const c = change[0];
-  // Apply a full song snapshot (title, author, genre, bpm, key, link, lyrics)
   async function applySnapshot(songId, snapshotStr) {
     const s = JSON.parse(snapshotStr || '{}');
-    await pool.query(
-      'UPDATE songs SET title=$1, author=$2, genre=$3, bpm=$4, key_signature=$5, reference_link=$6, updated_at=NOW() WHERE id=$7',
-      [s.title||null, s.author||null, s.genre||null, s.bpm||null, s.key_signature||null, s.reference_link||null, songId]
-    );
+    await pool.query('UPDATE songs SET title=$1, author=$2, genre=$3, bpm=$4, key_signature=$5, reference_link=$6, updated_at=NOW() WHERE id=$7',
+      [s.title||null, s.author||null, s.genre||null, s.bpm||null, s.key_signature||null, s.reference_link||null, songId]);
     if (Array.isArray(s.lyrics)) {
       await pool.query('DELETE FROM lyrics_blocks WHERE song_id=$1', [songId]);
       for (const [i, b] of s.lyrics.entries()) {
@@ -499,12 +524,7 @@ app.patch('/api/pending-changes/:id/review', async (req, res) => {
       }
     }
   }
-  if (action === 'approve') {
-    // Changes already applied by contributor - just mark as approved
-  } else {
-    // Rollback to old state
-    await applySnapshot(c.song_id, c.old_value);
-  }
+  if (action === 'reject') await applySnapshot(c.song_id, c.old_value);
   await pool.query('UPDATE pending_changes SET status=$1, reviewed_at=NOW() WHERE id=$2', [action === 'approve' ? 'approved' : 'rejected', req.params.id]);
   res.json({ ok: true });
 });
@@ -514,7 +534,7 @@ app.delete('/api/pending-changes/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
-// -- SETLIST --
+// -- SETLIST -------------------------------------------------------------------
 app.get('/api/setlist', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM setlist ORDER BY position');
   res.json(rows);
@@ -527,22 +547,21 @@ app.put('/api/setlist', async (req, res) => {
   await pool.query('DELETE FROM setlist');
   if (items && items.length) {
     for (const [i, item] of items.entries()) {
-      await pool.query(
-        'INSERT INTO setlist(section, song_id, song_title, position, special_label, special_after) VALUES($1,$2,$3,$4,$5,$6)',
-        [item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale']
-      );
+      await pool.query('INSERT INTO setlist(section, song_id, song_title, position, special_label, special_after) VALUES($1,$2,$3,$4,$5,$6)',
+        [item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale']);
     }
   }
   res.json({ ok: true });
 });
 
+// -- SONGS ---------------------------------------------------------------------
 async function getSongFull(id) {
   const { rows: songs } = await pool.query('SELECT * FROM songs WHERE id=$1', [id]);
   if (!songs[0]) return null;
   const song = songs[0];
-  const { rows: cats } = await pool.query('SELECT c.* FROM categories c JOIN song_categories sc ON sc.category_id=c.id WHERE sc.song_id=$1', [id]);
+  const { rows: cats }   = await pool.query('SELECT c.* FROM categories c JOIN song_categories sc ON sc.category_id=c.id WHERE sc.song_id=$1', [id]);
   const { rows: lyrics } = await pool.query('SELECT * FROM lyrics_blocks WHERE song_id=$1 ORDER BY position,id', [id]);
-  const { rows: audio } = await pool.query('SELECT * FROM audio_files WHERE song_id=$1 ORDER BY stem_type,stem_category,uploaded_at', [id]);
+  const { rows: audio }  = await pool.query('SELECT * FROM audio_files WHERE song_id=$1 ORDER BY stem_type,stem_category,uploaded_at', [id]);
   return { ...song, categories: cats, lyrics, audio_files: audio };
 }
 
@@ -550,7 +569,7 @@ app.get('/api/songs', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM songs ORDER BY title');
   const songs = await Promise.all(rows.map(async s => {
     const { rows: cats } = await pool.query('SELECT c.* FROM categories c JOIN song_categories sc ON sc.category_id=c.id WHERE sc.song_id=$1', [s.id]);
-    const { rows: cnt } = await pool.query('SELECT COUNT(*) as n FROM audio_files WHERE song_id=$1', [s.id]);
+    const { rows: cnt }  = await pool.query('SELECT COUNT(*) as n FROM audio_files WHERE song_id=$1', [s.id]);
     return { ...s, categories: cats, audio_count: parseInt(cnt[0].n) };
   }));
   res.json(songs);
@@ -562,23 +581,18 @@ app.get('/api/songs/search', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT DISTINCT s.id, s.title, s.author, s.bpm, s.key_signature, s.pinned, s.created_at, s.updated_at
-       FROM songs s
-       LEFT JOIN lyrics_blocks lb ON lb.song_id = s.id
+       FROM songs s LEFT JOIN lyrics_blocks lb ON lb.song_id = s.id
        WHERE s.title ILIKE $1 OR s.author ILIKE $1 OR lb.content ILIKE $1
        ORDER BY s.title LIMIT 30`,
       [`%${q}%`]
     );
-    // Attach categories
     const ids = rows.map(r => r.id);
     if (ids.length) {
       const { rows: cats } = await pool.query(
         `SELECT sc.song_id, c.id, c.name, c.color FROM song_categories sc JOIN categories c ON c.id=sc.category_id WHERE sc.song_id = ANY($1)`,
         [ids]
       );
-      rows.forEach(s => {
-        s.categories = cats.filter(c => c.song_id === s.id);
-        s.match_in_lyrics = true;
-      });
+      rows.forEach(s => { s.categories = cats.filter(c => c.song_id === s.id); s.match_in_lyrics = true; });
     }
     res.json(rows);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -623,28 +637,34 @@ app.put('/api/songs/:id', async (req, res) => {
 });
 
 app.delete('/api/songs/:id', async (req, res) => {
+  // Supprimer fichiers audio de Supabase Storage
   const { rows } = await pool.query('SELECT filename FROM audio_files WHERE song_id=$1', [req.params.id]);
-  rows.forEach(f => { const fp = path.join(UPLOADS_DIR, f.filename); if (fs.existsSync(fp)) fs.unlinkSync(fp); });
+  for (const f of rows) {
+    await deleteFromSupabase(BUCKET_MV, f.filename).catch(() => {});
+  }
   await pool.query('DELETE FROM songs WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
 
-// -- AUDIO ---------------------------------------------------------------------
+// -- AUDIO (Supabase Storage) --------------------------------------------------
 app.post('/api/songs/:id/audio', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier manquant' });
   const { stem_type, stem_category, stem_label } = req.body;
-  const { rows } = await pool.query(
-    'INSERT INTO audio_files(song_id,filename,original_name,stem_type,stem_category,stem_label,file_size) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-    [req.params.id, req.file.filename, req.file.originalname, stem_type, stem_category, stem_label, req.file.size]
-  );
-  res.json(rows[0]);
+  try {
+    const filename = `${Date.now()}-${Math.round(Math.random()*1e6)}${path.extname(req.file.originalname)}`;
+    const fileUrl = await uploadToSupabase(BUCKET_MV, filename, req.file.buffer, req.file.mimetype);
+    const { rows } = await pool.query(
+      'INSERT INTO audio_files(song_id,filename,original_name,stem_type,stem_category,stem_label,file_size,file_url) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
+      [req.params.id, filename, req.file.originalname, stem_type, stem_category, stem_label, req.file.size, fileUrl]
+    );
+    res.json(rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/audio/:id', async (req, res) => {
   const { rows } = await pool.query('SELECT * FROM audio_files WHERE id=$1', [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Introuvable' });
-  const fp = path.join(UPLOADS_DIR, rows[0].filename);
-  if (fs.existsSync(fp)) fs.unlinkSync(fp);
+  await deleteFromSupabase(BUCKET_MV, rows[0].filename).catch(() => {});
   await pool.query('DELETE FROM audio_files WHERE id=$1', [req.params.id]);
   res.json({ ok: true });
 });
@@ -652,17 +672,13 @@ app.delete('/api/audio/:id', async (req, res) => {
 // -- ACTIVITY LOGS -------------------------------------------------------------
 app.post('/api/logs', async (req, res) => {
   const { action, song_title, contributor_name, browser, os, language } = req.body;
-  await pool.query(
-    'INSERT INTO activity_logs(action, song_title, contributor_name, browser, os, language) VALUES($1,$2,$3,$4,$5,$6)',
-    [action, song_title||null, contributor_name||null, browser||null, os||null, language||null]
-  );
+  await pool.query('INSERT INTO activity_logs(action, song_title, contributor_name, browser, os, language) VALUES($1,$2,$3,$4,$5,$6)',
+    [action, song_title||null, contributor_name||null, browser||null, os||null, language||null]);
   res.json({ ok: true });
 });
 
 app.get('/api/logs', async (req, res) => {
-  const { rows } = await pool.query(
-    'SELECT * FROM activity_logs ORDER BY occurred_at DESC LIMIT 100'
-  );
+  const { rows } = await pool.query('SELECT * FROM activity_logs ORDER BY occurred_at DESC LIMIT 100');
   res.json(rows);
 });
 
@@ -671,13 +687,171 @@ app.delete('/api/logs', async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html')));
+// == MIVE API ==================================================================
+
+// -- Loops Mive (bibliotheque independante) ------------------------------------
+app.get('/api/mive/loops', async (req, res) => {
+  try {
+    const { genre, bpm_min, bpm_max } = req.query;
+    let q = 'SELECT * FROM mive_loops WHERE 1=1';
+    const vals = [];
+    if (genre)   { vals.push(genre);    q += ` AND genre ILIKE $${vals.length}`; }
+    if (bpm_min) { vals.push(bpm_min);  q += ` AND bpm >= $${vals.length}`; }
+    if (bpm_max) { vals.push(bpm_max);  q += ` AND bpm <= $${vals.length}`; }
+    q += ' ORDER BY uploaded_at DESC';
+    const { rows } = await pool.query(q, vals);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Loops de M&V avec stem_type = 'loop'
+app.get('/api/mive/loops-mv', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT af.*, s.title as song_title, s.bpm as song_bpm, s.key_signature
+      FROM audio_files af
+      JOIN songs s ON s.id = af.song_id
+      WHERE af.stem_type = 'loop'
+      ORDER BY s.title, af.uploaded_at
+    `);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/mive/loops', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Fichier manquant' });
+  const { title, bpm, genre } = req.body;
+  if (!title) return res.status(400).json({ error: 'Titre requis' });
+  try {
+    const filename = `mive-${Date.now()}-${Math.round(Math.random()*1e6)}${path.extname(req.file.originalname)}`;
+    const fileUrl = await uploadToSupabase(BUCKET_MIVE, filename, req.file.buffer, req.file.mimetype);
+    const { rows } = await pool.query(
+      'INSERT INTO mive_loops(title, bpm, genre, filename, file_url, file_size, source) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [title.trim(), bpm||null, genre||null, filename, fileUrl, req.file.size, 'mive']
+    );
+    res.json(rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/mive/loops/:id', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM mive_loops WHERE id=$1', [req.params.id]);
+  if (!rows[0]) return res.status(404).json({ error: 'Introuvable' });
+  if (rows[0].source === 'mive') {
+    await deleteFromSupabase(BUCKET_MIVE, rows[0].filename).catch(() => {});
+  }
+  await pool.query('DELETE FROM mive_loops WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// -- Setlists Mive -------------------------------------------------------------
+app.get('/api/mive/setlists', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM mive_setlists ORDER BY updated_at DESC');
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/mive/setlists', async (req, res) => {
+  const { name, source, mv_setlist_id } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nom requis' });
+  try {
+    const { rows } = await pool.query(
+      'INSERT INTO mive_setlists(name, source, mv_setlist_id) VALUES($1,$2,$3) RETURNING *',
+      [name.trim(), source||'mive', mv_setlist_id||null]
+    );
+    // Si import depuis M&V, copier les items de la setlist M&V
+    if (source === 'mv') {
+      const { rows: mvItems } = await pool.query(`
+        SELECT sl.*, s.bpm, s.key_signature
+        FROM setlist sl
+        LEFT JOIN songs s ON s.id = sl.song_id
+        ORDER BY sl.position
+      `);
+      for (const [i, item] of mvItems.entries()) {
+        await pool.query(
+          'INSERT INTO mive_setlist_items(setlist_id, song_id, song_title, bpm, key_signature, position) VALUES($1,$2,$3,$4,$5,$6)',
+          [rows[0].id, item.song_id||null, item.song_title||null, item.bpm||null, item.key_signature||null, i]
+        );
+      }
+    }
+    res.json(rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/mive/setlists/:id', async (req, res) => {
+  await pool.query('DELETE FROM mive_setlists WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// -- Items d'une setlist Mive --------------------------------------------------
+app.get('/api/mive/setlists/:id/items', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT
+        msi.*,
+        lr.title as loop_rythmique_title, lr.bpm as loop_rythmique_bpm,
+        lr.file_url as loop_rythmique_url, lr.genre as loop_rythmique_genre,
+        lh.title as loop_harmonique_title, lh.file_url as loop_harmonique_url,
+        lh.genre as loop_harmonique_genre
+      FROM mive_setlist_items msi
+      LEFT JOIN mive_loops lr ON lr.id = msi.loop_rythmique_id
+      LEFT JOIN mive_loops lh ON lh.id = msi.loop_harmonique_id
+      WHERE msi.setlist_id = $1
+      ORDER BY msi.position
+    `, [req.params.id]);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/mive/setlists/:id/items', async (req, res) => {
+  const { items } = req.body;
+  try {
+    await pool.query('DELETE FROM mive_setlist_items WHERE setlist_id=$1', [req.params.id]);
+    if (items && items.length) {
+      for (const [i, item] of items.entries()) {
+        await pool.query(
+          'INSERT INTO mive_setlist_items(setlist_id, song_id, song_title, bpm, key_signature, position, loop_rythmique_id, loop_harmonique_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+          [req.params.id, item.song_id||null, item.song_title||null, item.bpm||null, item.key_signature||null, i, item.loop_rythmique_id||null, item.loop_harmonique_id||null]
+        );
+      }
+    }
+    await pool.query('UPDATE mive_setlists SET updated_at=NOW() WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/mive/setlists/:setlistId/items/:itemId', async (req, res) => {
+  const { song_id, song_title, bpm, key_signature, loop_rythmique_id, loop_harmonique_id } = req.body;
+  const fields = [], vals = [];
+  if (song_id !== undefined)           { fields.push(`song_id=$${fields.length+1}`);           vals.push(song_id); }
+  if (song_title !== undefined)        { fields.push(`song_title=$${fields.length+1}`);        vals.push(song_title); }
+  if (bpm !== undefined)               { fields.push(`bpm=$${fields.length+1}`);               vals.push(bpm); }
+  if (key_signature !== undefined)     { fields.push(`key_signature=$${fields.length+1}`);     vals.push(key_signature); }
+  if (loop_rythmique_id !== undefined) { fields.push(`loop_rythmique_id=$${fields.length+1}`); vals.push(loop_rythmique_id); }
+  if (loop_harmonique_id !== undefined){ fields.push(`loop_harmonique_id=$${fields.length+1}`);vals.push(loop_harmonique_id); }
+  if (!fields.length) return res.status(400).json({ error: 'Rien a modifier' });
+  vals.push(req.params.itemId);
+  await pool.query(`UPDATE mive_setlist_items SET ${fields.join(',')} WHERE id=$${vals.length}`, vals);
+  await pool.query('UPDATE mive_setlists SET updated_at=NOW() WHERE id=$1', [req.params.setlistId]);
+  res.json({ ok: true });
+});
+
+// -- Route principale Mive -----------------------------------------------------
+app.get('/mive', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'mive.html'));
+});
+
+// -- Catch-all M&V (apres /mive pour ne pas l'intercepter) --------------------
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'frontend', 'public', 'index.html'));
+});
 
 // -- START ---------------------------------------------------------------------
 async function startServer(retries = 5) {
   for (let i = 0; i < retries; i++) {
     try {
       await initDB();
+      await initBuckets();
       app.listen(PORT, () => console.log(` Serveur demarre sur le port ${PORT}`));
       return;
     } catch(err) {
@@ -689,10 +863,8 @@ async function startServer(retries = 5) {
       }
     }
   }
-  // Start anyway without DB (will fail on API calls but won't crash the process)
   console.error(' Demarrage sans base de donnees - verifiez DATABASE_URL');
   app.listen(PORT, () => console.log(` Serveur demarre SANS DB sur le port ${PORT}`));
 }
 
 startServer();
-
