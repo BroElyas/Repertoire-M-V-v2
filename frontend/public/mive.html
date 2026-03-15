@@ -593,6 +593,25 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
       <div class="form-row" style="flex:1;"><label>BPM</label><input type="number" class="fi" id="upBpm" placeholder="100" min="40" max="240"></div>
       <div class="form-row" style="flex:1;"><label>Genre</label><input type="text" class="fi" id="upGenre" placeholder="Gospel..."></div>
     </div>
+    <div style="display:flex;gap:.55rem;">
+      <div class="form-row" style="flex:1;">
+        <label>Signature rythmique</label>
+        <select class="fi" id="upTimeSig">
+          <option value="">-- choisir --</option>
+          <option value="4/4">4/4 (commun)</option>
+          <option value="3/4">3/4 (valse)</option>
+          <option value="6/8">6/8</option>
+          <option value="12/8">12/8</option>
+          <option value="2/4">2/4</option>
+          <option value="5/4">5/4</option>
+          <option value="7/8">7/8</option>
+        </select>
+      </div>
+      <div class="form-row" style="flex:1;">
+        <label>Tonalit&eacute;</label>
+        <input type="text" class="fi" id="upKey" placeholder="Ex: Do min, F#...">
+      </div>
+    </div>
     <div class="form-row">
       <label>Fichier audio</label>
       <label class="upload-zone"><input type="file" id="upFile" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,.mp4,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/flac" onchange="handleFile(this)"><span id="upZoneTxt">Cliquer pour s&eacute;lectionner</span></label>
@@ -754,6 +773,7 @@ function renderLoopList(){
     var tags='';
     if(bpm) tags+='<span class="loop-tag bpm">'+bpm+' BPM</span>';
     if(genre) tags+='<span class="loop-tag">'+genre+'</span>';
+    if(l.time_signature) tags+='<span class="loop-tag" style="color:#a78bfa;border-color:rgba(167,139,250,.3);background:rgba(167,139,250,.1);">'+l.time_signature+'</span>';
     if(l._src==='mv') tags+='<span class="loop-tag mv">'+(l.song_title||'M&amp;V')+'</span>';
     html+='<div class="mob-loop-card" id="lcard-'+l.id+'">'
       +'<button class="btn-play-mini" id="lplay-'+l.id+'" onclick="previewLoop('+l.id+',event)">&#9654;</button>'
@@ -861,8 +881,12 @@ async function submitUpload(){
   var file=document.getElementById('upFile').files[0];
   if(!title){toast('Titre requis');return;}if(!file){toast('Fichier requis');return;}
   var btn=document.getElementById('btnUpSubmit');btn.textContent='Envoi...';btn.disabled=true;
+  var timeSig=document.getElementById('upTimeSig').value;
+  var key=document.getElementById('upKey').value.trim();
   var fd=new FormData();fd.append('file',file);fd.append('title',title);
   if(bpm) fd.append('bpm',bpm);if(genre) fd.append('genre',genre);
+  if(timeSig) fd.append('time_signature',timeSig);
+  if(key) fd.append('key_signature',key);
   try{
     var r=await fetch('/api/mive/loops',{method:'POST',body:fd});
     if(!r.ok) throw new Error(await r.text());
@@ -1033,7 +1057,7 @@ async function loadBuf(url){
 }
 async function playTrack(t,url,vol){
   stopTrack(t,false);
-  if(!url) return;
+  if(!url) return Promise.resolve();
   try{
     var ctx=getCtx();
     if(ctx.state==='suspended') await ctx.resume();
@@ -1090,8 +1114,14 @@ async function toggleLive(){
   document.getElementById('liveDot').classList.add('playing');
   document.getElementById('btnNextSec').disabled=false;
   startMetro(s.bpm||_curBpm);
-  if(s.loop_rythmique_url){playTrack(1,s.loop_rythmique_url,0);document.getElementById('tc1').classList.add('playing');fadeIn(1,_volumes[1]);}
-  if(s.loop_harmonique_url){playTrack(2,s.loop_harmonique_url,0);document.getElementById('tc2').classList.add('playing');fadeIn(2,_volumes[2]);}
+  if(s.loop_rythmique_url){
+    document.getElementById('tc1').classList.add('playing');
+    playTrack(1,s.loop_rythmique_url,0).then(function(){fadeIn(1,_volumes[1]);});
+  }
+  if(s.loop_harmonique_url){
+    document.getElementById('tc2').classList.add('playing');
+    playTrack(2,s.loop_harmonique_url,0).then(function(){fadeIn(2,_volumes[2]);});
+  }
 }
 async function nextSection(){
   if(_curSection>=_setlistItems.length-1) return;
@@ -1101,10 +1131,20 @@ async function nextSection(){
       var ctx=getCtx();var fd=2.5;
       [1,2].forEach(function(t){if(_gainNodes[t])_gainNodes[t].gain.linearRampToValueAtTime(0,ctx.currentTime+fd);});
       _curSection++;renderSection();updateBpm((next&&next.bpm)||_curBpm);stopMetro();startMetro(_curBpm);
-      setTimeout(async function(){stopTrack(1,false);stopTrack(2,false);if(next&&next.loop_rythmique_url){playTrack(1,next.loop_rythmique_url,0);fadeIn(1,_volumes[1]);}if(next&&next.loop_harmonique_url){playTrack(2,next.loop_harmonique_url,0);fadeIn(2,_volumes[2]);}},fd*1000);
+      setTimeout(async function(){
+    stopTrack(1,false);stopTrack(2,false);
+    if(next&&next.loop_rythmique_url) playTrack(1,next.loop_rythmique_url,0).then(function(){fadeIn(1,_volumes[1]);});
+    if(next&&next.loop_harmonique_url) playTrack(2,next.loop_harmonique_url,0).then(function(){fadeIn(2,_volumes[2]);});
+  },fd*1000);
     } else {
       var spb=60/currBpm;var ttm=(4-_beat)*spb;toast('Transition...');
-      setTimeout(async function(){stopTrack(1,false);stopTrack(2,false);stopMetro();_curSection++;renderSection();updateBpm((next&&next.bpm)||_curBpm);startMetro(_curBpm);if(next&&next.loop_rythmique_url){playTrack(1,next.loop_rythmique_url,0);fadeIn(1,_volumes[1]);}if(next&&next.loop_harmonique_url){playTrack(2,next.loop_harmonique_url,0);fadeIn(2,_volumes[2]);}},ttm*1000);
+      setTimeout(async function(){
+    stopTrack(1,false);stopTrack(2,false);stopMetro();
+    _curSection++;renderSection();
+    updateBpm((next&&next.bpm)||_curBpm);startMetro(_curBpm);
+    if(next&&next.loop_rythmique_url) playTrack(1,next.loop_rythmique_url,0).then(function(){fadeIn(1,_volumes[1]);});
+    if(next&&next.loop_harmonique_url) playTrack(2,next.loop_harmonique_url,0).then(function(){fadeIn(2,_volumes[2]);});
+  },ttm*1000);
     }
   } else {_curSection++;renderSection();}
 }
