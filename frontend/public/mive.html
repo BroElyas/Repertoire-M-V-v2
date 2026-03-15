@@ -593,8 +593,7 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
       <div class="form-row" style="flex:1;"><label>BPM</label><input type="number" class="fi" id="upBpm" placeholder="100" min="40" max="240"></div>
       <div class="form-row" style="flex:1;"><label>Genre</label><input type="text" class="fi" id="upGenre" placeholder="Gospel..."></div>
     </div>
-    <div style="display:flex;gap:.55rem;">
-      <div class="form-row" style="flex:1;">
+    <div class="form-row">
         <label>Signature rythmique</label>
         <select class="fi" id="upTimeSig">
           <option value="">-- choisir --</option>
@@ -607,10 +606,7 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
           <option value="7/8">7/8</option>
         </select>
       </div>
-      <div class="form-row" style="flex:1;">
-        <label>Tonalit&eacute;</label>
-        <input type="text" class="fi" id="upKey" placeholder="Ex: Do min, F#...">
-      </div>
+
     </div>
     <div class="form-row">
       <label>Fichier audio</label>
@@ -882,11 +878,9 @@ async function submitUpload(){
   if(!title){toast('Titre requis');return;}if(!file){toast('Fichier requis');return;}
   var btn=document.getElementById('btnUpSubmit');btn.textContent='Envoi...';btn.disabled=true;
   var timeSig=document.getElementById('upTimeSig').value;
-  var key=document.getElementById('upKey').value.trim();
   var fd=new FormData();fd.append('file',file);fd.append('title',title);
   if(bpm) fd.append('bpm',bpm);if(genre) fd.append('genre',genre);
   if(timeSig) fd.append('time_signature',timeSig);
-  if(key) fd.append('key_signature',key);
   try{
     var r=await fetch('/api/mive/loops',{method:'POST',body:fd});
     if(!r.ok) throw new Error(await r.text());
@@ -1043,16 +1037,28 @@ var _trackNodes = {1:null, 2:null};
 var _trackGains = {1:null, 2:null};
 var _trackBufs  = {};
 
-function getCtx(){
-  if(!_audioCtx) _audioCtx=new(window.AudioContext||window.webkitAudioContext)();
-  return _audioCtx;
+// Deux contextes s&#x00E9;par&#x00E9;s : preview et arrangement
+var _previewCtx = null;
+var _arrCtx = null;
+
+function getPreviewCtx(){
+  if(!_previewCtx) _previewCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return _previewCtx;
 }
-async function loadBuf(url){
-  if(_trackBufs[url]) return _trackBufs[url];
+function getCtx(){
+  if(!_arrCtx) _arrCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return _arrCtx;
+}
+async function loadBuf(url, ctx){
+  var key = url + (ctx===_previewCtx?'_p':'_a');
+  if(_trackBufs[key]) return _trackBufs[key];
   var r=await fetch(url);
   var ab=await r.arrayBuffer();
-  var buf=await getCtx().decodeAudioData(ab);
-  _trackBufs[url]=buf;
+  // decodeAudioData avec le bon contexte
+  var buf = await new Promise(function(resolve,reject){
+    ctx.decodeAudioData(ab, resolve, reject);
+  });
+  _trackBufs[key]=buf;
   return buf;
 }
 async function playTrack(t,url,vol){
@@ -1061,7 +1067,7 @@ async function playTrack(t,url,vol){
   try{
     var ctx=getCtx();
     if(ctx.state==='suspended') await ctx.resume();
-    var buf=await loadBuf(url);
+    var buf=await loadBuf(url, ctx);
     var gain=ctx.createGain();
     gain.gain.setValueAtTime(_muted[t]?0:Math.max(0,Math.min(1,vol)),ctx.currentTime);
     gain.connect(ctx.destination);
@@ -1096,24 +1102,33 @@ function fadeIn(t,vol){
   gain.gain.setValueAtTime(0,ctx.currentTime);
   gain.gain.linearRampToValueAtTime(target,ctx.currentTime+dur);
 }
-async function toggleLive(){
-  var s=_setlistItems[_curSection];var btn=document.getElementById('btnLivePlay');
+function toggleLive(){
+  // Resume AudioContext SYNCHRONE dans le handler du tap iOS
+  if(!_audioCtx) _audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  if(_audioCtx.state==='suspended') _audioCtx.resume();
+
+  var s=_setlistItems[_curSection];
+  var btn=document.getElementById('btnLivePlay');
+
   if(_isPlaying){
-    stopTrack(1);stopTrack(2);stopMetro();_isPlaying=false;
+    stopTrack(1,false);stopTrack(2,false);stopMetro();_isPlaying=false;
     btn.innerHTML='&#9654; PLAY';btn.classList.remove('playing');
     document.getElementById('liveStatusTxt').textContent='En attente';
     document.getElementById('liveDot').classList.remove('playing');
     document.getElementById('btnNextSec').disabled=true;
-    document.getElementById('tc1').classList.remove('playing');document.getElementById('tc2').classList.remove('playing');
+    document.getElementById('tc1').classList.remove('playing');
+    document.getElementById('tc2').classList.remove('playing');
     return;
   }
   if(!s){toast('Aucune section');return;}
-  if(_audioCtx&&_audioCtx.state==='suspended') await _audioCtx.resume();
-  _isPlaying=true;btn.innerHTML='&#9646;&#9646; STOP';btn.classList.add('playing');
+
+  _isPlaying=true;
+  btn.innerHTML='&#9646;&#9646; STOP';btn.classList.add('playing');
   document.getElementById('liveStatusTxt').textContent='En lecture';
   document.getElementById('liveDot').classList.add('playing');
   document.getElementById('btnNextSec').disabled=false;
   startMetro(s.bpm||_curBpm);
+
   if(s.loop_rythmique_url){
     document.getElementById('tc1').classList.add('playing');
     playTrack(1,s.loop_rythmique_url,0).then(function(){fadeIn(1,_volumes[1]);});
