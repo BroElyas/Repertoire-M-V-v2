@@ -966,23 +966,54 @@ function adjustBpm(d){updateBpm(Math.max(40,Math.min(240,_curBpm+d)));if(_metro)
 function startMetro(bpm){stopMetro();_beat=0;updateBeats();_metro=setInterval(function(){_beat=(_beat+1)%4;updateBeats();},60000/bpm);document.getElementById('liveDot').classList.add('active');}
 function stopMetro(){if(_metro){clearInterval(_metro);_metro=null;}_beat=0;updateBeats();document.getElementById('liveDot').classList.remove('active','playing');}
 function updateBeats(){document.querySelectorAll('.beat-dot').forEach(function(d,i){d.classList.toggle('on',i===_beat);});}
-async function playTrack(t,url,vol){
-  var ctx=getCtx();
-  if(_sources[t]){try{_sources[t].stop();}catch(ex){}_sources[t]=null;}
-  if(!url) return;
-  var buf=await loadBuf(url);
-  var src=ctx.createBufferSource();src.buffer=buf;src.loop=true;
-  var g=ctx.createGain();g.gain.setValueAtTime(_muted[t]?0:vol,ctx.currentTime);
-  src.connect(g);g.connect(ctx.destination);src.start(0);
-  _sources[t]=src;_gainNodes[t]=g;
+// Piste audio arrangement &#x2014; utilise <audio> natif (fiable iOS)
+var _trackAudio = {1:null, 2:null};
+
+function playTrack(t, url, vol){
+  stopTrack(t, false);
+  if(!url) return Promise.resolve();
+  var audio = new Audio();
+  audio.crossOrigin = 'anonymous';
+  audio.src = url;
+  audio.loop = true;
+  audio.volume = _muted[t] ? 0 : Math.max(0, Math.min(1, vol));
+  _trackAudio[t] = audio;
+  var p = audio.play();
+  if(p && p.catch) p.catch(function(err){ toast('Erreur piste ' + t + ': ' + err.message); });
+  return Promise.resolve();
 }
-function stopTrack(t,fade){
-  if(fade===undefined) fade=true;
-  if(!_sources[t]) return;var ctx=getCtx();
-  if(fade&&_gainNodes[t]){_gainNodes[t].gain.linearRampToValueAtTime(0,ctx.currentTime+1.5);setTimeout(function(){try{_sources[t]&&_sources[t].stop();}catch(ex){}_sources[t]=null;},1600);}
-  else{try{_sources[t].stop();}catch(ex){}_sources[t]=null;}
+function stopTrack(t, fade){
+  var audio = _trackAudio[t];
+  if(!audio) return;
+  if(fade === true){
+    // Fade out progressif
+    var vol = audio.volume;
+    var step = vol / 15;
+    var iv = setInterval(function(){
+      if(!_trackAudio[t]){ clearInterval(iv); return; }
+      vol -= step;
+      if(vol <= 0){ clearInterval(iv); audio.pause(); audio.currentTime=0; _trackAudio[t]=null; }
+      else { try{ audio.volume = vol; }catch(e){} }
+    }, 100);
+  } else {
+    audio.pause();
+    audio.currentTime = 0;
+    _trackAudio[t] = null;
+  }
 }
-function fadeIn(t,vol){var ctx=getCtx();var g=_gainNodes[t];if(!g) return;var d=Math.max(1.5,60/_curBpm*2);g.gain.setValueAtTime(0,ctx.currentTime);g.gain.linearRampToValueAtTime(_muted[t]?0:vol,ctx.currentTime+d);}
+function fadeIn(t, vol){
+  var audio = _trackAudio[t];
+  if(!audio) return;
+  var target = _muted[t] ? 0 : Math.max(0, Math.min(1, vol));
+  audio.volume = 0;
+  var step = target / 15;
+  var iv = setInterval(function(){
+    if(!_trackAudio[t]){ clearInterval(iv); return; }
+    var v = audio.volume + step;
+    if(v >= target){ clearInterval(iv); try{ audio.volume = target; }catch(e){} }
+    else { try{ audio.volume = v; }catch(e){} }
+  }, 100);
+}
 async function toggleLive(){
   var s=_setlistItems[_curSection];var btn=document.getElementById('btnLivePlay');
   if(_isPlaying){
@@ -1001,8 +1032,8 @@ async function toggleLive(){
   document.getElementById('liveDot').classList.add('playing');
   document.getElementById('btnNextSec').disabled=false;
   startMetro(s.bpm||_curBpm);
-  if(s.loop_rythmique_url){await playTrack(1,s.loop_rythmique_url,0);document.getElementById('tc1').classList.add('playing');fadeIn(1,_volumes[1]);}
-  if(s.loop_harmonique_url){await playTrack(2,s.loop_harmonique_url,0);document.getElementById('tc2').classList.add('playing');fadeIn(2,_volumes[2]);}
+  if(s.loop_rythmique_url){playTrack(1,s.loop_rythmique_url,0);document.getElementById('tc1').classList.add('playing');fadeIn(1,_volumes[1]);}
+  if(s.loop_harmonique_url){playTrack(2,s.loop_harmonique_url,0);document.getElementById('tc2').classList.add('playing');fadeIn(2,_volumes[2]);}
 }
 async function nextSection(){
   if(_curSection>=_setlistItems.length-1) return;
@@ -1012,17 +1043,17 @@ async function nextSection(){
       var ctx=getCtx();var fd=2.5;
       [1,2].forEach(function(t){if(_gainNodes[t])_gainNodes[t].gain.linearRampToValueAtTime(0,ctx.currentTime+fd);});
       _curSection++;renderSection();updateBpm((next&&next.bpm)||_curBpm);stopMetro();startMetro(_curBpm);
-      setTimeout(async function(){stopTrack(1,false);stopTrack(2,false);if(next&&next.loop_rythmique_url){await playTrack(1,next.loop_rythmique_url,0);fadeIn(1,_volumes[1]);}if(next&&next.loop_harmonique_url){await playTrack(2,next.loop_harmonique_url,0);fadeIn(2,_volumes[2]);}},fd*1000);
+      setTimeout(async function(){stopTrack(1,false);stopTrack(2,false);if(next&&next.loop_rythmique_url){playTrack(1,next.loop_rythmique_url,0);fadeIn(1,_volumes[1]);}if(next&&next.loop_harmonique_url){playTrack(2,next.loop_harmonique_url,0);fadeIn(2,_volumes[2]);}},fd*1000);
     } else {
       var spb=60/currBpm;var ttm=(4-_beat)*spb;toast('Transition...');
-      setTimeout(async function(){stopTrack(1,false);stopTrack(2,false);stopMetro();_curSection++;renderSection();updateBpm((next&&next.bpm)||_curBpm);startMetro(_curBpm);if(next&&next.loop_rythmique_url){await playTrack(1,next.loop_rythmique_url,0);fadeIn(1,_volumes[1]);}if(next&&next.loop_harmonique_url){await playTrack(2,next.loop_harmonique_url,0);fadeIn(2,_volumes[2]);}},ttm*1000);
+      setTimeout(async function(){stopTrack(1,false);stopTrack(2,false);stopMetro();_curSection++;renderSection();updateBpm((next&&next.bpm)||_curBpm);startMetro(_curBpm);if(next&&next.loop_rythmique_url){playTrack(1,next.loop_rythmique_url,0);fadeIn(1,_volumes[1]);}if(next&&next.loop_harmonique_url){playTrack(2,next.loop_harmonique_url,0);fadeIn(2,_volumes[2]);}},ttm*1000);
     }
   } else {_curSection++;renderSection();}
 }
 function prevSection(){if(_curSection<=0) return;if(_isPlaying){toast('Stoppe la lecture avant');return;}_curSection--;renderSection();}
-function setVol(t,v){_volumes[t]=v/100;document.getElementById('fv'+t).textContent=v;if(_gainNodes[t]&&!_muted[t])_gainNodes[t].gain.setValueAtTime(v/100,getCtx().currentTime);}
-function toggleMute(t){_muted[t]=!_muted[t];document.getElementById('mb'+t).classList.toggle('active',_muted[t]);if(_gainNodes[t])_gainNodes[t].gain.setValueAtTime(_muted[t]?0:_volumes[t],getCtx().currentTime);}
-function toggleSolo(t){_soloed[t]=!_soloed[t];document.getElementById('sb'+t).classList.toggle('active',_soloed[t]);var any=_soloed[1]||_soloed[2];[1,2].forEach(function(x){if(_gainNodes[x])_gainNodes[x].gain.setValueAtTime(!_muted[x]&&(!any||_soloed[x])?_volumes[x]:0,getCtx().currentTime);});}
+function setVol(t,v){_volumes[t]=v/100;document.getElementById('fv'+t).textContent=v;if(_trackAudio[t]&&!_muted[t])try{_trackAudio[t].volume=v/100;}catch(e){}}
+function toggleMute(t){_muted[t]=!_muted[t];document.getElementById('mb'+t).classList.toggle('active',_muted[t]);if(_trackAudio[t])try{_trackAudio[t].volume=_muted[t]?0:_volumes[t];}catch(e){}}
+function toggleSolo(t){_soloed[t]=!_soloed[t];document.getElementById('sb'+t).classList.toggle('active',_soloed[t]);var any=_soloed[1]||_soloed[2];[1,2].forEach(function(x){if(_trackAudio[x])try{_trackAudio[x].volume=(!_muted[x]&&(!any||_soloed[x]))?_volumes[x]:0;}catch(e){}});}
 
 // &#x2500;&#x2500; SETLIST PICKER &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 var _slPickerLoopId=null, _slPickerLoopSrc=null;
@@ -1073,7 +1104,7 @@ async function addLoopToSetlist(setlistId){
     });
     if(!r.ok) throw new Error(await r.text());
     document.getElementById('slPickerOverlay').classList.add('hidden');
-    toast('Ajout&#233;e &#x00E0; la setlist !');
+    toast('Ajout&#x00E9;e &#x00E0; la setlist !');
   }catch(ex){toast('Erreur: '+ex.message);}
 }
 async function slPickerCreateNew(){
@@ -1085,7 +1116,7 @@ async function slPickerCreateNew(){
     _setlists.unshift(sl);
     renderSetlistCards();
     renderSlPickerList();
-    toast('Setlist cr&#233;&#233;e !');
+    toast('Setlist cr&#x00E9;&#x00E9;e !');
   }catch(ex){toast('Erreur: '+ex.message);}
 }
 
