@@ -184,6 +184,8 @@ async function initDB() {
       title TEXT NOT NULL,
       bpm INTEGER,
       genre TEXT,
+      time_signature TEXT,
+      key_signature TEXT,
       filename TEXT NOT NULL,
       file_url TEXT NOT NULL,
       file_size INTEGER DEFAULT 0,
@@ -191,6 +193,8 @@ async function initDB() {
       song_id INTEGER REFERENCES songs(id) ON DELETE SET NULL,
       uploaded_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS time_signature TEXT;
+    ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS key_signature TEXT;
     CREATE TABLE IF NOT EXISTS mive_setlists (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -720,14 +724,14 @@ app.get('/api/mive/loops-mv', async (req, res) => {
 
 app.post('/api/mive/loops', upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Fichier manquant' });
-  const { title, bpm, genre } = req.body;
+  const { title, bpm, genre, time_signature, key_signature } = req.body;
   if (!title) return res.status(400).json({ error: 'Titre requis' });
   try {
     const filename = `mive-${Date.now()}-${Math.round(Math.random()*1e6)}${path.extname(req.file.originalname)}`;
     const fileUrl = await uploadToSupabase(BUCKET_MIVE, filename, req.file.buffer, req.file.mimetype);
     const { rows } = await pool.query(
-      'INSERT INTO mive_loops(title, bpm, genre, filename, file_url, file_size, source) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
-      [title.trim(), bpm||null, genre||null, filename, fileUrl, req.file.size, 'mive']
+      'INSERT INTO mive_loops(title, bpm, genre, time_signature, key_signature, filename, file_url, file_size, source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+      [title.trim(), bpm||null, genre||null, time_signature||null, key_signature||null, filename, fileUrl, req.file.size, 'mive']
     );
     res.json(rows[0]);
   } catch(e) { res.status(500).json({ error: e.message }); }
