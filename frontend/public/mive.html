@@ -503,7 +503,7 @@ input[type=range].fader-v{-webkit-appearance:slider-vertical;appearance:slider-v
     </div>
     <div class="form-row">
       <label>Fichier audio</label>
-      <label class="upload-zone"><input type="file" id="upFile" accept="audio/*" onchange="handleFile(this)"><span id="upZoneTxt">Cliquer pour s&eacute;lectionner</span></label>
+      <label class="upload-zone"><input type="file" id="upFile" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,.mp4,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/flac" onchange="handleFile(this)"><span id="upZoneTxt">Cliquer pour s&eacute;lectionner</span></label>
     </div>
     <div class="form-actions"><button class="btn" onclick="closeUpload()">Annuler</button><button class="btn btn-primary" id="btnUpSubmit" onclick="submitUpload()">Ajouter</button></div>
   </div>
