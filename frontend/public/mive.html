@@ -337,6 +337,53 @@ input[type=range].fader-v{-webkit-appearance:slider-vertical;appearance:slider-v
 .btn-next-sec:hover{border-color:var(--blue);color:var(--blue);}
 .btn-next-sec:disabled{opacity:.3;cursor:not-allowed;}
 
+/* Bouton + setlist dans la loop card */
+.btn-add-setlist{
+  width:28px;height:28px;border-radius:50%;flex-shrink:0;
+  background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.28);
+  color:var(--blue);font-size:1.05rem;font-weight:700;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;line-height:1;font-family:var(--sans);
+  -webkit-tap-highlight-color:transparent;
+}
+.btn-add-setlist:active{background:var(--blue);color:#fff;}
+
+/* Drawer setlist picker */
+#slPickerOverlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(4px);z-index:300;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+#slPickerOverlay.hidden{display:none;}
+#slPickerDrawer{
+  background:var(--surface);border-radius:18px 18px 0 0;
+  border:1px solid var(--border);border-bottom:none;
+  width:100%;max-width:520px;
+  padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 40px rgba(0,0,0,.5);
+  max-height:75vh;overflow-y:auto;
+}
+.sl-picker-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto .9rem;}
+.sl-picker-title{font-size:.82rem;font-weight:800;margin-bottom:.7rem;color:var(--text);}
+.sl-picker-item{
+  display:flex;align-items:center;gap:.7rem;
+  padding:.65rem .85rem;border-radius:var(--r-sm);
+  border:1px solid var(--border);background:var(--surface2);
+  cursor:pointer;transition:all .12s;margin-bottom:.32rem;
+  -webkit-tap-highlight-color:transparent;
+}
+.sl-picker-item:active{border-color:var(--blue);background:var(--blue-dim);}
+.sl-picker-item-name{flex:1;font-size:.8rem;font-weight:700;}
+.sl-picker-item-count{font-family:var(--mono);font-size:.58rem;color:var(--muted);}
+.sl-picker-new{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.6rem .85rem;border-radius:var(--r-sm);
+  border:1.5px dashed var(--border);background:transparent;
+  cursor:pointer;margin-top:.5rem;color:var(--muted);font-size:.78rem;font-weight:600;
+  -webkit-tap-highlight-color:transparent;width:100%;font-family:var(--sans);
+}
+.sl-picker-new:active{border-color:var(--blue);color:var(--blue);}
+
 /* MODALS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;}
 .overlay.hidden{display:none;}
@@ -491,6 +538,18 @@ input[type=range].fader-v{-webkit-appearance:slider-vertical;appearance:slider-v
 </div>
 
 <div id="miveToast"></div>
+
+<!-- DRAWER AJOUT SETLIST -->
+<div id="slPickerOverlay" class="hidden" onclick="closeSlPicker(event)">
+  <div id="slPickerDrawer">
+    <div class="sl-picker-handle"></div>
+    <div class="sl-picker-title" id="slPickerTitle">Ajouter &agrave; une setlist</div>
+    <div id="slPickerList"></div>
+    <button class="sl-picker-new" onclick="slPickerCreateNew()">
+      <span style="font-size:1.1rem;line-height:1;">+</span> Nouvelle setlist
+    </button>
+  </div>
+</div>
 
 <!-- MODAL UPLOAD -->
 <div class="overlay hidden" id="uploadOverlay">
@@ -669,7 +728,9 @@ function renderLoopList(){
         +'<div class="mob-loop-card-title">'+title+'</div>'
         +'<div class="mob-loop-card-tags">'+tags+'</div>'
       +'</div>'
-      +(l._src==='mive'?'<button onclick="deleteLoop('+l.id+',event)" style="background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:.2rem .4rem;border-radius:4px;" title="Supprimer">&#x2715;</button>':'')
+      +'<div style="display:flex;flex-direction:column;gap:.3rem;align-items:center;">'
+      +'<button class="btn-add-setlist" onclick="openSlPicker('+l.id+',\''+(l._src||'mive')+'\',event)" title="Ajouter &agrave; une setlist">+</button>'
+      +'</div>'
       +'</div>';
   });
   el.innerHTML=html;
@@ -962,6 +1023,71 @@ function prevSection(){if(_curSection<=0) return;if(_isPlaying){toast('Stoppe la
 function setVol(t,v){_volumes[t]=v/100;document.getElementById('fv'+t).textContent=v;if(_gainNodes[t]&&!_muted[t])_gainNodes[t].gain.setValueAtTime(v/100,getCtx().currentTime);}
 function toggleMute(t){_muted[t]=!_muted[t];document.getElementById('mb'+t).classList.toggle('active',_muted[t]);if(_gainNodes[t])_gainNodes[t].gain.setValueAtTime(_muted[t]?0:_volumes[t],getCtx().currentTime);}
 function toggleSolo(t){_soloed[t]=!_soloed[t];document.getElementById('sb'+t).classList.toggle('active',_soloed[t]);var any=_soloed[1]||_soloed[2];[1,2].forEach(function(x){if(_gainNodes[x])_gainNodes[x].gain.setValueAtTime(!_muted[x]&&(!any||_soloed[x])?_volumes[x]:0,getCtx().currentTime);});}
+
+// &#x2500;&#x2500; SETLIST PICKER &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+var _slPickerLoopId=null, _slPickerLoopSrc=null;
+
+function openSlPicker(id,src,e){
+  e.stopPropagation();
+  _slPickerLoopId=id;
+  _slPickerLoopSrc=src;
+  renderSlPickerList();
+  document.getElementById('slPickerOverlay').classList.remove('hidden');
+}
+function closeSlPicker(e){
+  if(!e||e.target===document.getElementById('slPickerOverlay'))
+    document.getElementById('slPickerOverlay').classList.add('hidden');
+}
+function renderSlPickerList(){
+  var list=document.getElementById('slPickerList');
+  if(!_setlists.length){
+    list.innerHTML='<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:.8rem;">Aucune setlist &#x2014; cr&#233;en une nouvelle</div>';
+    return;
+  }
+  list.innerHTML=_setlists.map(function(sl){
+    return '<div class="sl-picker-item" onclick="addLoopToSetlist('+sl.id+')">'
+      +'<div class="sl-picker-item-name">'+sl.name+'</div>'
+      +'<span class="sl-picker-item-count badge-src '+(sl.source==='mv'?'mv':'')+'">'+( sl.source==='mv'?'M&V':'Mive')+'</span>'
+      +'</div>';
+  }).join('');
+}
+async function addLoopToSetlist(setlistId){
+  var loops=_loops.concat(_loopsMv);
+  var loop=null;
+  for(var i=0;i<loops.length;i++){if(loops[i].id===_slPickerLoopId){loop=loops[i];break;}}
+  if(!loop){toast('Loop introuvable');return;}
+  try{
+    var r=await fetch('/api/mive/setlists/'+setlistId+'/items',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        loop_id: loop.id,
+        loop_src: _slPickerLoopSrc,
+        song_title: loop.title||loop.stem_label||'Loop sans titre',
+        bpm: loop.bpm||loop.song_bpm||null,
+        loop_rythmique_id: loop.id,
+        loop_rythmique_title: loop.title||loop.stem_label||'',
+        loop_rythmique_bpm: loop.bpm||loop.song_bpm||null,
+        loop_rythmique_url: loop.file_url
+      })
+    });
+    if(!r.ok) throw new Error(await r.text());
+    document.getElementById('slPickerOverlay').classList.add('hidden');
+    toast('Ajout&#233;e &#x00E0; la setlist !');
+  }catch(ex){toast('Erreur: '+ex.message);}
+}
+async function slPickerCreateNew(){
+  var name=prompt('Nom de la nouvelle setlist :');
+  if(!name||!name.trim()) return;
+  try{
+    var r=await fetch('/api/mive/setlists',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name.trim(),source:'mive'})});
+    var sl=await r.json();
+    _setlists.unshift(sl);
+    renderSetlistCards();
+    renderSlPickerList();
+    toast('Setlist cr&#233;&#233;e !');
+  }catch(ex){toast('Erreur: '+ex.message);}
+}
 
 // INIT
 async function init(){
