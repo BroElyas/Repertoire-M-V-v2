@@ -820,6 +820,30 @@ app.put('/api/mive/setlists/:id/items', async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// Ajouter un item à une setlist existante
+app.post('/api/mive/setlists/:id/items', async (req, res) => {
+  try {
+    const { song_title, bpm, key_signature, loop_rythmique_id, loop_harmonique_id, loop_rythmique_url, loop_rythmique_title, loop_rythmique_bpm } = req.body;
+    // Position = dernier + 1
+    const { rows: posRows } = await pool.query(
+      'SELECT COALESCE(MAX(position),0)+1 AS next_pos FROM mive_setlist_items WHERE setlist_id=$1',
+      [req.params.id]
+    );
+    const position = posRows[0].next_pos;
+    const { rows } = await pool.query(
+      `INSERT INTO mive_setlist_items
+        (setlist_id, song_title, bpm, key_signature, position, loop_rythmique_id, loop_harmonique_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [req.params.id, song_title||null, bpm||null, key_signature||null, position, loop_rythmique_id||null, loop_harmonique_id||null]
+    );
+    await pool.query('UPDATE mive_setlists SET updated_at=NOW() WHERE id=$1', [req.params.id]);
+    res.json(rows[0]);
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.patch('/api/mive/setlists/:setlistId/items/:itemId', async (req, res) => {
   const { song_id, song_title, bpm, key_signature, loop_rythmique_id, loop_harmonique_id } = req.body;
   const fields = [], vals = [];
