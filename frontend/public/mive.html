@@ -419,6 +419,18 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
 
 /* MODALS */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;}
+/* Drawer depuis le bas pour upload */
+.overlay-bottom{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-end;justify-content:center;}
+.overlay-bottom.hidden{display:none;}
+.drawer-modal{
+  background:var(--surface);border-radius:20px 20px 0 0;
+  border:1px solid var(--border);border-bottom:none;
+  width:100%;max-width:540px;
+  padding:1.1rem 1.1rem calc(1.4rem + env(safe-area-inset-bottom));
+  max-height:92vh;overflow-y:auto;
+  box-shadow:0 -8px 40px rgba(0,0,0,.5);
+}
+.drawer-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto .85rem;}
 .overlay.hidden{display:none;}
 .modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem;width:100%;max-width:420px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.6);}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;}
@@ -585,20 +597,32 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
 </div>
 
 <!-- MODAL UPLOAD -->
-<div class="overlay hidden" id="uploadOverlay">
-  <div class="modal">
-    <div class="modal-hdr"><div class="modal-title">Ajouter une loop</div><button class="modal-close" onclick="closeUpload()">&#x2715;</button></div>
-    <div class="form-row"><label>Titre *</label><input type="text" class="fi" id="upTitle" placeholder="Ex: Groove gospel"></div>
-    <div style="display:flex;gap:.55rem;">
-      <div class="form-row" style="flex:1;"><label>BPM</label><input type="number" class="fi" id="upBpm" placeholder="100" min="40" max="240"></div>
-      <div class="form-row" style="flex:1;"><label>Genre</label><input type="text" class="fi" id="upGenre" placeholder="Gospel..."></div>
+<div class="overlay-bottom hidden" id="uploadOverlay" onclick="closeUpload(event)">
+  <div class="drawer-modal" onclick="event.stopPropagation()">
+    <div class="drawer-handle"></div>
+    <div class="modal-hdr">
+      <div class="modal-title">Ajouter une loop</div>
+      <button class="modal-close" onclick="document.getElementById('uploadOverlay').classList.add('hidden')">&#x2715;</button>
     </div>
     <div class="form-row">
-        <label>Signature rythmique</label>
+      <label>Titre *</label>
+      <input type="text" class="fi" id="upTitle" placeholder="Ex: Groove gospel">
+    </div>
+    <div style="display:flex;gap:.6rem;">
+      <div class="form-row" style="flex:1;">
+        <label>BPM</label>
+        <input type="number" class="fi" id="upBpm" placeholder="100" min="40" max="240">
+      </div>
+      <div class="form-row" style="flex:1;">
+        <label>Genre</label>
+        <input type="text" class="fi" id="upGenre" placeholder="Gospel...">
+      </div>
+      <div class="form-row" style="flex:1;">
+        <label>Signature</label>
         <select class="fi" id="upTimeSig">
-          <option value="">-- choisir --</option>
-          <option value="4/4">4/4 (commun)</option>
-          <option value="3/4">3/4 (valse)</option>
+          <option value="">--</option>
+          <option value="4/4">4/4</option>
+          <option value="3/4">3/4</option>
           <option value="6/8">6/8</option>
           <option value="12/8">12/8</option>
           <option value="2/4">2/4</option>
@@ -606,13 +630,18 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
           <option value="7/8">7/8</option>
         </select>
       </div>
-
     </div>
     <div class="form-row">
       <label>Fichier audio</label>
-      <label class="upload-zone"><input type="file" id="upFile" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,.mp4,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/flac" onchange="handleFile(this)"><span id="upZoneTxt">Cliquer pour s&eacute;lectionner</span></label>
+      <label class="upload-zone">
+        <input type="file" id="upFile" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,.mp4,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/flac" onchange="handleFile(this)">
+        <span id="upZoneTxt">Appuyer pour s&eacute;lectionner</span>
+      </label>
     </div>
-    <div class="form-actions"><button class="btn" onclick="closeUpload()">Annuler</button><button class="btn btn-primary" id="btnUpSubmit" onclick="submitUpload()">Ajouter</button></div>
+    <div class="form-actions">
+      <button class="btn" onclick="document.getElementById('uploadOverlay').classList.add('hidden')">Annuler</button>
+      <button class="btn btn-primary" id="btnUpSubmit" onclick="submitUpload()">Ajouter</button>
+    </div>
   </div>
 </div>
 
@@ -665,7 +694,7 @@ function switchScreen(id,btn){
   if(btn) btn.classList.add('active');
 }
 
-// FROSTED GLASS &#x2014; exactement comme M&V
+// FROSTED GLASS \u2014 exactement comme M&V
 (function(){
   var _listEl,_barEl,_filtersEl;
   function setFrosted(on){
@@ -713,7 +742,7 @@ function setSort(val,el){
   renderLoopList();
 }
 
-// SOURCE (tabs removed &#x2014; unified list)
+// SOURCE (tabs removed \u2014 unified list)
 
 // PILLS
 function setGenreFilter(genre,el){
@@ -803,7 +832,7 @@ function alphaJumpLib(letter){
 }
 
 // AUDIO PREVIEW
-// Preview audio &#x2014; utilise <audio> natif (fiable iOS)
+// Preview audio \u2014 utilise <audio> natif (fiable iOS)
 var _previewAudio = null;
 function previewLoop(id,e){
   e.stopPropagation();
@@ -864,11 +893,76 @@ async function deleteLoop(id,e){
 
 // UPLOAD
 function openUploadModal(){document.getElementById('uploadOverlay').classList.remove('hidden');}
-function closeUpload(){document.getElementById('uploadOverlay').classList.add('hidden');}
+function closeUpload(e){if(e&&e.currentTarget===e.target)document.getElementById('uploadOverlay').classList.add('hidden');}
 function handleFile(inp){
   var f=inp.files[0];if(!f) return;
   document.getElementById('upZoneTxt').textContent=f.name;
-  if(!document.getElementById('upTitle').value) document.getElementById('upTitle').value=f.name.replace(/\.[^.]+$/,'');
+  if(!document.getElementById('upTitle').value)
+    document.getElementById('upTitle').value=f.name.replace(/\.[^.]+$/,'');
+  // Auto-detect BPM
+  detectBpm(f);
+}
+
+async function detectBpm(file){
+  try{
+    var bpmEl=document.getElementById('upBpm');
+    bpmEl.placeholder='Analyse...';
+    var ab=await file.arrayBuffer();
+    // Contexte offline pour decoder sans jouer
+    var ctx=new(window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,44100*30,44100);
+    var buf=await ctx.decodeAudioData(ab);
+    var data=buf.getChannelData(0);
+    var sr=buf.sampleRate;
+
+    // Onset detection par energie RMS sur fenetres de 512 samples
+    var winSize=512;
+    var hopSize=256;
+    var energies=[];
+    for(var i=0;i+winSize<data.length;i+=hopSize){
+      var sum=0;
+      for(var j=0;j<winSize;j++) sum+=data[i+j]*data[i+j];
+      energies.push(Math.sqrt(sum/winSize));
+    }
+
+    // Seuil adaptatif : moyenne locale * facteur
+    var onsets=[];
+    var winLocal=43; // ~0.5s
+    for(var i=winLocal;i<energies.length-winLocal;i++){
+      var local=0;
+      for(var j=i-winLocal;j<=i+winLocal;j++) local+=energies[j];
+      local/=(2*winLocal+1);
+      if(energies[i]>local*1.35 && energies[i]>energies[i-1] && energies[i]>energies[i+1])
+        onsets.push(i*hopSize/sr);
+    }
+
+    if(onsets.length<4){bpmEl.placeholder='100';return;}
+
+    // Intervalles entre onsets
+    var intervals=[];
+    for(var i=1;i<onsets.length;i++){
+      var dt=onsets[i]-onsets[i-1];
+      if(dt>0.25&&dt<2.0) intervals.push(dt);
+    }
+    if(!intervals.length){bpmEl.placeholder='100';return;}
+
+    // BPM candidat = 60 / median(intervals)
+    intervals.sort(function(a,b){return a-b;});
+    var med=intervals[Math.floor(intervals.length/2)];
+    var bpm=Math.round(60/med);
+
+    // Normaliser dans la plage 60-200
+    while(bpm<60) bpm*=2;
+    while(bpm>200) bpm/=2;
+    bpm=Math.round(bpm);
+
+    if(!document.getElementById('upBpm').value){
+      document.getElementById('upBpm').value=bpm;
+    }
+    bpmEl.placeholder=bpm+' BPM d&#x00E9;tect&#x00E9;';
+  }catch(e){
+    document.getElementById('upBpm').placeholder='100';
+    console.warn('BPM detect error:',e);
+  }
 }
 async function submitUpload(){
   var title=document.getElementById('upTitle').value.trim();
@@ -901,7 +995,7 @@ function renderSetlistCards(){
     return '<div class="setlist-card" onclick="openSetlist('+s.id+')">'
       +'<div style="flex:1;font-weight:700;font-size:.85rem;">'+s.name+'</div>'
       +'<span class="badge-src '+(s.source==='mv'?'mv':'')+'">'+( s.source==='mv'?'M&amp;V':'Mive')+'</span>'
-      +'<button class="btn btn-sm btn-danger" onclick="deleteSetlist('+s.id+',event)">&#x2715;</button>'
+      +'<button class="btn btn-sm btn-danger" onclick="deleteSetlist('+s.id+',event)">\u2715</button>'
       +'</div>';}).join('');
 }
 function openNewSetlistModal(){document.getElementById('newSetlistOverlay').classList.remove('hidden');}
@@ -1017,7 +1111,7 @@ function adjustBpm(d){
   updateBpm(Math.max(40,Math.min(240,_curBpm+d)));
   // Metronome
   if(_metro){stopMetro();startMetro(_curBpm);}
-  // Vitesse de lecture &#x2014; sans toucher au pitch (preservesPitch)
+  // Vitesse de lecture \u2014 sans toucher au pitch (preservesPitch)
   [1,2].forEach(function(t){
     var src=_trackNodes[t];
     if(!src) return;
@@ -1032,12 +1126,12 @@ function adjustBpm(d){
 function startMetro(bpm){stopMetro();_beat=0;updateBeats();_metro=setInterval(function(){_beat=(_beat+1)%4;updateBeats();},60000/bpm);document.getElementById('liveDot').classList.add('active');}
 function stopMetro(){if(_metro){clearInterval(_metro);_metro=null;}_beat=0;updateBeats();document.getElementById('liveDot').classList.remove('active','playing');}
 function updateBeats(){document.querySelectorAll('.beat-dot').forEach(function(d,i){d.classList.toggle('on',i===_beat);});}
-// WebAudio BufferSource &#x2014; loop sans latence
+// WebAudio BufferSource \u2014 loop sans latence
 var _trackNodes = {1:null, 2:null};
 var _trackGains = {1:null, 2:null};
 var _trackBufs  = {};
 
-// Deux contextes s&#x00E9;par&#x00E9;s : preview et arrangement
+// Deux contextes s\u00E9par\u00E9s : preview et arrangement
 var _previewCtx = null;
 var _arrCtx = null;
 
@@ -1074,13 +1168,18 @@ async function playTrack(t,url,vol){
     var src=ctx.createBufferSource();
     src.buffer=buf;
     src.loop=true;
-    // Preserves pitch lors du changement de playbackRate
-    src.playbackRate.value = _curBpm && buf._origBpm ? _curBpm / buf._origBpm : 1.0;
-    if(typeof src.preservesPitch !== 'undefined') src.preservesPitch = true;
+    // preservesPitch = time-stretching sans changement de tonalite (Safari iOS 16+)
+    src.preservesPitch = true;
+    if(typeof src.detune !== 'undefined') src.detune.value = 0;
+    // Ratio BPM : section BPM / loop BPM d'origine
+    var loopOrigBpm = buf._origBpm || _curBpm;
+    src.playbackRate.value = _curBpm / loopOrigBpm;
     src.connect(gain);
     src.start(0);
     _trackNodes[t]=src;
     _trackGains[t]=gain;
+    // Stocker le BPM d'origine de la loop dans le buffer pour ajustements futurs
+    if(!buf._origBpm) buf._origBpm = _curBpm;
   }catch(e){ toast('Erreur piste '+t+': '+e.message); }
 }
 function stopTrack(t,fade){
@@ -1176,7 +1275,7 @@ function setVol(t,v){
 function toggleMute(t){_muted[t]=!_muted[t];document.getElementById('mb'+t).classList.toggle('active',_muted[t]);if(_trackGains[t]){try{_trackGains[t].gain.setValueAtTime(_muted[t]?0:_volumes[t],getCtx().currentTime);}catch(e){}}}
 function toggleSolo(t){_soloed[t]=!_soloed[t];document.getElementById('sb'+t).classList.toggle('active',_soloed[t]);var any=_soloed[1]||_soloed[2];[1,2].forEach(function(x){if(_trackGains[x]){try{_trackGains[x].gain.setValueAtTime((!_muted[x]&&(!any||_soloed[x]))?_volumes[x]:0,getCtx().currentTime);}catch(e){}}});}
 
-// &#x2500;&#x2500; SETLIST PICKER &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+// \u2500\u2500 SETLIST PICKER \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 var _slPickerLoopId=null, _slPickerLoopSrc=null;
 
 function openSlPicker(id,src,e){
@@ -1193,7 +1292,7 @@ function closeSlPicker(e){
 function renderSlPickerList(){
   var list=document.getElementById('slPickerList');
   if(!_setlists.length){
-    list.innerHTML='<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:.8rem;">Aucune setlist &#x2014; cr&#233;en une nouvelle</div>';
+    list.innerHTML='<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:.8rem;">Aucune setlist \u2014 cr&#233;en une nouvelle</div>';
     return;
   }
   list.innerHTML=_setlists.map(function(sl){
@@ -1225,7 +1324,7 @@ async function addLoopToSetlist(setlistId){
     });
     if(!r.ok) throw new Error(await r.text());
     document.getElementById('slPickerOverlay').classList.add('hidden');
-    toast('Ajout&#x00E9;e &#x00E0; la setlist !');
+    toast('Ajout\u00E9e \u00E0 la setlist !');
   }catch(ex){toast('Erreur: '+ex.message);}
 }
 async function slPickerCreateNew(){
@@ -1237,7 +1336,7 @@ async function slPickerCreateNew(){
     _setlists.unshift(sl);
     renderSetlistCards();
     renderSlPickerList();
-    toast('Setlist cr&#x00E9;&#x00E9;e !');
+    toast('Setlist cr\u00E9\u00E9e !');
   }catch(ex){toast('Erreur: '+ex.message);}
 }
 
