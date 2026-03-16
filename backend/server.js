@@ -100,6 +100,7 @@ async function initDB() {
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
     ALTER TABLE audio_files ADD COLUMN IF NOT EXISTS file_url TEXT;
+    ALTER TABLE songs ADD COLUMN IF NOT EXISTS stem_category TEXT;
     CREATE TABLE IF NOT EXISTS activity_logs (
       id SERIAL PRIMARY KEY,
       action TEXT NOT NULL,
@@ -696,29 +697,37 @@ app.delete('/api/logs', async (req, res) => {
 // -- Loops Mive (bibliotheque independante) ------------------------------------
 app.get('/api/mive/loops', async (req, res) => {
   try {
-    const { genre, bpm_min, bpm_max } = req.query;
-    let q = 'SELECT * FROM mive_loops WHERE 1=1';
-    const vals = [];
-    if (genre)   { vals.push(genre);    q += ` AND genre ILIKE $${vals.length}`; }
-    if (bpm_min) { vals.push(bpm_min);  q += ` AND bpm >= $${vals.length}`; }
-    if (bpm_max) { vals.push(bpm_max);  q += ` AND bpm <= $${vals.length}`; }
-    q += ' ORDER BY uploaded_at DESC';
-    const { rows } = await pool.query(q, vals);
-    res.json(rows);
-  } catch(e) { res.status(500).json({ error: e.message }); }
-});
+    // Loops Mive natives
+    const { rows: miveLoops } = await pool.query(
+      "SELECT *, 'mive' as _src FROM mive_loops ORDER BY uploaded_at DESC"
+    );
 
-// Loops de M&V avec stem_type = 'loop'
-app.get('/api/mive/loops-mv', async (req, res) => {
-  try {
-    const { rows } = await pool.query(`
-      SELECT af.*, s.title as song_title, s.bpm as song_bpm, s.key_signature
+    // Loops issues de M&V (audio_files avec stem_type = 'loop')
+    const { rows: mvLoops } = await pool.query(`
+      SELECT
+        af.id,
+        af.song_id,
+        s.title            AS title,
+        s.bpm              AS bpm,
+        s.key_signature    AS key_signature,
+        af.stem_label      AS time_signature,
+        s.categories_json  AS genre,
+        af.file_url,
+        af.filename,
+        af.file_size,
+        af.uploaded_at,
+        s.title            AS song_title,
+        s.bpm              AS song_bpm,
+        'mv'::text         AS _src,
+        'mv'::text         AS source
       FROM audio_files af
       JOIN songs s ON s.id = af.song_id
       WHERE af.stem_type = 'loop'
       ORDER BY s.title, af.uploaded_at
     `);
-    res.json(rows);
+
+    // Fusionner : Mive d'abord, M&V ensuite
+    res.json([...miveLoops, ...mvLoops]);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
