@@ -476,6 +476,41 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
 .lp-tab.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(59,130,246,.3);}
 
 #miveToast{position:fixed;bottom:5rem;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:.45rem .95rem;border-radius:50px;font-size:.7rem;font-weight:600;box-shadow:var(--shadow);z-index:500;opacity:0;transition:opacity .25s;pointer-events:none;}
+/* &#x2500;&#x2500; TRIM EDITOR &#x2500;&#x2500; */
+.trim-editor{margin-top:.6rem;display:none;}
+.trim-editor.visible{display:block;}
+.trim-canvas-wrap{position:relative;width:100%;height:64px;border-radius:var(--r-sm);overflow:hidden;background:#0a0a0a;touch-action:none;}
+#trimCanvas,#trimCanvasSA{width:100%;height:64px;display:block;}
+.trim-handle{position:absolute;top:0;bottom:0;width:4px;background:var(--blue);cursor:ew-resize;touch-action:none;z-index:10;}
+.trim-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:28px;background:var(--blue);border-radius:4px;border:2px solid #fff;box-shadow:0 0 6px rgba(59,130,246,.5);}
+#trimHandleR,#trimHandleRSA{right:0;left:auto;}
+.trim-region{position:absolute;top:0;bottom:0;background:rgba(59,130,246,0.15);pointer-events:none;}
+.trim-info{display:flex;justify-content:space-between;margin-top:.3rem;font-family:var(--mono);font-size:.58rem;color:var(--muted);}
+.trim-actions{display:flex;gap:.4rem;margin-top:.4rem;align-items:center;}
+.btn-trim{padding:.24rem .6rem;border-radius:var(--r-sm);font-size:.62rem;font-weight:600;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
+.btn-trim:active{opacity:.7;}
+#trimDrawer{background:var(--surface);border-radius:18px 18px 0 0;border:1px solid var(--border);border-bottom:none;width:100%;max-width:520px;padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom));box-shadow:0 -8px 40px rgba(0,0,0,.5);max-height:80vh;overflow-y:auto;}
+.overlay-bottom.trim-standalone{z-index:250;}
+
+/* &#x2500;&#x2500; TRIM EDITOR &#x2500;&#x2500; */
+.trim-editor{margin-top:.6rem;display:none;}
+.trim-editor.visible{display:block;}
+.trim-canvas-wrap{position:relative;width:100%;height:64px;border-radius:var(--r-sm);overflow:hidden;background:#0a0a0a;cursor:crosshair;touch-action:none;}
+#trimCanvas{width:100%;height:64px;display:block;}
+.trim-handle{position:absolute;top:0;bottom:0;width:3px;background:var(--blue);cursor:ew-resize;touch-action:none;z-index:10;}
+.trim-handle::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:26px;background:var(--blue);border-radius:3px;border:2px solid #fff;}
+#trimHandleL{left:0;}
+#trimHandleR{right:0;}
+.trim-region{position:absolute;top:0;bottom:0;background:rgba(59,130,246,0.15);pointer-events:none;}
+.trim-info{display:flex;justify-content:space-between;margin-top:.3rem;font-family:var(--mono);font-size:.58rem;color:var(--muted);}
+.trim-actions{display:flex;gap:.4rem;margin-top:.4rem;}
+.btn-trim{padding:.24rem .55rem;border-radius:var(--r-sm);font-size:.6rem;font-weight:600;border:1px solid var(--border);background:var(--btn-bg);color:var(--muted);cursor:pointer;font-family:var(--sans);}
+.btn-trim:active{opacity:.7;}
+.btn-trim.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue);}
+
+/* Overlay trim depuis biblioth&#x00E8;que */
+.overlay-bottom.trim-standalone{z-index:250;}
+#trimDrawer{background:var(--surface);border-radius:18px 18px 0 0;border:1px solid var(--border);border-bottom:none;width:100%;max-width:520px;padding:1rem 1rem calc(1rem + env(safe-area-inset-bottom));box-shadow:0 -8px 40px rgba(0,0,0,.5);max-height:80vh;overflow-y:auto;}
 #miveToast.show{opacity:1;}
 </style>
 </head>
@@ -675,9 +710,57 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
         <span id="upZoneTxt">Appuyer pour s&eacute;lectionner</span>
       </label>
     </div>
+    <!-- TRIM EDITOR (appear after file selection) -->
+    <div class="trim-editor" id="trimEditor">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.35rem;">
+        <label style="font-size:.58rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Point de boucle</label>
+        <div class="trim-actions">
+          <button class="btn-trim" onclick="trimPreview()">&#9654; Preview</button>
+          <button class="btn-trim" onclick="trimReset()">Reset</button>
+        </div>
+      </div>
+      <div class="trim-canvas-wrap" id="trimWrap">
+        <canvas id="trimCanvas"></canvas>
+        <div class="trim-region" id="trimRegion"></div>
+        <div class="trim-handle" id="trimHandleL"></div>
+        <div class="trim-handle" id="trimHandleR"></div>
+      </div>
+      <div class="trim-info">
+        <span>D&eacute;but: <b id="trimStartVal">0.00s</b></span>
+        <span>Dur&eacute;e boucle: <b id="trimDurVal">--</b></span>
+        <span>Fin: <b id="trimEndVal">--</b></span>
+      </div>
+    </div>
     <div class="form-actions">
       <button class="btn" onclick="document.getElementById('uploadOverlay').classList.add('hidden')">Annuler</button>
       <button class="btn btn-primary" id="btnUpSubmit" onclick="submitUpload()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRIM STANDALONE DRAWER (depuis biblioth&#x00E8;que) -->
+<div class="overlay-bottom hidden trim-standalone" id="trimOverlay" onclick="closeTrimDrawer(event)">
+  <div id="trimDrawer" onclick="event.stopPropagation()">
+    <div class="sl-picker-handle"></div>
+    <div class="modal-hdr" style="margin-bottom:.6rem;">
+      <div class="modal-title" id="trimDrawerTitle">R&eacute;gler les points de boucle</div>
+      <button class="modal-close" onclick="closeTrimDrawer()">&#x2715;</button>
+    </div>
+    <div class="trim-canvas-wrap" id="trimWrapSA">
+      <canvas id="trimCanvasSA"></canvas>
+      <div class="trim-region" id="trimRegionSA"></div>
+      <div class="trim-handle" id="trimHandleLSA"></div>
+      <div class="trim-handle" id="trimHandleRSA"></div>
+    </div>
+    <div class="trim-info">
+      <span>D&eacute;but: <b id="trimStartValSA">0.00s</b></span>
+      <span>Dur&eacute;e: <b id="trimDurValSA">--</b></span>
+      <span>Fin: <b id="trimEndValSA">--</b></span>
+    </div>
+    <div class="trim-actions" style="margin-top:.55rem;justify-content:flex-end;">
+      <button class="btn-trim" onclick="trimPreviewSA()">&#9654; Preview</button>
+      <button class="btn-trim" onclick="trimResetSA()">Reset</button>
+      <button class="btn btn-primary btn-sm" onclick="saveTrimPoints()" style="margin-left:.4rem;">Enregistrer</button>
     </div>
   </div>
 </div>
@@ -1066,13 +1149,206 @@ async function deleteLoop(id,e){
 // UPLOAD
 function openUploadModal(){document.getElementById('uploadOverlay').classList.remove('hidden');}
 function closeUpload(e){if(e&&e.currentTarget===e.target)document.getElementById('uploadOverlay').classList.add('hidden');}
+// &#x2500;&#x2500; TRIM STATE &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+var _trimBuf=null, _trimStart=0, _trimEnd=1, _trimDur=0;
+var _trimPreviewSrc=null;
+var _trimSABuf=null, _trimSAStart=0, _trimSAEnd=1, _trimSADur=0, _trimSALoopId=null;
+var _trimSAPreviewSrc=null;
+
 function handleFile(inp){
   var f=inp.files[0];if(!f) return;
   document.getElementById('upZoneTxt').textContent=f.name;
   if(!document.getElementById('upTitle').value)
     document.getElementById('upTitle').value=f.name.replace(/\.[^.]+$/,'');
-  // Auto-detect BPM
   detectBpm(f);
+  loadTrimBuffer(f);
+}
+
+// &#x2500;&#x2500; LOAD BUFFER POUR TRIM &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+async function loadTrimBuffer(file){
+  try{
+    var ab=await file.arrayBuffer();
+    var ctx=new(window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,1,44100);
+    var buf=await ctx.decodeAudioData(ab);
+    _trimBuf=buf;
+    _trimDur=buf.duration;
+    _trimStart=0;
+    _trimEnd=_trimDur;
+    document.getElementById('trimEditor').classList.add('visible');
+    drawTrimWaveform('trimCanvas','trimWrap',buf,_trimStart,_trimEnd,_trimDur);
+    initTrimHandles('trimHandleL','trimHandleR','trimWrap',false);
+    updateTrimInfo(false);
+  }catch(e){console.warn('trim load error',e);}
+}
+
+function drawTrimWaveform(canvasId, wrapId, buf, start, end, dur){
+  var wrap=document.getElementById(wrapId);
+  var canvas=document.getElementById(canvasId);
+  var W=wrap.offsetWidth||300, H=64;
+  canvas.width=W; canvas.height=H;
+  var ctx2=canvas.getContext('2d');
+  ctx2.clearRect(0,0,W,H);
+  // Draw waveform
+  var data=buf.getChannelData(0);
+  var step=Math.ceil(data.length/W);
+  ctx2.fillStyle='#1a1a2e';
+  ctx2.fillRect(0,0,W,H);
+  ctx2.strokeStyle='rgba(59,130,246,0.7)';
+  ctx2.lineWidth=1;
+  ctx2.beginPath();
+  for(var x=0;x<W;x++){
+    var idx=Math.floor(x*data.length/W);
+    var max=0;
+    for(var j=0;j<step&&idx+j<data.length;j++) max=Math.max(max,Math.abs(data[idx+j]));
+    var h=max*H*0.9;
+    ctx2.moveTo(x,H/2-h/2);
+    ctx2.lineTo(x,H/2+h/2);
+  }
+  ctx2.stroke();
+  // Draw trim region
+  var region=document.getElementById(wrapId==='trimWrap'?'trimRegion':'trimRegionSA');
+  var pxL=Math.round(start/dur*W);
+  var pxR=Math.round(end/dur*W);
+  region.style.left=pxL+'px';
+  region.style.width=(pxR-pxL)+'px';
+  // Position handles
+  var handleL=document.getElementById(wrapId==='trimWrap'?'trimHandleL':'trimHandleLSA');
+  var handleR=document.getElementById(wrapId==='trimWrap'?'trimHandleR':'trimHandleRSA');
+  handleL.style.left=pxL+'px';
+  handleR.style.left=(pxR-4)+'px';
+}
+
+function initTrimHandles(lId, rId, wrapId, isSA){
+  var wrap=document.getElementById(wrapId);
+  var hL=document.getElementById(lId);
+  var hR=document.getElementById(rId);
+  function makeDrag(handle, isLeft){
+    function onMove(e){
+      var touch=e.touches?e.touches[0]:e;
+      var rect=wrap.getBoundingClientRect();
+      var pct=Math.max(0,Math.min(1,(touch.clientX-rect.left)/rect.width));
+      var t=(isSA?_trimSADur:_trimDur)*pct;
+      if(isLeft){
+        if(isSA){_trimSAStart=Math.min(t,_trimSAEnd-0.1);}
+        else{_trimStart=Math.min(t,_trimEnd-0.1);}
+      } else {
+        if(isSA){_trimSAEnd=Math.max(t,_trimSAStart+0.1);}
+        else{_trimEnd=Math.max(t,_trimStart+0.1);}
+      }
+      var buf=isSA?_trimSABuf:_trimBuf;
+      var s=isSA?_trimSAStart:_trimStart;
+      var en=isSA?_trimSAEnd:_trimEnd;
+      var dur=isSA?_trimSADur:_trimDur;
+      if(buf) drawTrimWaveform(isSA?'trimCanvasSA':'trimCanvas',wrapId,buf,s,en,dur);
+      updateTrimInfo(isSA);
+    }
+    function onEnd(){
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onEnd);
+      document.removeEventListener('touchmove',onMove);
+      document.removeEventListener('touchend',onEnd);
+    }
+    handle.addEventListener('mousedown',function(e){e.preventDefault();document.addEventListener('mousemove',onMove);document.addEventListener('mouseup',onEnd);});
+    handle.addEventListener('touchstart',function(e){e.preventDefault();document.addEventListener('touchmove',onMove,{passive:false});document.addEventListener('touchend',onEnd);},{passive:false});
+  }
+  makeDrag(hL,true);
+  makeDrag(hR,false);
+}
+
+function updateTrimInfo(isSA){
+  var s=isSA?_trimSAStart:_trimStart;
+  var en=isSA?_trimSAEnd:_trimEnd;
+  var sfx=isSA?'SA':'';
+  document.getElementById('trimStartVal'+sfx).textContent=s.toFixed(2)+'s';
+  document.getElementById('trimEndVal'+sfx).textContent=en.toFixed(2)+'s';
+  document.getElementById('trimDurVal'+sfx).textContent=(en-s).toFixed(2)+'s';
+}
+
+function trimPreview(){
+  if(!_trimBuf){toast('Pas de fichier');return;}
+  if(_trimPreviewSrc){try{_trimPreviewSrc.stop();}catch(e){}_trimPreviewSrc=null;}
+  var ctx=getCtx();
+  if(ctx.state==='suspended') ctx.resume();
+  var src=ctx.createBufferSource();
+  src.buffer=_trimBuf;
+  src.loop=false;
+  src.connect(ctx.destination);
+  src.start(0,_trimStart,_trimEnd-_trimStart);
+  _trimPreviewSrc=src;
+}
+
+function trimReset(){
+  if(!_trimBuf) return;
+  _trimStart=0; _trimEnd=_trimDur;
+  drawTrimWaveform('trimCanvas','trimWrap',_trimBuf,_trimStart,_trimEnd,_trimDur);
+  updateTrimInfo(false);
+}
+
+// Trim standalone depuis biblioth&#x00E8;que
+function openTrimDrawer(id, e){
+  e.stopPropagation();
+  var loop=null;
+  for(var i=0;i<_loops.length;i++){if(_loops[i].id===id&&_loops[i]._src==='mive'){loop=_loops[i];break;}}
+  if(!loop||!loop.file_url){toast('Loop introuvable');return;}
+  _trimSALoopId=id;
+  document.getElementById('trimDrawerTitle').textContent='Trim &#x2014; '+loop.title;
+  document.getElementById('trimOverlay').classList.remove('hidden');
+  // Load buffer
+  loadBuf(loop.file_url).then(function(buf){
+    _trimSABuf=buf;
+    _trimSADur=buf.duration;
+    // Utiliser trim_start/trim_end si d&#x00E9;j&#x00E0; d&#x00E9;finis
+    _trimSAStart=loop.trim_start||0;
+    _trimSAEnd=loop.trim_end||buf.duration;
+    // Redraw apr&#x00E8;s que le DOM soit visible
+    setTimeout(function(){
+      drawTrimWaveform('trimCanvasSA','trimWrapSA',buf,_trimSAStart,_trimSAEnd,_trimSADur);
+      initTrimHandles('trimHandleLSA','trimHandleRSA','trimWrapSA',true);
+      updateTrimInfo(true);
+    },80);
+  }).catch(function(e){toast('Erreur chargement: '+e.message);});
+}
+
+function closeTrimDrawer(e){
+  if(!e||e.target===document.getElementById('trimOverlay'))
+    document.getElementById('trimOverlay').classList.add('hidden');
+  if(_trimSAPreviewSrc){try{_trimSAPreviewSrc.stop();}catch(ex){}_trimSAPreviewSrc=null;}
+}
+
+function trimPreviewSA(){
+  if(!_trimSABuf){return;}
+  if(_trimSAPreviewSrc){try{_trimSAPreviewSrc.stop();}catch(e){}_trimSAPreviewSrc=null;}
+  var ctx=getCtx();
+  if(ctx.state==='suspended') ctx.resume();
+  var src=ctx.createBufferSource();
+  src.buffer=_trimSABuf;
+  src.loop=false;
+  src.connect(ctx.destination);
+  src.start(0,_trimSAStart,_trimSAEnd-_trimSAStart);
+  _trimSAPreviewSrc=src;
+}
+
+function trimResetSA(){
+  if(!_trimSABuf) return;
+  _trimSAStart=0; _trimSAEnd=_trimSADur;
+  drawTrimWaveform('trimCanvasSA','trimWrapSA',_trimSABuf,_trimSAStart,_trimSAEnd,_trimSADur);
+  updateTrimInfo(true);
+}
+
+async function saveTrimPoints(){
+  if(!_trimSALoopId) return;
+  try{
+    await fetch('/api/mive/loops/'+_trimSALoopId+'/trim',{
+      method:'PATCH',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({trim_start:_trimSAStart,trim_end:_trimSAEnd})
+    });
+    // Update local state
+    var loop=_loops.find(function(l){return l.id===_trimSALoopId;});
+    if(loop){loop.trim_start=_trimSAStart;loop.trim_end=_trimSAEnd;}
+    document.getElementById('trimOverlay').classList.add('hidden');
+    toast('Points de boucle enregistr&#x00E9;s !');
+  }catch(e){toast('Erreur: '+e.message);}
 }
 
 async function detectBpm(file){
@@ -1080,51 +1356,57 @@ async function detectBpm(file){
     var bpmEl=document.getElementById('upBpm');
     bpmEl.placeholder='Analyse...';
     var ab=await file.arrayBuffer();
-    // Contexte offline pour decoder sans jouer
-    var ctx=new(window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,44100*30,44100);
-    var buf=await ctx.decodeAudioData(ab);
+    // D&#x00E9;coder &#x00E0; 22050 Hz mono pour &#x00E9;conomiser la m&#x00E9;moire
+    var offCtx=new(window.OfflineAudioContext||window.webkitOfflineAudioContext)(1,22050*120,22050);
+    var buf=await offCtx.decodeAudioData(ab);
     var data=buf.getChannelData(0);
     var sr=buf.sampleRate;
+    var len=data.length;
 
-    // Onset detection par energie RMS sur fenetres de 512 samples
-    var winSize=512;
-    var hopSize=256;
-    var energies=[];
-    for(var i=0;i+winSize<data.length;i+=hopSize){
+    // &#x2500;&#x2500; 1. Calcul &#x00E9;nergie RMS par frame de 512 samples &#x2500;&#x2500;
+    var frameSize=512;
+    var hopSize=128;
+    var nFrames=Math.floor((len-frameSize)/hopSize);
+    var rms=new Float32Array(nFrames);
+    for(var i=0;i<nFrames;i++){
+      var s=0,off=i*hopSize;
+      for(var j=0;j<frameSize;j++) s+=data[off+j]*data[off+j];
+      rms[i]=Math.sqrt(s/frameSize);
+    }
+
+    // &#x2500;&#x2500; 2. Diff&#x00E9;rence positive (onset strength) &#x2500;&#x2500;
+    var onset=new Float32Array(nFrames);
+    for(var i=1;i<nFrames;i++) onset[i]=Math.max(0,rms[i]-rms[i-1]);
+
+    // &#x2500;&#x2500; 3. Autocorr&#x00E9;lation sur la fonction onset &#x2500;&#x2500;
+    // Plage BPM 60-200 &#x2192; lags correspondants
+    var minLag=Math.round(60/200*sr/hopSize);  // ~52 frames &#x00E0; 200 BPM
+    var maxLag=Math.round(60/60*sr/hopSize);    // ~172 frames &#x00E0; 60 BPM
+    var acf=new Float32Array(maxLag+1);
+    var N=Math.min(nFrames, 1000); // Utiliser les 1000 premi&#x00E8;res frames
+    for(var lag=minLag;lag<=maxLag;lag++){
       var sum=0;
-      for(var j=0;j<winSize;j++) sum+=data[i+j]*data[i+j];
-      energies.push(Math.sqrt(sum/winSize));
+      for(var i=0;i<N-lag;i++) sum+=onset[i]*onset[i+lag];
+      acf[lag]=sum;
     }
 
-    // Seuil adaptatif : moyenne locale * facteur
-    var onsets=[];
-    var winLocal=43; // ~0.5s
-    for(var i=winLocal;i<energies.length-winLocal;i++){
-      var local=0;
-      for(var j=i-winLocal;j<=i+winLocal;j++) local+=energies[j];
-      local/=(2*winLocal+1);
-      if(energies[i]>local*1.35 && energies[i]>energies[i-1] && energies[i]>energies[i+1])
-        onsets.push(i*hopSize/sr);
+    // &#x2500;&#x2500; 4. Trouver le lag avec le plus fort pic &#x2500;&#x2500;
+    var bestLag=minLag, bestVal=0;
+    for(var lag=minLag;lag<=maxLag;lag++){
+      // Favoriser les harmoniques (demi-p&#x00E9;riode aussi)
+      var score=acf[lag];
+      if(lag*2<=maxLag) score+=acf[lag*2]*0.5;
+      if(Math.round(lag/2)>=minLag) score+=acf[Math.round(lag/2)]*0.5;
+      if(score>bestVal){bestVal=score;bestLag=lag;}
     }
 
-    if(onsets.length<4){bpmEl.placeholder='100';return;}
-
-    // Intervalles entre onsets
-    var intervals=[];
-    for(var i=1;i<onsets.length;i++){
-      var dt=onsets[i]-onsets[i-1];
-      if(dt>0.25&&dt<2.0) intervals.push(dt);
-    }
-    if(!intervals.length){bpmEl.placeholder='100';return;}
-
-    // BPM candidat = 60 / median(intervals)
-    intervals.sort(function(a,b){return a-b;});
-    var med=intervals[Math.floor(intervals.length/2)];
-    var bpm=Math.round(60/med);
-
-    // Normaliser dans la plage 60-200
+    // &#x2500;&#x2500; 5. BPM depuis le lag &#x2500;&#x2500;
+    var bpm=Math.round(60/(bestLag*hopSize/sr));
+    // Normaliser 60-200
     while(bpm<60) bpm*=2;
-    while(bpm>200) bpm/=2;
+    while(bpm>200) bpm=Math.round(bpm/2);
+
+    // Arrondir au BPM entier le plus proche
     bpm=Math.round(bpm);
 
     if(!document.getElementById('upBpm').value){
@@ -1132,7 +1414,7 @@ async function detectBpm(file){
     }
     bpmEl.placeholder=bpm+' BPM d&#x00E9;tect&#x00E9;';
   }catch(e){
-    document.getElementById('upBpm').placeholder='100';
+    document.getElementById('upBpm').placeholder='128';
     console.warn('BPM detect error:',e);
   }
 }
@@ -1147,6 +1429,11 @@ async function submitUpload(){
   var fd=new FormData();fd.append('file',file);fd.append('title',title);
   if(bpm) fd.append('bpm',bpm);if(genre) fd.append('genre',genre);
   if(timeSig) fd.append('time_signature',timeSig);
+  // Points de boucle si d&#x00E9;finis
+  if(_trimBuf&&(_trimStart>0||_trimEnd<_trimDur-0.01)){
+    fd.append('trim_start',_trimStart.toFixed(3));
+    fd.append('trim_end',_trimEnd.toFixed(3));
+  }
   try{
     var r=await fetch('/api/mive/loops',{method:'POST',body:fd});
     if(!r.ok) throw new Error(await r.text());
