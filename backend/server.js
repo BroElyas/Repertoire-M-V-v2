@@ -196,6 +196,8 @@ async function initDB() {
     );
     ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS time_signature TEXT;
     ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS key_signature TEXT;
+    ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS trim_start FLOAT DEFAULT 0;
+    ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS trim_end FLOAT DEFAULT NULL;
     CREATE TABLE IF NOT EXISTS mive_setlists (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -829,6 +831,18 @@ app.put('/api/mive/setlists/:id/items', async (req, res) => {
       }
     }
     await pool.query('UPDATE mive_setlists SET updated_at=NOW() WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Trim points pour une loop Mive
+app.patch('/api/mive/loops/:id/trim', async (req, res) => {
+  try {
+    const { trim_start, trim_end } = req.body;
+    await pool.query(
+      'UPDATE mive_loops SET trim_start=$1, trim_end=$2 WHERE id=$3',
+      [trim_start||0, trim_end||null, req.params.id]
+    );
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
