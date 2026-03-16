@@ -309,9 +309,26 @@ body{padding-top:54px;}
 @keyframes pulseBar{0%,100%{opacity:1}50%{opacity:.4}}
 .track-cell-name{flex:1;font-size:.7rem;font-weight:700;}
 .track-cell-empty{font-size:.66rem;color:var(--muted);font-style:italic;}
-.waveform{display:flex;align-items:center;gap:2px;height:18px;opacity:.6;}
-.waveform-bar{width:2px;background:var(--blue);border-radius:1px;animation:wave 1.2s ease-in-out infinite;}
-@keyframes wave{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+.waveform-canvas{flex:1;height:36px;display:block;cursor:pointer;border-radius:4px;}
+.waveform-placeholder{flex:1;height:36px;display:flex;align-items:center;justify-content:center;opacity:.35;font-size:.6rem;color:var(--muted);}
+/* Editeur loop points */
+.loop-editor-wrap{
+  background:var(--surface2);border-top:1px solid var(--border);
+  padding:.6rem .85rem;flex-shrink:0;
+}
+.loop-editor-title{font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem;display:flex;align-items:center;justify-content:space-between;}
+.loop-editor-canvas-wrap{position:relative;height:48px;background:var(--bg);border-radius:6px;overflow:hidden;cursor:crosshair;}
+.loop-editor-canvas{width:100%;height:100%;display:block;}
+.loop-editor-handles{position:absolute;inset:0;pointer-events:none;}
+.loop-handle{position:absolute;top:0;bottom:0;width:3px;background:var(--blue);cursor:ew-resize;pointer-events:all;z-index:5;}
+.loop-handle::after{content:'';position:absolute;top:50%;transform:translateY(-50%);width:10px;height:20px;background:var(--blue);border-radius:3px;left:-4px;}
+.loop-handle.end-handle{background:#22c55e;}
+.loop-handle.end-handle::after{background:#22c55e;}
+.loop-region{position:absolute;top:0;bottom:0;background:rgba(59,130,246,.12);pointer-events:none;z-index:2;}
+.loop-editor-times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:.55rem;color:var(--muted);margin-top:.25rem;}
+.btn-reset-loop{padding:.18rem .5rem;border-radius:var(--r-sm);background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.58rem;cursor:pointer;font-family:var(--sans);}
+.btn-reset-loop:hover{color:var(--text);border-color:var(--blue);}
+50%{transform:scaleY(1)}}
 .mixer-panel{border-top:1px solid var(--border);padding:.7rem 1rem;display:flex;gap:.9rem;align-items:flex-end;flex-shrink:0;background:var(--surface);}
 .mixer-channel{display:flex;flex-direction:column;align-items:center;gap:.3rem;min-width:50px;}
 .mixer-channel-label{font-size:.54rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;text-align:center;}
@@ -570,6 +587,26 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
         <div class="fader-wrap"><div class="fader-v-container"><div class="fader-v-fill" id="ff2" style="height:70%"></div><input type="range" class="fader-v" id="f2" min="0" max="100" value="70" oninput="setVol(2,this.value)"></div><div class="fader-val" id="fv2">70</div></div>
       </div>
     </div>
+    <!-- Editeur de points de loop -->
+    <div class="loop-editor-wrap" id="loopEditorWrap" style="display:none;">
+      <div class="loop-editor-title">
+        <span id="loopEditorTrackLabel">Loop rythmique</span>
+        <button class="btn-reset-loop" onclick="resetLoopPoints()">R&eacute;init.</button>
+      </div>
+      <div class="loop-editor-canvas-wrap" id="loopEditorCanvasWrap">
+        <canvas class="loop-editor-canvas" id="loopEditorCanvas"></canvas>
+        <div class="loop-editor-handles" id="loopEditorHandles">
+          <div class="loop-handle" id="loopHandleStart" style="left:0%"></div>
+          <div class="loop-region" id="loopRegion" style="left:0%;width:100%"></div>
+          <div class="loop-handle end-handle" id="loopHandleEnd" style="left:100%"></div>
+        </div>
+      </div>
+      <div class="loop-editor-times">
+        <span id="loopStartTime">0.00s</span>
+        <span id="loopDuration">-- dur&eacute;e --</span>
+        <span id="loopEndTime">--</span>
+      </div>
+    </div>
     <div class="live-bar">
       <div class="live-status"><div class="live-dot" id="liveDot"></div><span id="liveStatusTxt">En attente</span></div>
       <div style="display:flex;align-items:center;gap:2.5px;margin-left:.4rem;">
@@ -672,7 +709,7 @@ input[type=range].fader-v::-moz-range-track{background:transparent;}
 
 <script>
 // STATE
-var _loops=[],_loopsMv=[],_setlists=[],_activeSetlist=null,_setlistItems=[];
+var _loops=[],_setlists=[],_activeSetlist=null,_setlistItems=[];
 var _libSource='mive',_libSort='alpha',_genreFilter=null;
 var _curSection=0,_curBpm=120;
 var _audioCtx=null,_sources={1:null,2:null},_gainNodes={1:null,2:null};
@@ -752,7 +789,7 @@ function setGenreFilter(genre,el){
   renderLoopList();
 }
 function renderPills(){
-  var loops=_loops.concat(_loopsMv);
+  var loops=_loops;
   var genres=[];
   loops.forEach(function(l){var g=l.genre||l.stem_category;if(g&&genres.indexOf(g)<0)genres.push(g);});
   genres.sort();
@@ -767,9 +804,7 @@ function renderLoopList(){
   var el=document.getElementById('mobLoopList');
   if(!el) return;
   el.scrollTop=0;
-  var allLoops=_loops.map(function(l){return Object.assign({},l,{_src:'mive'});})
-    .concat(_loopsMv.map(function(l){return Object.assign({},l,{_src:'mv'});}));
-  var loops=allLoops.slice();
+  var loops=_loops.slice();
   var q=(document.getElementById('libSearchInput')?document.getElementById('libSearchInput').value:'').toLowerCase();
   if(q) loops=loops.filter(function(l){return (l.title||l.stem_label||'').toLowerCase().indexOf(q)>=0||(l.genre||'').toLowerCase().indexOf(q)>=0;});
   if(_genreFilter) loops=loops.filter(function(l){return (l.genre||l.stem_category||'')=== _genreFilter;});
@@ -836,7 +871,7 @@ function alphaJumpLib(letter){
 var _previewAudio = null;
 function previewLoop(id,e){
   e.stopPropagation();
-  var loops=_loops.concat(_loopsMv);
+  var loops=_loops;
   var loop=null;
   for(var i=0;i<loops.length;i++){if(loops[i].id===id){loop=loops[i];break;}}
   if(!loop||!loop.file_url){toast('URL manquante');return;}
@@ -881,6 +916,143 @@ function previewLoop(id,e){
     if(pb){pb.classList.remove('playing');pb.innerHTML='&#9654;';}
   });
 }
+// &#x2500;&#x2500; WAVEFORM STATIQUE &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+function drawStaticWaveform(canvas, buf, color, startFrac, endFrac){
+  if(!canvas || !buf) return;
+  var W = canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth || 200;
+  var H = canvas.height = canvas.offsetHeight || 48;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var data = buf.getChannelData(0);
+  var step = Math.ceil(data.length / W);
+  var mid  = H / 2;
+  // Region de boucle
+  if(startFrac !== undefined){
+    ctx.fillStyle = 'rgba(59,130,246,0.10)';
+    ctx.fillRect(startFrac*W, 0, (endFrac-startFrac)*W, H);
+  }
+  ctx.strokeStyle = color || 'var(--blue)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  for(var i=0; i<W; i++){
+    var max=0;
+    for(var j=0;j<step;j++){
+      var v=Math.abs(data[i*step+j]||0);
+      if(v>max) max=v;
+    }
+    var h = max * mid;
+    ctx.moveTo(i, mid - h);
+    ctx.lineTo(i, mid + h);
+  }
+  ctx.stroke();
+}
+
+// Dessine la waveform dans les track-cells de l'arrangement
+function drawTrackWaveform(trackNum, buf){
+  var tc = document.getElementById('tc'+trackNum);
+  if(!tc) return;
+  var canvas = tc.querySelector('.waveform-canvas');
+  if(!canvas) return;
+  var color = trackNum===1 ? '#3b82f6' : '#22c55e';
+  var sf = _loopStart[trackNum];
+  var ef = _loopEnd[trackNum];
+  drawStaticWaveform(canvas, buf, color, sf, ef);
+}
+
+// &#x2500;&#x2500; EDITEUR DE LOOP POINTS &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+function openLoopEditor(trackNum, buf){
+  _editTrack = trackNum;
+  _editBuf   = buf;
+  var label  = trackNum===1 ? 'Loop rythmique' : 'Pad harmonique';
+  document.getElementById('loopEditorTrackLabel').textContent = label;
+  document.getElementById('loopEditorWrap').style.display = '';
+  var canvas = document.getElementById('loopEditorCanvas');
+  var color  = trackNum===1 ? '#3b82f6' : '#22c55e';
+  drawStaticWaveform(canvas, buf, color, _loopStart[trackNum], _loopEnd[trackNum]);
+  updateHandles();
+  initEditorDrag();
+}
+
+function updateHandles(){
+  var sf = _loopStart[_editTrack];
+  var ef = _loopEnd[_editTrack];
+  document.getElementById('loopHandleStart').style.left = (sf*100)+'%';
+  document.getElementById('loopHandleEnd').style.left   = (ef*100)+'%';
+  document.getElementById('loopRegion').style.left      = (sf*100)+'%';
+  document.getElementById('loopRegion').style.width     = ((ef-sf)*100)+'%';
+  if(_editBuf){
+    var dur = _editBuf.duration;
+    document.getElementById('loopStartTime').textContent = (sf*dur).toFixed(2)+'s';
+    document.getElementById('loopEndTime').textContent   = (ef*dur).toFixed(2)+'s';
+    document.getElementById('loopDuration').textContent  = ((ef-sf)*dur).toFixed(2)+'s boucle';
+  }
+  // Redessiner waveform avec zone
+  var canvas = document.getElementById('loopEditorCanvas');
+  var color  = _editTrack===1 ? '#3b82f6' : '#22c55e';
+  if(_editBuf) drawStaticWaveform(canvas, _editBuf, color, sf, ef);
+  // Mettre a jour la waveform dans la track-cell
+  if(_trackBufs){
+    var s = _setlistItems[_curSection];
+    if(s){
+      var url = _editTrack===1 ? s.loop_rythmique_url : s.loop_harmonique_url;
+      if(url && _trackBufs[url]) drawTrackWaveform(_editTrack, _trackBufs[url]);
+    }
+  }
+}
+
+function initEditorDrag(){
+  var wrap = document.getElementById('loopEditorCanvasWrap');
+  if(wrap._dragInited) return;
+  wrap._dragInited = true;
+  function frac(e){
+    var rect = wrap.getBoundingClientRect();
+    var x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }
+  function onDown(e){
+    var f = frac(e);
+    var ds = Math.abs(f - _loopStart[_editTrack]);
+    var de = Math.abs(f - _loopEnd[_editTrack]);
+    _dragging = ds < de ? 'start' : 'end';
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!_dragging) return;
+    var f = frac(e);
+    if(_dragging==='start'){
+      _loopStart[_editTrack] = Math.min(f, _loopEnd[_editTrack] - 0.01);
+    } else {
+      _loopEnd[_editTrack] = Math.max(f, _loopStart[_editTrack] + 0.01);
+    }
+    updateHandles();
+    // Si la piste joue, mettre a jour loopStart/loopEnd sur le BufferSource
+    applyLoopPointsToNode(_editTrack);
+    e.preventDefault();
+  }
+  function onUp(){ _dragging = null; }
+  wrap.addEventListener('mousedown',  onDown,  {passive:false});
+  wrap.addEventListener('touchstart', onDown,  {passive:false});
+  document.addEventListener('mousemove', onMove, {passive:false});
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('mouseup',  onUp);
+  document.addEventListener('touchend', onUp);
+}
+
+function applyLoopPointsToNode(t){
+  var src = _trackNodes[t];
+  if(!src || !src.buffer) return;
+  var dur = src.buffer.duration;
+  src.loopStart = _loopStart[t] * dur;
+  src.loopEnd   = _loopEnd[t]   * dur;
+}
+
+function resetLoopPoints(){
+  _loopStart[_editTrack] = 0;
+  _loopEnd[_editTrack]   = 1;
+  updateHandles();
+  applyLoopPointsToNode(_editTrack);
+}
+
 function getCtx(){if(!_audioCtx)_audioCtx=new(window.AudioContext||window.webkitAudioContext)();return _audioCtx;}
 async function loadBuf(url){var ctx=getCtx();var r=await fetch(url);var ab=await r.arrayBuffer();return ctx.decodeAudioData(ab);}
 async function deleteLoop(id,e){
@@ -1064,13 +1236,26 @@ function renderSection(){
   document.getElementById('t1label').textContent=s.loop_rythmique_title||'Aucune';
   document.getElementById('t1label').classList.toggle('empty',!hasR);
   var tc1=document.getElementById('tc1');
-  tc1.innerHTML=hasR?'<div style="flex:1"><div class="track-cell-name">'+(s.loop_rythmique_title||'')+'</div></div><div class="waveform">'+Array.from({length:10},function(_,i){return '<div class="waveform-bar" style="height:'+(4+Math.sin(i)*7+7)+'px;animation-delay:'+(i*0.09)+'s"></div>';}).join('')+'</div>':'<div class="track-cell-empty">Cliquer pour assigner</div>';
+  tc1.innerHTML=hasR
+    ? '<div style="flex:1"><div class="track-cell-name">'+(s.loop_rythmique_title||'')+'</div></div>'
+      +'<canvas class="waveform-canvas" id="wc1" onclick="event.stopPropagation();openLoopEditor(1,_trackBufs[(_setlistItems[_curSection]||{}).loop_rythmique_url])" title="Editer points de boucle"></canvas>'
+    : '<div class="track-cell-empty">Cliquer pour assigner</div>';
+  // Redessiner si le buffer est deja en cache
+  if(hasR && s.loop_rythmique_url && _trackBufs[s.loop_rythmique_url]){
+    setTimeout(function(){ drawTrackWaveform(1, _trackBufs[s.loop_rythmique_url]); }, 0);
+  }
   tc1.classList.toggle('has-loop',hasR);
   var hasH=!!s.loop_harmonique_id;
   document.getElementById('t2label').textContent=s.loop_harmonique_title||'Aucune';
   document.getElementById('t2label').classList.toggle('empty',!hasH);
   var tc2=document.getElementById('tc2');
-  tc2.innerHTML=hasH?'<div style="flex:1"><div class="track-cell-name">'+(s.loop_harmonique_title||'')+'</div></div><div class="waveform">'+Array.from({length:10},function(_,i){return '<div class="waveform-bar" style="height:'+(4+Math.cos(i)*7+7)+'px;animation-delay:'+(i*0.1)+'s;background:#22c55e"></div>';}).join('')+'</div>':'<div class="track-cell-empty">Cliquer pour assigner</div>';
+  tc2.innerHTML=hasH
+    ? '<div style="flex:1"><div class="track-cell-name">'+(s.loop_harmonique_title||'')+'</div></div>'
+      +'<canvas class="waveform-canvas" id="wc2" onclick="event.stopPropagation();openLoopEditor(2,_trackBufs[(_setlistItems[_curSection]||{}).loop_harmonique_url])" title="Editer points de boucle" style="filter:hue-rotate(120deg)"></canvas>'
+    : '<div class="track-cell-empty">Cliquer pour assigner</div>';
+  if(hasH && s.loop_harmonique_url && _trackBufs[s.loop_harmonique_url]){
+    setTimeout(function(){ drawTrackWaveform(2, _trackBufs[s.loop_harmonique_url]); }, 0);
+  }
   tc2.classList.toggle('has-loop',hasH);
   document.querySelectorAll('.setlist-item-row').forEach(function(r,i){r.classList.toggle('active-section',i===_curSection);});
 }
@@ -1087,7 +1272,7 @@ function switchLpTab(t){
   document.getElementById('lpTabMv').classList.toggle('active',t==='mv');renderLpList();
 }
 function renderLpList(){
-  var loops=_loops.concat(_loopsMv);var list=document.getElementById('lpList');
+  var loops=_loops;var list=document.getElementById('lpList');
   if(!loops.length){list.innerHTML='<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.75rem;">Aucune loop</div>';return;}
   list.innerHTML=loops.map(function(l){
     var bpm=l.bpm||l.song_bpm;
@@ -1095,7 +1280,7 @@ function renderLpList(){
 }
 async function assignLoop(id,src){
   var s=_setlistItems[_curSection];if(!s) return;
-  var loops=_loops.concat(_loopsMv);
+  var loops=_loops;
   var loop=null;for(var i=0;i<loops.length;i++){if(loops[i].id===id){loop=loops[i];break;}}
   if(!loop) return;
   var isR=_lpTrack===1;
@@ -1128,6 +1313,12 @@ function stopMetro(){if(_metro){clearInterval(_metro);_metro=null;}_beat=0;updat
 function updateBeats(){document.querySelectorAll('.beat-dot').forEach(function(d,i){d.classList.toggle('on',i===_beat);});}
 // WebAudio BufferSource \u2014 loop sans latence
 var _trackNodes = {1:null, 2:null};
+// Loop editor state
+var _editTrack = 1;           // piste en cours d'edition
+var _editBuf = null;          // AudioBuffer en cours
+var _loopStart = {1:0, 2:0}; // fraction 0-1
+var _loopEnd   = {1:1, 2:1};
+var _dragging  = null;        // 'start' | 'end' | null
 var _trackGains = {1:null, 2:null};
 var _trackBufs  = {};
 
@@ -1139,6 +1330,143 @@ function getPreviewCtx(){
   if(!_previewCtx) _previewCtx=new(window.AudioContext||window.webkitAudioContext)();
   return _previewCtx;
 }
+// &#x2500;&#x2500; WAVEFORM STATIQUE &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+function drawStaticWaveform(canvas, buf, color, startFrac, endFrac){
+  if(!canvas || !buf) return;
+  var W = canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth || 200;
+  var H = canvas.height = canvas.offsetHeight || 48;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var data = buf.getChannelData(0);
+  var step = Math.ceil(data.length / W);
+  var mid  = H / 2;
+  // Region de boucle
+  if(startFrac !== undefined){
+    ctx.fillStyle = 'rgba(59,130,246,0.10)';
+    ctx.fillRect(startFrac*W, 0, (endFrac-startFrac)*W, H);
+  }
+  ctx.strokeStyle = color || 'var(--blue)';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  for(var i=0; i<W; i++){
+    var max=0;
+    for(var j=0;j<step;j++){
+      var v=Math.abs(data[i*step+j]||0);
+      if(v>max) max=v;
+    }
+    var h = max * mid;
+    ctx.moveTo(i, mid - h);
+    ctx.lineTo(i, mid + h);
+  }
+  ctx.stroke();
+}
+
+// Dessine la waveform dans les track-cells de l'arrangement
+function drawTrackWaveform(trackNum, buf){
+  var tc = document.getElementById('tc'+trackNum);
+  if(!tc) return;
+  var canvas = tc.querySelector('.waveform-canvas');
+  if(!canvas) return;
+  var color = trackNum===1 ? '#3b82f6' : '#22c55e';
+  var sf = _loopStart[trackNum];
+  var ef = _loopEnd[trackNum];
+  drawStaticWaveform(canvas, buf, color, sf, ef);
+}
+
+// &#x2500;&#x2500; EDITEUR DE LOOP POINTS &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
+function openLoopEditor(trackNum, buf){
+  _editTrack = trackNum;
+  _editBuf   = buf;
+  var label  = trackNum===1 ? 'Loop rythmique' : 'Pad harmonique';
+  document.getElementById('loopEditorTrackLabel').textContent = label;
+  document.getElementById('loopEditorWrap').style.display = '';
+  var canvas = document.getElementById('loopEditorCanvas');
+  var color  = trackNum===1 ? '#3b82f6' : '#22c55e';
+  drawStaticWaveform(canvas, buf, color, _loopStart[trackNum], _loopEnd[trackNum]);
+  updateHandles();
+  initEditorDrag();
+}
+
+function updateHandles(){
+  var sf = _loopStart[_editTrack];
+  var ef = _loopEnd[_editTrack];
+  document.getElementById('loopHandleStart').style.left = (sf*100)+'%';
+  document.getElementById('loopHandleEnd').style.left   = (ef*100)+'%';
+  document.getElementById('loopRegion').style.left      = (sf*100)+'%';
+  document.getElementById('loopRegion').style.width     = ((ef-sf)*100)+'%';
+  if(_editBuf){
+    var dur = _editBuf.duration;
+    document.getElementById('loopStartTime').textContent = (sf*dur).toFixed(2)+'s';
+    document.getElementById('loopEndTime').textContent   = (ef*dur).toFixed(2)+'s';
+    document.getElementById('loopDuration').textContent  = ((ef-sf)*dur).toFixed(2)+'s boucle';
+  }
+  // Redessiner waveform avec zone
+  var canvas = document.getElementById('loopEditorCanvas');
+  var color  = _editTrack===1 ? '#3b82f6' : '#22c55e';
+  if(_editBuf) drawStaticWaveform(canvas, _editBuf, color, sf, ef);
+  // Mettre a jour la waveform dans la track-cell
+  if(_trackBufs){
+    var s = _setlistItems[_curSection];
+    if(s){
+      var url = _editTrack===1 ? s.loop_rythmique_url : s.loop_harmonique_url;
+      if(url && _trackBufs[url]) drawTrackWaveform(_editTrack, _trackBufs[url]);
+    }
+  }
+}
+
+function initEditorDrag(){
+  var wrap = document.getElementById('loopEditorCanvasWrap');
+  if(wrap._dragInited) return;
+  wrap._dragInited = true;
+  function frac(e){
+    var rect = wrap.getBoundingClientRect();
+    var x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+    return Math.max(0, Math.min(1, x / rect.width));
+  }
+  function onDown(e){
+    var f = frac(e);
+    var ds = Math.abs(f - _loopStart[_editTrack]);
+    var de = Math.abs(f - _loopEnd[_editTrack]);
+    _dragging = ds < de ? 'start' : 'end';
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!_dragging) return;
+    var f = frac(e);
+    if(_dragging==='start'){
+      _loopStart[_editTrack] = Math.min(f, _loopEnd[_editTrack] - 0.01);
+    } else {
+      _loopEnd[_editTrack] = Math.max(f, _loopStart[_editTrack] + 0.01);
+    }
+    updateHandles();
+    // Si la piste joue, mettre a jour loopStart/loopEnd sur le BufferSource
+    applyLoopPointsToNode(_editTrack);
+    e.preventDefault();
+  }
+  function onUp(){ _dragging = null; }
+  wrap.addEventListener('mousedown',  onDown,  {passive:false});
+  wrap.addEventListener('touchstart', onDown,  {passive:false});
+  document.addEventListener('mousemove', onMove, {passive:false});
+  document.addEventListener('touchmove', onMove, {passive:false});
+  document.addEventListener('mouseup',  onUp);
+  document.addEventListener('touchend', onUp);
+}
+
+function applyLoopPointsToNode(t){
+  var src = _trackNodes[t];
+  if(!src || !src.buffer) return;
+  var dur = src.buffer.duration;
+  src.loopStart = _loopStart[t] * dur;
+  src.loopEnd   = _loopEnd[t]   * dur;
+}
+
+function resetLoopPoints(){
+  _loopStart[_editTrack] = 0;
+  _loopEnd[_editTrack]   = 1;
+  updateHandles();
+  applyLoopPointsToNode(_editTrack);
+}
+
 function getCtx(){
   if(!_arrCtx) _arrCtx=new(window.AudioContext||window.webkitAudioContext)();
   return _arrCtx;
@@ -1168,18 +1496,23 @@ async function playTrack(t,url,vol){
     var src=ctx.createBufferSource();
     src.buffer=buf;
     src.loop=true;
+    // Loop points (editeur)
+    var dur = buf.duration;
+    src.loopStart = (_loopStart[t]||0) * dur;
+    src.loopEnd   = (_loopEnd[t]||1)  * dur;
     // preservesPitch = time-stretching sans changement de tonalite (Safari iOS 16+)
     src.preservesPitch = true;
     if(typeof src.detune !== 'undefined') src.detune.value = 0;
-    // Ratio BPM : section BPM / loop BPM d'origine
+    // Ratio BPM
     var loopOrigBpm = buf._origBpm || _curBpm;
     src.playbackRate.value = _curBpm / loopOrigBpm;
     src.connect(gain);
     src.start(0);
     _trackNodes[t]=src;
     _trackGains[t]=gain;
-    // Stocker le BPM d'origine de la loop dans le buffer pour ajustements futurs
     if(!buf._origBpm) buf._origBpm = _curBpm;
+    // Dessiner waveform statique dans la track-cell
+    drawTrackWaveform(t, buf);
   }catch(e){ toast('Erreur piste '+t+': '+e.message); }
 }
 function stopTrack(t,fade){
@@ -1303,7 +1636,7 @@ function renderSlPickerList(){
   }).join('');
 }
 async function addLoopToSetlist(setlistId){
-  var loops=_loops.concat(_loopsMv);
+  var loops=_loops;
   var loop=null;
   for(var i=0;i<loops.length;i++){if(loops[i].id===_slPickerLoopId){loop=loops[i];break;}}
   if(!loop){toast('Loop introuvable');return;}
@@ -1343,8 +1676,8 @@ async function slPickerCreateNew(){
 // INIT
 async function init(){
   try{
-    var res=await Promise.all([fetch('/api/mive/loops'),fetch('/api/mive/loops-mv'),fetch('/api/mive/setlists')]);
-    _loops=await res[0].json();_loopsMv=await res[1].json();_setlists=await res[2].json();
+    var res=await Promise.all([fetch('/api/mive/loops'),fetch('/api/mive/setlists')]);
+    _loops=await res[0].json();_setlists=await res[1].json();
   }catch(ex){console.warn(ex);}
   renderPills();renderLoopList();renderSetlistCards();
 }

@@ -1027,6 +1027,9 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
       <button class="stem-type-btn" id="stInstr" onclick="selectStemType('instrument')">
         <span class="icon">🎸</span><span class="lbl">Instrument</span>
       </button>
+      <button class="stem-type-btn" id="stLoop" onclick="selectStemType('loop')">
+        <span class="icon">🔁</span><span class="lbl">Loop</span>
+      </button>
     </div>
     <div style="margin-bottom:.6rem;font-size:.72rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;">Sélectionner la piste</div>
     <div class="stem-sub-grid" id="stemSubGrid"></div>
@@ -1037,7 +1040,7 @@ Vous pourrez ensuite définir si chaque bloc est un Refrain, Couplet, Bridge…"
     <div class="form-row" style="margin-top:.9rem;">
       <label>Fichier audio</label>
       <label class="upload-zone" style="margin-top:0">
-        <input type="file" id="stemFileInput" accept="audio/*" onchange="stemFileSelected(this)">
+        <input type="file" id="stemFileInput" accept=".mp3,.m4a,.aac,.wav,.ogg,.flac,.mp4,audio/mpeg,audio/mp4,audio/aac,audio/wav,audio/ogg,audio/flac" onchange="stemFileSelected(this)">
         <span id="stemFileName">🎵 Cliquez pour choisir un fichier audio</span>
       </label>
     </div>
@@ -1228,6 +1231,7 @@ const BLOCK_TYPES = {chorus:{label:'Refrain',cls:'chorus'},verse:{label:'Couplet
 
 const VOICE_STEMS = [{id:'mezzo',label:'Voix principale / Mezzo'},{id:'soprano',label:'Soprano'},{id:'alto',label:'Alto'},{id:'tenor',label:'Ténor'},{id:'other_voice',label:'Autre voix…',custom:true}];
 const INSTR_STEMS = [{id:'piano',label:'Piano / Clavier'},{id:'drums',label:'Batterie / Percussions'},{id:'bass',label:'Basse'},{id:'guitar',label:'Guitare'},{id:'other_instr',label:'Nouvel instrument…',custom:true}];
+const LOOP_STEMS = [{id:'4/4',label:'4/4'},{id:'3/4',label:'3/4'},{id:'6/8',label:'6/8'},{id:'12/8',label:'12/8'},{id:'2/4',label:'2/4'},{id:'5/4',label:'5/4'},{id:'7/8',label:'7/8'}];
 
 let songs=[], categories=[], contributors=[], currentId=null, editingId=null, activeFilter='all';
 let lyricBlocks=[], lyricCounter={};
@@ -1821,6 +1825,7 @@ function renderDetail(song, targetEl){
   // Group audio by type
   const voices=audioFiles.filter(a=>a.stem_type==='voice');
   const instrs=audioFiles.filter(a=>a.stem_type==='instrument');
+  const loops=audioFiles.filter(a=>a.stem_type==='loop');
 
   el.innerHTML=`
   <div class="detail-card">
@@ -1862,7 +1867,7 @@ function renderDetail(song, targetEl){
     ${instrs.length?`<div class="stems-group"><div class="stems-group-title">🎸 Instruments</div><div class="stem-items">${instrs.map(a=>stemItemHTML(a)).join('')}</div></div>`:''}
     ${!voices.length&&!instrs.length?`<p style="color:var(--muted);font-size:.8rem;margin-bottom:.8rem;font-weight:600">Aucune piste audio pour ce chant.</p>`:''}
     <button class="upload-zone" onclick="openStemModal(${song.id})" style="cursor:pointer;border:none;width:100%;text-align:center;">
-      🎵 Ajouter une piste audio (voix ou instrument)
+      🎵 Ajouter une piste audio (voix, instrument ou loop)
       <div style="font-size:.65rem;margin-top:.25rem;opacity:.6">MP3, WAV, M4A, OGG acceptés</div>
     </button>
   </div>`;
@@ -1910,12 +1915,13 @@ function closeStemModal(){document.getElementById('stemOverlay').classList.add('
 
 function selectStemType(t){
   stemType=t; stemSubId=null;
+  document.getElementById('stLoop').classList.toggle('active',t==='loop');
   document.getElementById('stVoix').classList.toggle('active',t==='voice');
   document.getElementById('stInstr').classList.toggle('active',t==='instrument');
   renderStemSubGrid();
 }
 function renderStemSubGrid(){
-  const items=stemType==='voice'?VOICE_STEMS:INSTR_STEMS;
+  const items=stemType==='voice'?VOICE_STEMS:stemType==='loop'?LOOP_STEMS:INSTR_STEMS;
   document.getElementById('stemSubGrid').innerHTML=items.map(s=>`
     <button class="stem-sub-btn ${stemSubId===s.id?'active':''}" onclick="selectStemSub('${s.id}','${s.label}',${s.custom||false})">${s.label}</button>`).join('');
   document.getElementById('stemCustomRow').classList.add('hidden');
@@ -1934,9 +1940,11 @@ async function uploadStem(){
   const fileInput=document.getElementById('stemFileInput');
   if(!fileInput.files[0]){toast('Sélectionnez un fichier audio','danger');return;}
 
-  const items=stemType==='voice'?VOICE_STEMS:INSTR_STEMS;
+  const items=stemType==='voice'?VOICE_STEMS:stemType==='loop'?LOOP_STEMS:INSTR_STEMS;
   const item=items.find(s=>s.id===stemSubId);
   let label=item?.label||stemSubId;
+  // Pour une loop, le label inclut la signature rythmique
+  if(stemType==='loop') label='Loop ' + stemSubId;
   if(item?.custom){
     const custom=document.getElementById('stemCustomLabel').value.trim();
     if(!custom){toast('Précisez le type','danger');return;}
