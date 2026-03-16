@@ -1150,7 +1150,12 @@ async function submitUpload(){
   try{
     var r=await fetch('/api/mive/loops',{method:'POST',body:fd});
     if(!r.ok) throw new Error(await r.text());
-    var loop=await r.json();_loops.unshift(loop);
+    var loop=await r.json();
+    // S'assurer que _loops est bien un Array (s&#x00E9;curit&#x00E9;)
+    if(!Array.isArray(_loops)) _loops=[];
+    // Ajouter _src manuellement pour l'affichage imm&#x00E9;diat
+    loop._src='mive';
+    _loops.unshift(loop);
     renderPills();renderLoopList();closeUpload();toast('Loop ajout\u00e9e !');
     document.getElementById('upTitle').value='';document.getElementById('upBpm').value='';
     document.getElementById('upGenre').value='';document.getElementById('upFile').value='';
@@ -1677,7 +1682,9 @@ async function slPickerCreateNew(){
 async function init(){
   try{
     var res=await Promise.all([fetch('/api/mive/loops'),fetch('/api/mive/setlists')]);
-    _loops=await res[0].json();_setlists=await res[1].json();
+    var loopsData=await res[0].json();
+    _loops=Array.isArray(loopsData)?loopsData:[];
+    _setlists=await res[1].json();
   }catch(ex){console.warn(ex);}
   renderPills();renderLoopList();renderSetlistCards();
 }
