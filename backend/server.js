@@ -101,6 +101,7 @@ async function initDB() {
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
     ALTER TABLE audio_files ADD COLUMN IF NOT EXISTS file_url TEXT;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS stem_category TEXT;
+    ALTER TABLE setlist ADD COLUMN IF NOT EXISTS lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS activity_logs (
       id SERIAL PRIMARY KEY,
       action TEXT NOT NULL,
@@ -198,6 +199,18 @@ async function initDB() {
     ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS key_signature TEXT;
     ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS trim_start FLOAT DEFAULT 0;
     ALTER TABLE mive_loops ADD COLUMN IF NOT EXISTS trim_end FLOAT DEFAULT NULL;
+    CREATE TABLE IF NOT EXISTS leads (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS song_lead_keys (
+      id SERIAL PRIMARY KEY,
+      song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+      lead_id INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      key_signature TEXT NOT NULL,
+      UNIQUE(song_id, lead_id)
+    );
     CREATE TABLE IF NOT EXISTS mive_setlists (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -554,8 +567,8 @@ app.put('/api/setlist', async (req, res) => {
   await pool.query('DELETE FROM setlist');
   if (items && items.length) {
     for (const [i, item] of items.entries()) {
-      await pool.query('INSERT INTO setlist(section, song_id, song_title, position, special_label, special_after) VALUES($1,$2,$3,$4,$5,$6)',
-        [item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale']);
+      await pool.query('INSERT INTO setlist(section, song_id, song_title, position, special_label, special_after, lead_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
+        [item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale', item.lead_id||null]);
     }
   }
   res.json({ ok: true });
@@ -569,6 +582,7 @@ async function getSongFull(id) {
   const { rows: cats }   = await pool.query('SELECT c.* FROM categories c JOIN song_categories sc ON sc.category_id=c.id WHERE sc.song_id=$1', [id]);
   const { rows: lyrics } = await pool.query('SELECT * FROM lyrics_blocks WHERE song_id=$1 ORDER BY position,id', [id]);
   const { rows: audio }  = await pool.query('SELECT * FROM audio_files WHERE song_id=$1 ORDER BY stem_type,stem_category,uploaded_at', [id]);
+  const { rows: leadKeys } = await pool.query('SELECT slk.*, l.name as lead_name FROM song_lead_keys slk JOIN leads l ON l.id=slk.lead_id WHERE slk.song_id=$1', [id]);
   return { ...song, categories: cats, lyrics, audio_files: audio };
 }
 
@@ -611,7 +625,7 @@ app.get('/api/songs/:id', async (req, res) => {
 });
 
 app.post('/api/songs', async (req, res) => {
-  const { title, author, key_signature, genre, reference_link, notes, bpm, category_ids, lyrics } = req.body;
+  const { title, author, key_signature, genre, reference_link, notes, bpm, category_ids, lyrics, lead_keys } = req.body;
   if (!title) return res.status(400).json({ error: 'Titre requis' });
   const { rows } = await pool.query(
     'INSERT INTO songs(title,author,key_signature,genre,reference_link,notes,bpm) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
@@ -624,12 +638,17 @@ app.post('/api/songs', async (req, res) => {
   if (lyrics?.length) {
     for (const [i, b] of lyrics.entries()) await pool.query('INSERT INTO lyrics_blocks(song_id,type,num,content,position) VALUES($1,$2,$3,$4,$5)', [songId, b.type, b.num||1, b.content||'', i]);
   }
+  if (lead_keys?.length) {
+    for (const lk of lead_keys) {
+      if (lk.key_signature) await pool.query('INSERT INTO song_lead_keys(song_id,lead_id,key_signature) VALUES($1,$2,$3) ON CONFLICT(song_id,lead_id) DO UPDATE SET key_signature=$3', [songId, lk.lead_id, lk.key_signature]);
+    }
+  }
   res.json(await getSongFull(songId));
 });
 
 app.put('/api/songs/:id', async (req, res) => {
   const id = req.params.id;
-  const { title, author, key_signature, genre, reference_link, notes, bpm, category_ids, lyrics } = req.body;
+  const { title, author, key_signature, genre, reference_link, notes, bpm, category_ids, lyrics, lead_keys } = req.body;
   await pool.query('UPDATE songs SET title=$1,author=$2,key_signature=$3,genre=$4,reference_link=$5,notes=$6,bpm=$7,updated_at=NOW() WHERE id=$8',
     [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null, id]);
   await pool.query('DELETE FROM song_categories WHERE song_id=$1', [id]);
@@ -639,6 +658,13 @@ app.put('/api/songs/:id', async (req, res) => {
   await pool.query('DELETE FROM lyrics_blocks WHERE song_id=$1', [id]);
   if (lyrics?.length) {
     for (const [i, b] of lyrics.entries()) await pool.query('INSERT INTO lyrics_blocks(song_id,type,num,content,position) VALUES($1,$2,$3,$4,$5)', [id, b.type, b.num||1, b.content||'', i]);
+  }
+  // Gammes par lead
+  await pool.query('DELETE FROM song_lead_keys WHERE song_id=$1', [id]);
+  if (lead_keys?.length) {
+    for (const lk of lead_keys) {
+      if (lk.key_signature) await pool.query('INSERT INTO song_lead_keys(song_id,lead_id,key_signature) VALUES($1,$2,$3) ON CONFLICT(song_id,lead_id) DO UPDATE SET key_signature=$3', [id, lk.lead_id, lk.key_signature]);
+    }
   }
   res.json(await getSongFull(id));
 });
@@ -831,6 +857,47 @@ app.put('/api/mive/setlists/:id/items', async (req, res) => {
       }
     }
     await pool.query('UPDATE mive_setlists SET updated_at=NOW() WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── LEADS ────────────────────────────────────────────────────────────────────
+app.get('/api/leads', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM leads ORDER BY name');
+  res.json(rows);
+});
+
+app.post('/api/leads', async (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nom requis' });
+  const { rows } = await pool.query('INSERT INTO leads(name) VALUES($1) RETURNING *', [name.trim()]);
+  res.json(rows[0]);
+});
+
+app.delete('/api/leads/:id', async (req, res) => {
+  await pool.query('DELETE FROM leads WHERE id=$1', [req.params.id]);
+  res.json({ ok: true });
+});
+
+// ── SONG LEAD KEYS ────────────────────────────────────────────────────────────
+// Récupérer lead_keys pour un chant (déjà inclus dans GET /api/songs/:id via JOIN)
+
+app.post('/api/songs/:id/lead-keys', async (req, res) => {
+  try {
+    const songId = req.params.id;
+    const { lead_keys } = req.body; // [{lead_id, key_signature}]
+    // Remplacer toutes les gammes de ce chant
+    await pool.query('DELETE FROM song_lead_keys WHERE song_id=$1', [songId]);
+    if (lead_keys && lead_keys.length) {
+      for (const lk of lead_keys) {
+        if (lk.key_signature) {
+          await pool.query(
+            'INSERT INTO song_lead_keys(song_id,lead_id,key_signature) VALUES($1,$2,$3) ON CONFLICT(song_id,lead_id) DO UPDATE SET key_signature=$3',
+            [songId, lk.lead_id, lk.key_signature]
+          );
+        }
+      }
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
