@@ -868,10 +868,12 @@ app.get('/api/leads', async (req, res) => {
 });
 
 app.post('/api/leads', async (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nom requis' });
-  const { rows } = await pool.query('INSERT INTO leads(name) VALUES($1) RETURNING *', [name.trim()]);
-  res.json(rows[0]);
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nom requis' });
+    const { rows } = await pool.query('INSERT INTO leads(name) VALUES($1) RETURNING *', [name.trim()]);
+    res.json(rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.delete('/api/leads/:id', async (req, res) => {
