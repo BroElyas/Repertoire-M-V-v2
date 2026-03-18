@@ -1329,7 +1329,12 @@ async function createLead(){
   if(!name){toast('Nom requis','danger');return;}
   try{
     var r = await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    if(!r.ok){
+      var txt = await r.text();
+      throw new Error(txt||'Erreur serveur');
+    }
     var lead = await r.json();
+    if(!lead||!lead.id) throw new Error('R&#x00E9;ponse invalide du serveur');
     _leads.push(lead);
     renderAdminLeads();
     document.getElementById('newLeadName').value='';
