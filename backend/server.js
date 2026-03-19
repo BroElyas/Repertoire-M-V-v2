@@ -583,7 +583,8 @@ async function getSongFull(id) {
   const { rows: lyrics } = await pool.query('SELECT * FROM lyrics_blocks WHERE song_id=$1 ORDER BY position,id', [id]);
   const { rows: audio }  = await pool.query('SELECT * FROM audio_files WHERE song_id=$1 ORDER BY stem_type,stem_category,uploaded_at', [id]);
   const { rows: leadKeys } = await pool.query('SELECT slk.*, l.name as lead_name FROM song_lead_keys slk JOIN leads l ON l.id=slk.lead_id WHERE slk.song_id=$1', [id]);
-  return { ...song, categories: cats, lyrics, audio_files: audio };
+  song.lead_keys = leadKeys.map(lk=>({id:lk.id,lead_id:lk.lead_id,key_signature:lk.key_signature,lead_name:lk.lead_name}));
+  return { ...song, categories: cats, lyrics, audio_files: audio, lead_keys: song.lead_keys };
 }
 
 app.get('/api/songs', async (req, res) => {
