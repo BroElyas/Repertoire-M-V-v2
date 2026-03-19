@@ -101,7 +101,6 @@ async function initDB() {
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
     ALTER TABLE audio_files ADD COLUMN IF NOT EXISTS file_url TEXT;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS stem_category TEXT;
-    ALTER TABLE setlist ADD COLUMN IF NOT EXISTS lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS activity_logs (
       id SERIAL PRIMARY KEY,
       action TEXT NOT NULL,
@@ -211,6 +210,7 @@ async function initDB() {
       key_signature TEXT NOT NULL,
       UNIQUE(song_id, lead_id)
     );
+    ALTER TABLE setlist ADD COLUMN IF NOT EXISTS lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL;
     CREATE TABLE IF NOT EXISTS mive_setlists (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
