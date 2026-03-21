@@ -293,14 +293,9 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .song-card-title{font-size:.82rem;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;}
 .song-card-meta{font-size:.67rem;color:var(--muted);margin-top:3px;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;}
 .key-badge{background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:50px;padding:1px 7px;font-size:.6rem;font-weight:800;border:1px solid var(--border);}
-.lead-switcher{display:inline-flex;align-items:center;gap:.35rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:50px;padding:.18rem .65rem .18rem .45rem;cursor:pointer;font-size:.62rem;font-weight:800;color:var(--text-mid);transition:all .15s;-webkit-tap-highlight-color:transparent;}
-.lead-switcher:hover{border-color:#8b1a2e;color:#c4395a;}
-.lead-switcher.active{background:var(--perm-bg,#2a1018);border-color:#8b1a2e;color:#c4395a;}
-.lead-dropdown{position:absolute;z-index:200;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:160px;overflow:hidden;margin-top:.3rem;}
-.lead-dropdown-item{padding:.55rem .9rem;font-size:.75rem;font-weight:700;cursor:pointer;color:var(--text-mid);transition:background .12s;white-space:nowrap;}
-.lead-dropdown-item:hover{background:var(--surface2);}
-.lead-dropdown-item.active-lead{color:#c4395a;background:var(--perm-bg,#2a1018);}
-.lead-dropdown-item.reset-lead{color:var(--muted);border-top:1px solid var(--border);font-weight:600;font-size:.68rem;}
+.lead-native-select{background:var(--surface2);border:1.5px solid var(--border);border-radius:50px;padding:.22rem .65rem;font-size:.62rem;font-weight:800;color:var(--text-mid);cursor:pointer;font-family:'Nunito',sans-serif;outline:none;max-width:160px;}
+.lead-native-select:focus{border-color:#8b1a2e;}
+.lead-native-select.active{background:var(--perm-bg,#2a1018);border-color:#8b1a2e;color:#c4395a;}
 .lead-key-row{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
 .setlist-lead-select{font-size:.62rem;font-weight:700;color:var(--text-mid);background:var(--surface);border:1px solid var(--border);border-radius:50px;padding:.15rem .5rem;cursor:pointer;font-family:'Nunito',sans-serif;outline:none;max-width:130px;}
 .setlist-lead-select:focus{border-color:#8b1a2e;}
@@ -332,7 +327,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 
 /* ── DETAIL ── */
 .detail-card{background:var(--surface);border-radius:20px;padding:1.5rem 1.7rem;box-shadow:var(--shadow-md);margin-bottom:1.2rem;border:1px solid #332220;position:relative;overflow:hidden;}
-.detail-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#8b1a2e,#c4395a);}
+.detail-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,#8b1a2e,#c4395a);border-radius:20px 20px 0 0;}
 .detail-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;}
 .detail-title{font-family:'Lora',serif;font-size:1.8rem;font-weight:700;color:var(--text);line-height:1.1;margin-bottom:.3rem;text-transform:uppercase;}
 .detail-author{font-size:.8rem;font-weight:700;color:#c4395a;}
@@ -1377,61 +1372,19 @@ function setLeadKey(leadId, val){
 }
 
 // &#x2500;&#x2500; DROPDOWN LEADS dans la fiche chant &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
-function toggleLeadDropdown(songId, e){
-  e.stopPropagation();
-  // Fermer si d&#x00E9;j&#x00E0; ouvert
-  var existing = document.getElementById('leadDropdown_'+songId);
-  if(existing){ existing.remove(); return; }
-  // Fermer autres dropdowns
-  document.querySelectorAll('.lead-dropdown').forEach(d=>d.remove());
-
+function selectLeadNative(songId, val){
+  if(!val) return;
   var song = songs.find(s=>s.id===songId);
   if(!song) return;
-  var leadKeys = song.lead_keys||[];
-  var activeLead = _activeLeadBySong[songId];
-
-  var wrap = document.getElementById('leadBtnWrap_'+songId);
-  if(!wrap) return;
-
-  var dd = document.createElement('div');
-  dd.className = 'lead-dropdown';
-  dd.id = 'leadDropdown_'+songId;
-  dd.style.left='0'; dd.style.top='100%';
-
-  // Items leads
-  leadKeys.forEach(lk=>{
-    var lead = _leads.find(l=>l.id===lk.lead_id)||{name:'?'};
-    var item = document.createElement('div');
-    item.className = 'lead-dropdown-item'+(activeLead&&activeLead.id===lk.lead_id?' active-lead':'');
-    item.innerHTML = '&#x1F3A4; '+lead.name+' &#x2014; '+lk.key_signature;
-    item.onclick = function(ev){
-      ev.stopPropagation();
-      _activeLeadBySong[songId]={id:lk.lead_id,name:lead.name,key:lk.key_signature};
-      dd.remove();
-      // Re-render detail
-      selectSong(songId);
-    };
-    dd.appendChild(item);
-  });
-
-  // Reset
-  if(activeLead){
-    var reset = document.createElement('div');
-    reset.className = 'lead-dropdown-item reset-lead';
-    reset.innerHTML = '&#x21A9; Revenir &#x00E0; la gamme par d&#x00E9;faut';
-    reset.onclick = function(ev){
-      ev.stopPropagation();
-      delete _activeLeadBySong[songId];
-      dd.remove();
-      selectSong(songId);
-    };
-    dd.appendChild(reset);
+  if(val==='reset'){
+    delete _activeLeadBySong[songId];
+  } else {
+    var leadId = parseInt(val);
+    var lk = (song.lead_keys||[]).find(k=>k.lead_id===leadId);
+    var lead = _leads.find(l=>l.id===leadId)||{name:'?'};
+    if(lk) _activeLeadBySong[songId]={id:leadId,name:lead.name,key:lk.key_signature};
   }
-
-  wrap.style.position='relative';
-  wrap.appendChild(dd);
-  // Fermer au clic dehors
-  setTimeout(()=>document.addEventListener('click',function c(){dd.remove();document.removeEventListener('click',c);},100));
+  selectSong(songId);
 }
 
 // &#x2500;&#x2500; API &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
@@ -2015,12 +1968,19 @@ function renderDetail(song, targetEl){
         const displayKey = activeLead ? (leadKeys.find(lk=>lk.lead_id===activeLead.id)||{}).key_signature||song.key_signature : song.key_signature;
         const keyPill = displayKey ? `<div class="info-pill"><span class="lbl">Gamme</span>${displayKey}</div>` : '';
         const hasLeadKeys = leadKeys.length > 0;
-        const leadBtn = hasLeadKeys ? `<div style="position:relative;display:inline-block;" id="leadBtnWrap_${song.id}">
-          <div class="lead-switcher ${activeLead?'active':''}" onclick="toggleLeadDropdown(${song.id},event)">
-            &#x1F3A4; ${activeLead?activeLead.name:'Leads'}
-          </div>
-        </div>` : '';
-        return `<div class="lead-key-row">${keyPill}${leadBtn}</div>`;
+        const leadSelect = hasLeadKeys ? `<select
+          class="lead-native-select"
+          onchange="selectLeadNative(${song.id},this.value)"
+          title="Changer de gamme lead">
+          <option value="">&#x1F3A4; ${activeLead?activeLead.name:'Leads...'}</option>
+          ${leadKeys.map(lk=>{
+            const ln=_leads.find(l=>l.id===lk.lead_id)||{name:'?'};
+            const sel=(activeLead&&activeLead.id===lk.lead_id)?'selected':'';
+            return `<option value="${lk.lead_id}" ${sel}>${ln.name} &#x2014; ${lk.key_signature}</option>`;
+          }).join('')}
+          ${activeLead?`<option value="reset">&#x21A9; Gamme par d&#x00E9;faut</option>`:''}
+        </select>` : '';
+        return `<div class="lead-key-row">${keyPill}${leadSelect}</div>`;
       })()}
       ${song.bpm?`<div class="info-pill"><span class="lbl">BPM</span>${song.bpm}</div>`:''}
       ${song.reference_link?`<div class="info-pill"><a href="${song.reference_link}" target="_blank" rel="noopener">&#x25B6; Version de r&#x00E9;f&#x00E9;rence</a></div>`:''}
