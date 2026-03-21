@@ -1403,7 +1403,7 @@ function toggleLeadDropdown(songId, e){
     var lead = _leads.find(l=>l.id===lk.lead_id)||{name:'?'};
     var item = document.createElement('div');
     item.className = 'lead-dropdown-item'+(activeLead&&activeLead.id===lk.lead_id?' active-lead':'');
-    item.textContent = '&#x1F3A4; '+lead.name+' &#x2014; '+lk.key_signature;
+    item.innerHTML = '&#x1F3A4; '+lead.name+' &#x2014; '+lk.key_signature;
     item.onclick = function(ev){
       ev.stopPropagation();
       _activeLeadBySong[songId]={id:lk.lead_id,name:lead.name,key:lk.key_signature};
@@ -1418,7 +1418,7 @@ function toggleLeadDropdown(songId, e){
   if(activeLead){
     var reset = document.createElement('div');
     reset.className = 'lead-dropdown-item reset-lead';
-    reset.textContent = '&#x21A9; Revenir &#x00E0; la gamme par d&#x00E9;faut';
+    reset.innerHTML = '&#x21A9; Revenir &#x00E0; la gamme par d&#x00E9;faut';
     reset.onclick = function(ev){
       ev.stopPropagation();
       delete _activeLeadBySong[songId];
@@ -1497,7 +1497,7 @@ async function init() {
       apiFetch('/api/contributors'),
       apiFetch('/api/leads'),
     ]);
-    document.getElementById('gName').textContent = settings.group_name || 'R&#x00E9;pertoire Musical';
+    document.getElementById('gName').innerHTML = settings.group_name || 'R&#x00E9;pertoire Musical';
     document.getElementById('gSub').textContent = settings.group_subtitle || '';
     categories = cats;
     songs = sgs;
@@ -2069,12 +2069,12 @@ let currentAudio=null, currentBtn=null;
 function togglePlay(id, filename, btn){
   const audio=document.getElementById(`aud_${id}`);
   if(currentAudio&&currentAudio!==audio){currentAudio.pause();resetPlayBtn(currentAudio._id);}
-  if(audio.paused){audio.play();btn.textContent='&#x23F8;';btn.classList.add('playing');currentAudio=audio;currentAudio._id=id;currentBtn=btn;}
-  else{audio.pause();btn.textContent='&#x25B6;';btn.classList.remove('playing');}
+  if(audio.paused){audio.play();btn.innerHTML='&#x23F8;';btn.classList.add('playing');currentAudio=audio;currentAudio._id=id;currentBtn=btn;}
+  else{audio.pause();btn.innerHTML='&#x25B6;';btn.classList.remove('playing');}
 }
 function resetPlayBtn(id){
   const btn=document.getElementById(`pbtn_${id}`);
-  if(btn){btn.textContent='&#x25B6;';btn.classList.remove('playing');}
+  if(btn){btn.innerHTML='&#x25B6;';btn.classList.remove('playing');}
 }
 
 // &#x2500;&#x2500; STEM UPLOAD &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
@@ -2083,7 +2083,7 @@ function openStemModal(songId){
   document.getElementById('stemOverlay').classList.remove('hidden');
   document.getElementById('stVoix').classList.add('active');
   document.getElementById('stInstr').classList.remove('active');
-  document.getElementById('stemFileName').textContent='&#x1F3B5; Cliquez pour choisir un fichier audio';
+  document.getElementById('stemFileName').innerHTML='&#x1F3B5; Cliquez pour choisir un fichier audio';
   document.getElementById('stemFileInput').value='';
   renderStemSubGrid();
 }
@@ -2109,7 +2109,7 @@ function selectStemSub(id, label, isCustom){
   if(!isCustom) document.getElementById('stemCustomLabel').value='';
 }
 function stemFileSelected(input){
-  document.getElementById('stemFileName').textContent=input.files[0]?.name||'&#x1F3B5; Cliquez pour choisir un fichier audio';
+  document.getElementById('stemFileName').innerHTML=input.files[0]?.name||'&#x1F3B5; Cliquez pour choisir un fichier audio';
 }
 async function uploadStem(){
   if(!stemSubId){toast('S&#x00E9;lectionnez le type de piste','danger');return;}
@@ -2159,8 +2159,8 @@ async function deleteAudio(id){
 function requirePin(level, title, desc, cb){
   if(isPinSessionValid(level)){ cb(); return; }
   pinLevel=level; pinCallback=cb; pinValue='';
-  document.getElementById('pinTitle').textContent=title;
-  document.getElementById('pinDesc').textContent=desc;
+  document.getElementById('pinTitle').innerHTML=title;
+  document.getElementById('pinDesc').innerHTML=desc;
   document.getElementById('pinError').classList.add('hidden');
   updatePinDots();
   document.getElementById('pinOverlay').classList.remove('hidden');
@@ -2197,7 +2197,7 @@ async function verifyPin(){
     setTimeout(() => { if(cb) cb(); }, 150);
   }catch(e){
     const errEl=document.getElementById('pinError');
-    errEl.textContent='&#x274C; PIN incorrect'; errEl.classList.remove('hidden');
+    errEl.innerHTML='&#x274C; PIN incorrect'; errEl.classList.remove('hidden');
     pinValue=''; updatePinDots();
     setTimeout(()=>errEl.classList.add('hidden'),2000);
   }
@@ -2609,7 +2609,7 @@ async function togglePin(id, currentlyPinned){
 let feedbackSongId=null, feedbackSongTitle='';
 function openFeedback(songId, songTitle){
   feedbackSongId=songId; feedbackSongTitle=songTitle;
-  document.getElementById('feedbackSongName').textContent='&#x1F3B5; '+songTitle;
+  document.getElementById('feedbackSongName').innerHTML='&#x1F3B5; '+songTitle;
   document.getElementById('feedbackMsg').value='';
   document.getElementById('feedbackOverlay').classList.remove('hidden');
 }
@@ -2707,7 +2707,7 @@ function toggleLyricsDiff(id) {
   if(!el) return;
   const isOpen = el.style.display !== 'none';
   el.style.display = isOpen ? 'none' : 'block';
-  if(btn) btn.textContent = isOpen ? '&#x25B6; Voir les paroles modifi&#x00E9;es' : '&#x25BC; Masquer';
+  if(btn) btn.innerHTML = isOpen ? '&#x25B6; Voir les paroles modifi&#x00E9;es' : '&#x25BC; Masquer';
 }
 
 
@@ -3123,7 +3123,7 @@ async function renderAdminDuplicates(){
 
 async function ignoreDuplicate(id1, id2, btn){
   btn.disabled = true;
-  btn.textContent = '&#x2026;';
+  btn.innerHTML = '&#x2026;';
   await apiFetch('/api/songs/ignore-duplicate',{method:'POST',body:JSON.stringify({id1,id2})});
   // Animate row out then re-render
   const row = btn.closest('div[style]');
@@ -3211,7 +3211,7 @@ async function saveAdmin(){
   if(na) { if(!/^\d{4}$/.test(na)){toast('Le PIN doit &#x00EA;tre 4 chiffres','danger');return;} payload.new_pin_admin=na; }
   try{
     await apiFetch('/api/settings',{method:'PUT',body:JSON.stringify(payload)});
-    document.getElementById('gName').textContent=payload.group_name||'R&#x00E9;pertoire Musical';
+    document.getElementById('gName').innerHTML=payload.group_name||'R&#x00E9;pertoire Musical';
     document.getElementById('gSub').textContent=payload.group_subtitle||'';
     closeAdmin(); toast('Param&#x00E8;tres sauvegard&#x00E9;s &#x2713;');
   }catch(e){toast('PIN admin incorrect','danger');}
