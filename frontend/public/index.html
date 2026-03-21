@@ -1352,7 +1352,7 @@ async function deleteLead(id){
 
 // &#x2500;&#x2500; GAMMES PAR LEAD dans le formulaire chant &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 var _editSongLeadKeys = {}; // {lead_id: key_signature}
-const KEY_OPTIONS = ['','Do (C)','Do# (C#)','Ré (D)','Ré# (D#)','Mi (E)','Fa (F)','Fa# (F#)','Sol (G)','Sol# (G#)','La (A)','La# (A#)','Si (B)','Do min (Cm)','Ré min (Dm)','Mi min (Em)','Fa min (Fm)','Sol min (Gm)','La min (Am)'];
+const KEY_OPTIONS = ['','Do (C)','Do# (C#)','R\u00e9 (D)','R\u00e9# (D#)','Mi (E)','Fa (F)','Fa# (F#)','Sol (G)','Sol# (G#)','La (A)','La# (A#)','Si (B)','Do min (Cm)','R\u00e9 min (Dm)','Mi min (Em)','Fa min (Fm)','Sol min (Gm)','La min (Am)'];
 
 function renderLeadKeysForm(existingLeadKeys){
   var section = document.getElementById('leadKeysSection');
@@ -2344,7 +2344,6 @@ async function submitSong(){
   const leadKeysPayload = Object.entries(_editSongLeadKeys)
     .filter(([,v])=>v&&v.trim())
     .map(([lead_id,key_signature])=>({lead_id:parseInt(lead_id),key_signature:key_signature.trim()}));
-  console.log('[leads] payload:', leadKeysPayload);
   const newLyrics = lyricBlocks.map(b=>({type:b.type,num:b.num,content:b.text||b.content||''}));
   const payload={
     title,
@@ -2379,7 +2378,37 @@ async function submitSong(){
         const oldLyrics = JSON.stringify((oldSong.lyrics||[]).map(b=>({type:b.type,num:b.num,content:b.content||''})));
         const newLyrics = JSON.stringify(payload.lyrics);
         if(oldLyrics !== newLyrics) affectedFields.push('lyrics');
-        if(!affectedFields.length){ toast('Aucune modification detectee'); closeSongModal(); return; }
+
+        // Détecter changements lead_keys (sauvegardés directement, pas via pending)
+        const oldLeadKeys = JSON.stringify((oldSong.lead_keys||[]).map(lk=>({lead_id:lk.lead_id,key_signature:lk.key_signature})).sort((a,b)=>a.lead_id-b.lead_id));
+        const newLeadKeys = JSON.stringify(leadKeysPayload.slice().sort((a,b)=>a.lead_id-b.lead_id));
+        const leadKeysChanged = oldLeadKeys !== newLeadKeys;
+        if(leadKeysChanged) affectedFields.push('lead_keys');
+
+        if(!affectedFields.length){ toast('Aucune modification détectée'); closeSongModal(); return; }
+
+        // Sauvegarder lead_keys directement (pas de pending_changes pour ça)
+        if(leadKeysChanged){
+          await apiFetch('/api/songs/'+editingId+'/lead-keys',{
+            method:'POST',
+            body:JSON.stringify({lead_keys:leadKeysPayload})
+          });
+          // Mettre à jour le cache local
+          const idx2=songs.findIndex(s=>s.id===editingId);
+          if(idx2>=0) songs[idx2].lead_keys=leadKeysPayload;
+        }
+
+        // Si que lead_keys a changé, pas besoin de pending_changes
+        if(affectedFields.length===1 && affectedFields[0]==='lead_keys'){
+          const freshSong = await apiFetch('/api/songs/'+editingId);
+          const idx2=songs.findIndex(s=>s.id===editingId);
+          if(idx2>=0) songs[idx2]={...songs[idx2],...freshSong};
+          currentId=editingId;
+          closeSongModal();
+          selectSong(editingId);
+          toast('Gammes des leads mises à jour !');
+          return;
+        }
 
         const oldSnap = JSON.stringify({
           title:oldSong.title, author:oldSong.author, genre:oldSong.genre,
