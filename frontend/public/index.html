@@ -1490,17 +1490,19 @@ async function init() {
     sessionStorage.removeItem('pin_session_contributor');
   }
   try {
-    const [settings, cats, sgs, contribs] = await Promise.all([
+    const [settings, cats, sgs, contribs, leads] = await Promise.all([
       apiFetch('/api/settings'),
       apiFetch('/api/categories'),
       apiFetch('/api/songs'),
       apiFetch('/api/contributors'),
+      apiFetch('/api/leads'),
     ]);
     document.getElementById('gName').textContent = settings.group_name || 'R&#x00E9;pertoire Musical';
     document.getElementById('gSub').textContent = settings.group_subtitle || '';
     categories = cats;
     songs = sgs;
     contributors = contribs;
+    _leads = Array.isArray(leads) ? leads : [];
     buildColorPicker();
     renderCatPills();
     renderMobFilters();
