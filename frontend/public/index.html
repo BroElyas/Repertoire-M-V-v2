@@ -2460,6 +2460,10 @@ async function submitPendingChange(songId, songTitle, fieldName, oldVal, newVal)
 async function submitSong(){
   const title=document.getElementById('fTitle').value.trim();
   if(!title){toast('Le titre est obligatoire','danger');return;}
+  // Empêcher double soumission
+  const saveBtn = document.querySelector('#songOverlay .btn-primary[onclick*="submitSong"]');
+  if(saveBtn && saveBtn.disabled) return;
+  if(saveBtn){ saveBtn.disabled=true; saveBtn.textContent='Enregistrement...'; }
   const isAdmin = isPinSessionValid('admin');
   const oldSong = editingId ? (await apiFetch(`/api/songs/${editingId}`)) : null;
   const newBpm = document.getElementById('fBpm').value ? parseInt(document.getElementById('fBpm').value) : null;
@@ -2577,6 +2581,7 @@ async function submitSong(){
       song=await apiFetch('/api/songs',{method:'POST',body:JSON.stringify(payload)});
       songs.push(song); currentId=song.id;
     }
+    if(saveBtn){ saveBtn.disabled=false; saveBtn.innerHTML='&#x1F4BE; Enregistrer'; }
     closeSongModal();
     renderList();
     const freshSong = await apiFetch(`/api/songs/${currentId}`);
@@ -3905,9 +3910,11 @@ async function toggleChordMode(songId){
 function renderLyricBlock(content, songId, blockIdx){
   if(!_chordMode) return escHtml(content);
   const lines = content.split('\n');
+  let globalWIdx = 0; // index global du mot dans le bloc (pas par ligne)
   return lines.map(line=>{
     const words = line.split(' ');
-    const wordHtml = words.map((word, wIdx)=>{
+    const wordHtml = words.map((word)=>{
+      const wIdx = globalWIdx++;
       if(!word) return '<span class="chord-word-text"> </span>';
       const splitKey = blockIdx+'_'+wIdx;
       const parts = _splitsData[splitKey] || [word];
@@ -3937,8 +3944,9 @@ function rerenderChords(songId){
 // ── Popup accords ────────────────────────────────────────────────────────────
 function openChordPopup(e, songId, blockIdx, wordIdx, partIdx){
   e.stopPropagation();
+  e.preventDefault();
   closeChordPopup();
-  if(!_chordMode) return;
+  if(!_chordMode || _chordSongId !== songId) return;
 
   const song = songs.find(s=>s.id===songId);
   if(!song) return;
