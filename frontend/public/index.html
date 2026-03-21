@@ -353,6 +353,47 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .lyric-blk-hdr.bridge{background:linear-gradient(90deg,#2a1a10,#1e1510);color:#c47a4a;border-bottom:1.5px solid #3a2518;}
 .lyric-blk-body{padding:.8rem .9rem;font-size:.82rem;color:var(--text);line-height:1.85;white-space:pre-wrap;background:var(--surface2);-webkit-user-select:text;user-select:text;}
 .lyric-blk-body.empty{color:var(--muted);font-style:italic;}
+/* ── MODE ACCORDS ── */
+.chord-mode-active .lyric-blk-body{cursor:default;user-select:none;-webkit-user-select:none;}
+.chord-line{display:flex;flex-wrap:wrap;gap:0;align-items:flex-end;line-height:1;}
+.chord-word{display:inline-flex;flex-direction:column;align-items:center;margin:0 2px 6px 2px;cursor:pointer;position:relative;}
+.chord-word:hover .chord-word-text{background:rgba(139,26,46,0.12);border-radius:3px;}
+.chord-word-text{font-size:.82rem;color:var(--text);padding:1px 2px;white-space:pre;}
+.chord-word-part{display:inline-flex;flex-direction:column;align-items:center;position:relative;}
+.chord-above{font-size:.65rem;font-weight:800;color:#c4395a;min-height:1rem;text-align:center;white-space:nowrap;padding:0 1px;}
+.chord-below{font-size:.65rem;font-weight:800;color:#c4395a;min-height:1rem;text-align:center;white-space:nowrap;padding:0 1px;order:1;}
+.chord-word-text{order:0;}
+.chord-below ~ .chord-word-text{order:-1;}
+.split-marker{display:inline-block;width:1.5px;height:.9em;background:#3b82f6;margin:0 1px;vertical-align:middle;opacity:.6;}
+/* Popup accords */
+.chord-popup{position:fixed;z-index:600;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:.6rem;min-width:200px;max-width:280px;}
+.chord-popup-title{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.45rem;}
+.chord-popup-actions{display:flex;gap:.4rem;margin-bottom:.6rem;}
+.chord-popup-btn{flex:1;padding:.35rem .5rem;border-radius:var(--r-xs);font-size:.68rem;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text-mid);cursor:pointer;font-family:"Nunito",sans-serif;text-align:center;}
+.chord-popup-btn:hover{border-color:#8b1a2e;color:#c4395a;}
+.chord-popup-btn.active{background:var(--perm-bg,#2a1018);border-color:#8b1a2e;color:#c4395a;}
+.chord-section-title{font-size:.58rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin:.4rem 0 .3rem;}
+.chord-basic-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.25rem;margin-bottom:.35rem;}
+.chord-adv-select{width:100%;font-size:.72rem;padding:.3rem .5rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-family:"Nunito",sans-serif;outline:none;margin-bottom:.35rem;}
+.chord-btn{padding:.28rem .35rem;border-radius:5px;font-size:.62rem;font-weight:800;border:1.5px solid var(--border);background:var(--surface2);color:var(--text-mid);cursor:pointer;font-family:"Nunito",sans-serif;text-align:center;}
+.chord-btn:hover,.chord-btn.selected{background:var(--perm-bg,#2a1018);border-color:#8b1a2e;color:#c4395a;}
+.chord-del-btn{width:100%;padding:.3rem;border-radius:var(--r-xs);font-size:.65rem;font-weight:700;border:1.5px solid var(--danger);background:transparent;color:var(--danger);cursor:pointer;font-family:"Nunito",sans-serif;margin-top:.25rem;}
+/* Split word UI */
+.split-word-wrap{padding:.5rem 0;text-align:center;}
+.split-word-display{display:inline-flex;align-items:center;font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:.05em;position:relative;user-select:none;-webkit-user-select:none;}
+.split-char{display:inline-block;padding:2px 1px;cursor:pointer;position:relative;}
+.split-char:hover::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:#3b82f6;border-radius:1px;}
+.split-line{display:inline-block;width:2px;height:1.2em;background:#3b82f6;margin:0 1px;vertical-align:middle;border-radius:1px;cursor:pointer;}
+.split-line:hover{background:#ef4444;}
+/* Toolbar accords */
+.chord-toolbar{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:.6rem;border:1.5px solid var(--border);flex-wrap:wrap;}
+.chord-toolbar-label{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.chord-pos-toggle{display:flex;border:1.5px solid var(--border);border-radius:var(--r-xs);overflow:hidden;}
+.chord-pos-btn{padding:.22rem .55rem;font-size:.62rem;font-weight:700;border:none;background:var(--surface2);color:var(--muted);cursor:pointer;font-family:"Nunito",sans-serif;}
+.chord-pos-btn.active{background:var(--perm-bg,#2a1018);color:#c4395a;}
+.chord-fmt-toggle{display:flex;border:1.5px solid var(--border);border-radius:var(--r-xs);overflow:hidden;}
+.chord-fmt-btn{padding:.22rem .55rem;font-size:.62rem;font-weight:700;border:none;background:var(--surface2);color:var(--muted);cursor:pointer;font-family:"Nunito",sans-serif;}
+.chord-fmt-btn.active{background:#1a2a3a;color:#3b82f6;}
 
 /* ── STEMS ── */
 .stems-group{margin-bottom:1rem;}
@@ -1571,7 +1612,7 @@ function catStyle(c){return `background:${c.color}20;color:${c.color};border-col
 function toast(msg, type='ok'){
   const t=document.createElement('div');t.className='toast';
   if(type==='danger') t.style.background='var(--danger)';
-  t.textContent=msg; document.body.appendChild(t);
+  t.innerHTML=msg; document.body.appendChild(t);
   setTimeout(()=>t.remove(),2600);
 }
 
@@ -2080,9 +2121,32 @@ function renderDetail(song, targetEl){
 
   ${blocks.length?`
   <div class="section-card">
-    <div class="section-hdr"><div class="section-ttl"><div class="sdot"></div>Paroles</div></div>
-    <div class="lyrics-wrap">
-      ${blocks.map(b=>{const bt=BLOCK_TYPES[b.type]||{label:b.type,cls:'verse'};return`<div class="lyric-blk"><div class="lyric-blk-hdr ${bt.cls}">${bt.label}${b.num>1?' '+b.num:''}</div><div class="lyric-blk-body ${b.content?'':'empty'}">${b.content?esc(b.content):'(vide)'}</div></div>`;}).join('')}
+    <div class="section-hdr">
+      <div class="section-ttl"><div class="sdot"></div>Paroles</div>
+      ${(isPinSessionValid('admin')||canDo('can_edit_lyrics'))?`
+      <div style="display:flex;align-items:center;gap:.4rem;">
+        <button class="btn btn-sm" id="chordModeBtn" onclick="toggleChordMode(${song.id})" style="font-size:.62rem;">
+          &#x1F3B5; Accords
+        </button>
+      </div>`:''}
+    </div>
+    <div id="chordToolbar_${song.id}" style="display:none;">
+      <div class="chord-toolbar">
+        <span class="chord-toolbar-label">Position</span>
+        <div class="chord-pos-toggle">
+          <button class="chord-pos-btn ${_chordPos==='above'?'active':''}" onclick="setChordPos('above')">Au-dessus</button>
+          <button class="chord-pos-btn ${_chordPos==='below'?'active':''}" onclick="setChordPos('below')">En dessous</button>
+        </div>
+        <span class="chord-toolbar-label" style="margin-left:.5rem;">Format</span>
+        <div class="chord-fmt-toggle">
+          <button class="chord-fmt-btn ${_chordFmt==='fr'?'active':''}" onclick="setChordFmt('fr')">Do/Ré</button>
+          <button class="chord-fmt-btn ${_chordFmt==='en'?'active':''}" onclick="setChordFmt('en')">C/D</button>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="saveChords(${song.id})" style="margin-left:auto;font-size:.62rem;">&#x1F4BE; Sauvegarder</button>
+      </div>
+    </div>
+    <div class="lyrics-wrap" id="lyricsWrap_${song.id}">
+      ${blocks.map((b,bi)=>{const bt=BLOCK_TYPES[b.type]||{label:b.type,cls:'verse'};return`<div class="lyric-blk"><div class="lyric-blk-hdr ${bt.cls}">${bt.label}${b.num>1?' '+b.num:''}</div><div class="lyric-blk-body ${b.content?'':'empty'}" id="blkBody_${song.id}_${bi}">${b.content?renderLyricBlock(b.content,song.id,bi):'(vide)'}</div></div>`;}).join('')}
     </div>
   </div>`:''}
 
@@ -3708,6 +3772,402 @@ function removeSetlistItem(section, idx){
     setlistData.splice(globalIdx, 1);
   }
   renderAdminSetlist();
+}
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODULE ACCORDS
+// ════════════════════════════════════════════════════════════════════════════
+
+// ── Données accords ──────────────────────────────────────────────────────────
+const NOTES_FR = ['Do','Do\u266f','R\u00e9','R\u00e9\u266f','Mi','Fa','Fa\u266f','Sol','Sol\u266f','La','La\u266f','Si'];
+const NOTES_EN = ['C','C\u266f','D','D\u266f','E','F','F\u266f','G','G\u266f','A','A\u266f','B'];
+
+function buildChordList(fmt){
+  const notes = fmt==='fr' ? NOTES_FR : NOTES_EN;
+  const basic = [], advanced = [];
+  notes.forEach(n=>{
+    // Basiques
+    basic.push(n);           // Majeur
+    basic.push(n+'m');       // Mineur
+    // Avancés
+    advanced.push(n+'7');        // Dom7
+    advanced.push(n+'Maj7');     // Maj7
+    advanced.push(n+'m7');       // min7
+    advanced.push(n+'m7b5');     // min7b5
+    advanced.push(n+'sus2');     // sus2
+    advanced.push(n+'sus4');     // sus4
+    advanced.push(n+'add9');     // add9
+  });
+  return {basic, advanced};
+}
+
+// ── État mode accords ────────────────────────────────────────────────────────
+var _chordMode = false;
+var _chordSongId = null;
+var _chordPos = localStorage.getItem('chordPos')||'above';
+var _chordFmt = localStorage.getItem('chordFmt')||'fr';
+var _chordsData = {};   // {blockIdx_wordIdx_partIdx: chord}
+var _splitsData = {};   // {blockIdx_wordIdx: [parts]}
+var _chordPopup = null;
+
+function setChordPos(pos){
+  _chordPos = pos;
+  localStorage.setItem('chordPos', pos);
+  if(_chordSongId) rerenderChords(_chordSongId);
+  // Update buttons
+  document.querySelectorAll('.chord-pos-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.toLowerCase().includes(pos==='above'?'dessus':'dessous'));
+  });
+}
+
+function setChordFmt(fmt){
+  _chordFmt = fmt;
+  localStorage.setItem('chordFmt', fmt);
+  // Convertir les accords existants
+  if(fmt==='en'){
+    // fr→en
+    Object.keys(_chordsData).forEach(k=>{
+      _chordsData[k] = convertChord(_chordsData[k], 'fr','en');
+    });
+  } else {
+    // en→fr
+    Object.keys(_chordsData).forEach(k=>{
+      _chordsData[k] = convertChord(_chordsData[k], 'en','fr');
+    });
+  }
+  if(_chordSongId) rerenderChords(_chordSongId);
+  document.querySelectorAll('.chord-fmt-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent===( fmt==='fr'?'Do/R\u00e9':'C/D'));
+  });
+}
+
+function convertChord(chord, fromFmt, toFmt){
+  if(!chord) return chord;
+  const from = fromFmt==='fr' ? NOTES_FR : NOTES_EN;
+  const to   = toFmt==='fr'   ? NOTES_FR : NOTES_EN;
+  // Trouver la note racine (plus long d'abord pour éviter Do# matchant Do)
+  const sorted = from.map((n,i)=>({n,i})).sort((a,b)=>b.n.length-a.n.length);
+  for(const {n,i} of sorted){
+    if(chord.startsWith(n)){
+      return to[i] + chord.slice(n.length);
+    }
+  }
+  return chord;
+}
+
+// ── Toggle mode accords ──────────────────────────────────────────────────────
+async function toggleChordMode(songId){
+  _chordMode = !_chordMode;
+  _chordSongId = songId;
+  const btn = document.getElementById('chordModeBtn');
+  const toolbar = document.getElementById('chordToolbar_'+songId);
+  const wrap = document.getElementById('lyricsWrap_'+songId);
+  if(!btn||!toolbar||!wrap) return;
+
+  if(_chordMode){
+    // Charger les accords depuis le serveur
+    try{
+      const data = await apiFetch('/api/songs/'+songId+'/chords');
+      _chordsData = {};
+      _splitsData = {};
+      (data.chords||[]).forEach(c=>{
+        _chordsData[c.block_index+'_'+c.word_index+'_'+c.part_index] = c.chord;
+      });
+      (data.splits||[]).forEach(s=>{
+        _splitsData[s.block_index+'_'+s.word_index] = s.parts;
+      });
+    }catch(e){ console.warn('chords load',e); }
+    btn.style.background='var(--perm-bg,#2a1018)';
+    btn.style.borderColor='#8b1a2e';
+    btn.style.color='#c4395a';
+    toolbar.style.display='';
+    wrap.classList.add('chord-mode-active');
+    rerenderChords(songId);
+  } else {
+    btn.style.background='';btn.style.borderColor='';btn.style.color='';
+    toolbar.style.display='none';
+    wrap.classList.remove('chord-mode-active');
+    rerenderChords(songId);
+    closeChordPopup();
+  }
+}
+
+// ── Rendu des paroles avec accords ──────────────────────────────────────────
+function renderLyricBlock(content, songId, blockIdx){
+  if(!_chordMode) return escHtml(content);
+  const lines = content.split('\n');
+  return lines.map(line=>{
+    const words = line.split(' ');
+    const wordHtml = words.map((word, wIdx)=>{
+      if(!word) return '<span class="chord-word-text"> </span>';
+      const splitKey = blockIdx+'_'+wIdx;
+      const parts = _splitsData[splitKey] || [word];
+      const partsHtml = parts.map((part, pIdx)=>{
+        const chordKey = blockIdx+'_'+wIdx+'_'+pIdx;
+        const chord = _chordsData[chordKey]||'';
+        const chordSpan = chord ? `<span class="chord-${_chordPos}">${chord}</span>` : `<span class="chord-${_chordPos}" style="opacity:0">.</span>`;
+        return `<span class="chord-word-part" onclick="openChordPopup(event,${songId},${blockIdx},${wIdx},${pIdx})">${chordSpan}<span class="chord-word-text">${escHtml(part)}</span></span>`;
+      }).join('<span class="split-marker"></span>');
+      return `<span class="chord-word">${partsHtml}</span>`;
+    }).join(' ');
+    return `<div class="chord-line">${wordHtml}</div>`;
+  }).join('');
+}
+
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function rerenderChords(songId){
+  const song = songs.find(s=>s.id===songId);
+  if(!song) return;
+  (song.lyrics||[]).forEach((b,bi)=>{
+    const el = document.getElementById('blkBody_'+songId+'_'+bi);
+    if(el) el.innerHTML = b.content ? renderLyricBlock(b.content,songId,bi) : '(vide)';
+  });
+}
+
+// ── Popup accords ────────────────────────────────────────────────────────────
+function openChordPopup(e, songId, blockIdx, wordIdx, partIdx){
+  e.stopPropagation();
+  closeChordPopup();
+  if(!_chordMode) return;
+
+  const song = songs.find(s=>s.id===songId);
+  if(!song) return;
+  const splitKey = blockIdx+'_'+wordIdx;
+  const chordKey = blockIdx+'_'+wordIdx+'_'+partIdx;
+  const currentChord = _chordsData[chordKey]||'';
+  const word = (_splitsData[splitKey]||[((song.lyrics||[])[blockIdx]||{content:''}).content.split(' ')[wordIdx]||''])[partIdx]||'';
+  const {basic, advanced} = buildChordList(_chordFmt);
+
+  const popup = document.createElement('div');
+  popup.className = 'chord-popup';
+  popup.id = 'chordPopup';
+
+  // Titre
+  const title = document.createElement('div');
+  title.className = 'chord-popup-title';
+  title.textContent = '"'+word+'"';
+  popup.appendChild(title);
+
+  // Actions : Diviser / Fusionner
+  const parts = _splitsData[splitKey]||null;
+  const hasSplit = parts && parts.length > 1;
+  const actions = document.createElement('div');
+  actions.className = 'chord-popup-actions';
+
+  const splitBtn = document.createElement('button');
+  splitBtn.className = 'chord-popup-btn';
+  splitBtn.innerHTML = '&#x2702; Diviser';
+  splitBtn.onclick = (ev)=>{ ev.stopPropagation(); openSplitUI(popup, songId, blockIdx, wordIdx); };
+  actions.appendChild(splitBtn);
+
+  if(hasSplit){
+    const mergeBtn = document.createElement('button');
+    mergeBtn.className = 'chord-popup-btn';
+    mergeBtn.innerHTML = '&#x1F517; Fusionner';
+    mergeBtn.onclick = (ev)=>{ ev.stopPropagation(); mergeWord(songId,blockIdx,wordIdx); closeChordPopup(); };
+    actions.appendChild(mergeBtn);
+  }
+  popup.appendChild(actions);
+
+  // Accords basiques
+  const basicTitle = document.createElement('div');
+  basicTitle.className = 'chord-section-title';
+  basicTitle.textContent = 'Accords basiques';
+  popup.appendChild(basicTitle);
+
+  const basicGrid = document.createElement('div');
+  basicGrid.className = 'chord-basic-grid';
+  basic.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className = 'chord-btn'+(c===currentChord?' selected':'');
+    btn.textContent = c;
+    btn.onclick = (ev)=>{ ev.stopPropagation(); setChord(songId,blockIdx,wordIdx,partIdx,c); closeChordPopup(); };
+    basicGrid.appendChild(btn);
+  });
+  popup.appendChild(basicGrid);
+
+  // Accords avancés
+  const advTitle = document.createElement('div');
+  advTitle.className = 'chord-section-title';
+  advTitle.textContent = 'Accords avanc\u00e9s';
+  popup.appendChild(advTitle);
+
+  const advSelect = document.createElement('select');
+  advSelect.className = 'chord-adv-select';
+  const defOpt = document.createElement('option');
+  defOpt.value=''; defOpt.textContent='S\u00e9lectionner...';
+  advSelect.appendChild(defOpt);
+  advanced.forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value=c; opt.textContent=c;
+    if(c===currentChord) opt.selected=true;
+    advSelect.appendChild(opt);
+  });
+  advSelect.onchange = (ev)=>{
+    ev.stopPropagation();
+    if(advSelect.value){ setChord(songId,blockIdx,wordIdx,partIdx,advSelect.value); closeChordPopup(); }
+  };
+  popup.appendChild(advSelect);
+
+  // Supprimer accord
+  if(currentChord){
+    const delBtn = document.createElement('button');
+    delBtn.className = 'chord-del-btn';
+    delBtn.textContent = 'Supprimer l\'accord';
+    delBtn.onclick = (ev)=>{ ev.stopPropagation(); setChord(songId,blockIdx,wordIdx,partIdx,null); closeChordPopup(); };
+    popup.appendChild(delBtn);
+  }
+
+  // Positionner
+  document.body.appendChild(popup);
+  _chordPopup = popup;
+  const rect = e.target.closest('.chord-word-part,.chord-word').getBoundingClientRect();
+  let top = _chordPos==='above' ? rect.top - popup.offsetHeight - 8 : rect.bottom + 8;
+  let left = rect.left;
+  if(top < 10) top = rect.bottom + 8;
+  if(left + 280 > window.innerWidth) left = window.innerWidth - 290;
+  popup.style.top = top+'px';
+  popup.style.left = left+'px';
+
+  setTimeout(()=>document.addEventListener('click', closeChordPopupOutside), 50);
+}
+
+function closeChordPopupOutside(e){
+  if(_chordPopup && !_chordPopup.contains(e.target)){
+    closeChordPopup();
+    document.removeEventListener('click', closeChordPopupOutside);
+  }
+}
+function closeChordPopup(){
+  if(_chordPopup){ _chordPopup.remove(); _chordPopup=null; }
+  document.removeEventListener('click', closeChordPopupOutside);
+}
+
+function setChord(songId, blockIdx, wordIdx, partIdx, chord){
+  const key = blockIdx+'_'+wordIdx+'_'+partIdx;
+  if(chord) _chordsData[key]=chord;
+  else delete _chordsData[key];
+  rerenderChords(songId);
+}
+
+// ── Diviser un mot ────────────────────────────────────────────────────────────
+function openSplitUI(popup, songId, blockIdx, wordIdx){
+  const song = songs.find(s=>s.id===songId);
+  if(!song) return;
+  const splitKey = blockIdx+'_'+wordIdx;
+  const fullWord = (_splitsData[splitKey] || [((song.lyrics||[])[blockIdx]||{content:''}).content.split(' ')[wordIdx]||'']).join('');
+  const currentParts = _splitsData[splitKey] || [fullWord];
+
+  // Vider le popup et afficher l'UI de découpage
+  popup.innerHTML = '';
+  const title = document.createElement('div');
+  title.className = 'chord-popup-title';
+  title.textContent = 'Diviser "'+fullWord+'"';
+  popup.appendChild(title);
+
+  const desc = document.createElement('div');
+  desc.style.cssText='font-size:.65rem;color:var(--muted);margin-bottom:.5rem;';
+  desc.textContent = 'Cliquez entre les lettres pour ajouter/retirer une coupure';
+  popup.appendChild(desc);
+
+  // Affichage du mot avec curseurs cliquables entre lettres
+  const wordWrap = document.createElement('div');
+  wordWrap.className = 'split-word-wrap';
+  const wordDisplay = document.createElement('div');
+  wordDisplay.className = 'split-word-display';
+  wordDisplay.id = 'splitWordDisplay';
+  popup.appendChild(wordWrap);
+  wordWrap.appendChild(wordDisplay);
+
+  // État des coupures : indices de coupure dans la string
+  var cuts = [];
+  // Reconstruire les coupures depuis currentParts
+  let pos=0;
+  currentParts.forEach((p,i)=>{ pos+=p.length; if(i<currentParts.length-1) cuts.push(pos); });
+
+  function renderSplitWord(){
+    wordDisplay.innerHTML='';
+    const chars = fullWord.split('');
+    chars.forEach((ch,i)=>{
+      // Ajouter marker de coupure avant ce caractère (sauf le premier)
+      if(i>0){
+        const hasCut = cuts.includes(i);
+        const marker = document.createElement('span');
+        marker.className = hasCut ? 'split-line' : 'split-char';
+        marker.textContent = hasCut ? '' : '';
+        if(hasCut){
+          marker.title = 'Cliquer pour retirer';
+          marker.onclick = ()=>{ cuts=cuts.filter(c=>c!==i); renderSplitWord(); };
+        } else {
+          marker.style.cssText='display:inline-block;width:6px;height:1.2em;cursor:pointer;vertical-align:middle;';
+          marker.title = 'Cliquer pour couper ici';
+          marker.onmouseenter = ()=>{ marker.style.background='rgba(59,130,246,0.4)'; };
+          marker.onmouseleave = ()=>{ marker.style.background=''; };
+          marker.onclick = ()=>{ cuts.push(i); cuts.sort((a,b)=>a-b); renderSplitWord(); };
+        }
+        wordDisplay.appendChild(marker);
+      }
+      const span = document.createElement('span');
+      span.style.cssText='display:inline-block;padding:0 1px;font-size:1.1rem;font-weight:800;';
+      span.textContent=ch;
+      wordDisplay.appendChild(span);
+    });
+  }
+  renderSplitWord();
+
+  // Boutons valider/annuler
+  const btns = document.createElement('div');
+  btns.style.cssText='display:flex;gap:.4rem;margin-top:.6rem;';
+  const ok = document.createElement('button');
+  ok.className='btn btn-primary btn-sm'; ok.style.flex='1';
+  ok.textContent='Valider';
+  ok.onclick=(ev)=>{
+    ev.stopPropagation();
+    // Reconstruire les parties depuis les coupures
+    cuts.sort((a,b)=>a-b);
+    let parts=[], prev=0;
+    cuts.forEach(c=>{ parts.push(fullWord.slice(prev,c)); prev=c; });
+    parts.push(fullWord.slice(prev));
+    if(parts.length>1) _splitsData[splitKey]=parts;
+    else delete _splitsData[splitKey];
+    rerenderChords(songId);
+    closeChordPopup();
+  };
+  const cancel = document.createElement('button');
+  cancel.className='btn btn-sm'; cancel.style.flex='1';
+  cancel.textContent='Annuler';
+  cancel.onclick=(ev)=>{ ev.stopPropagation(); closeChordPopup(); };
+  btns.appendChild(cancel); btns.appendChild(ok);
+  popup.appendChild(btns);
+}
+
+function mergeWord(songId, blockIdx, wordIdx){
+  const splitKey = blockIdx+'_'+wordIdx;
+  const oldParts = _splitsData[splitKey]||[];
+  delete _splitsData[splitKey];
+  // Supprimer les accords de toutes les parts sauf 0
+  oldParts.forEach((_,pIdx)=>{
+    if(pIdx>0) delete _chordsData[blockIdx+'_'+wordIdx+'_'+pIdx];
+  });
+  rerenderChords(songId);
+}
+
+// ── Sauvegarder en DB ─────────────────────────────────────────────────────────
+async function saveChords(songId){
+  const chords = Object.entries(_chordsData).map(([key,chord])=>{
+    const [block_index,word_index,part_index] = key.split('_').map(Number);
+    return {block_index,word_index,part_index,chord};
+  });
+  const splits = Object.entries(_splitsData).map(([key,parts])=>{
+    const [block_index,word_index] = key.split('_').map(Number);
+    return {block_index,word_index,parts};
+  });
+  try{
+    await apiFetch('/api/songs/'+songId+'/chords',{method:'PUT',body:JSON.stringify({chords,splits})});
+    toast('Accords sauvegard\u00e9s !');
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
 }
 
 async function saveSetlist(){
