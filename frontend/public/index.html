@@ -1352,7 +1352,7 @@ async function deleteLead(id){
 
 // &#x2500;&#x2500; GAMMES PAR LEAD dans le formulaire chant &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
 var _editSongLeadKeys = {}; // {lead_id: key_signature}
-const KEY_OPTIONS = ['','Do (C)','Do# (C#)','R&#x00E9; (D)','R&#x00E9;# (D#)','Mi (E)','Fa (F)','Fa# (F#)','Sol (G)','Sol# (G#)','La (A)','La# (A#)','Si (B)','Do min (Cm)','R&#x00E9; min (Dm)','Mi min (Em)','Fa min (Fm)','Sol min (Gm)','La min (Am)'];
+const KEY_OPTIONS = ['','Do (C)','Do# (C#)','Ré (D)','Ré# (D#)','Mi (E)','Fa (F)','Fa# (F#)','Sol (G)','Sol# (G#)','La (A)','La# (A#)','Si (B)','Do min (Cm)','Ré min (Dm)','Mi min (Em)','Fa min (Fm)','Sol min (Gm)','La min (Am)'];
 
 function renderLeadKeysForm(existingLeadKeys){
   var section = document.getElementById('leadKeysSection');
@@ -1366,7 +1366,7 @@ function renderLeadKeysForm(existingLeadKeys){
     return `<div style="display:flex;align-items:center;gap:.55rem;">
       <span style="font-size:.74rem;font-weight:700;min-width:80px;flex-shrink:0;">&#x1F3A4; ${l.name}</span>
       <select class="fi" style="flex:1;padding:.3rem .55rem;font-size:.74rem;" onchange="setLeadKey(${l.id},this.value)">
-        ${KEY_OPTIONS.map(k=>`<option ${k===val?'selected':''}>${k||'&#x2014; (gamme d&#x00E9;faut)'}</option>`).join('')}
+        ${KEY_OPTIONS.map(k=>`<option value="${k}" ${k===val?'selected':''}>${k||'&#x2014; (gamme défaut)'}</option>`).join('')}
       </select>
     </div>`;
   }).join('');
@@ -2342,8 +2342,9 @@ async function submitSong(){
   const newKey = document.getElementById('fKey').value || null;
   // Gammes des leads
   const leadKeysPayload = Object.entries(_editSongLeadKeys)
-    .filter(([,v])=>v)
-    .map(([lead_id,key_signature])=>({lead_id:parseInt(lead_id),key_signature}));
+    .filter(([,v])=>v&&v.trim())
+    .map(([lead_id,key_signature])=>({lead_id:parseInt(lead_id),key_signature:key_signature.trim()}));
+  console.log('[leads] payload:', leadKeysPayload);
   const newLyrics = lyricBlocks.map(b=>({type:b.type,num:b.num,content:b.text||b.content||''}));
   const payload={
     title,
