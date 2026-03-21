@@ -2039,6 +2039,14 @@ function selectSongById(id){
 
 async function selectSong(id){
   id = parseInt(id) || id; // normalize string to int
+  // Reset état accords si on change de chant
+  if(_chordSongId && _chordSongId !== id){
+    _chordMode = false;
+    _chordSongId = null;
+    _chordsData = {};
+    _splitsData = {};
+    closeChordPopup();
+  }
   currentId=id; renderList();
   closeSidebar();
 
@@ -4166,7 +4174,9 @@ async function saveChords(songId){
   });
   try{
     await apiFetch('/api/songs/'+songId+'/chords',{method:'PUT',body:JSON.stringify({chords,splits})});
-    toast('Accords sauvegard\u00e9s !');
+    // Re-render immédiat sans quitter le mode
+    rerenderChords(songId);
+    toast('Accords sauvegardés !');
   }catch(e){ toast('Erreur: '+e.message,'danger'); }
 }
 
