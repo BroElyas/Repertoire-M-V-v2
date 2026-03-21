@@ -211,6 +211,24 @@ async function initDB() {
       UNIQUE(song_id, lead_id)
     );
     ALTER TABLE setlist ADD COLUMN IF NOT EXISTS lead_id INTEGER REFERENCES leads(id) ON DELETE SET NULL;
+    CREATE TABLE IF NOT EXISTS song_chords (
+      id SERIAL PRIMARY KEY,
+      song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+      block_index INTEGER NOT NULL,
+      word_index INTEGER NOT NULL,
+      part_index INTEGER NOT NULL DEFAULT 0,
+      chord TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(song_id, block_index, word_index, part_index)
+    );
+    CREATE TABLE IF NOT EXISTS song_word_splits (
+      id SERIAL PRIMARY KEY,
+      song_id INTEGER NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+      block_index INTEGER NOT NULL,
+      word_index INTEGER NOT NULL,
+      parts TEXT[] NOT NULL,
+      UNIQUE(song_id, block_index, word_index)
+    );
     CREATE TABLE IF NOT EXISTS mive_setlists (
       id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
@@ -858,6 +876,49 @@ app.put('/api/mive/setlists/:id/items', async (req, res) => {
       }
     }
     await pool.query('UPDATE mive_setlists SET updated_at=NOW() WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ── CHORDS ───────────────────────────────────────────────────────────────────
+
+// GET chords + splits pour un chant
+app.get('/api/songs/:id/chords', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { rows: chords } = await pool.query(
+      'SELECT * FROM song_chords WHERE song_id=$1 ORDER BY block_index,word_index,part_index', [id]
+    );
+    const { rows: splits } = await pool.query(
+      'SELECT * FROM song_word_splits WHERE song_id=$1', [id]
+    );
+    res.json({ chords, splits });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// PUT chords + splits (remplace tout)
+app.put('/api/songs/:id/chords', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const { chords, splits } = req.body;
+    await pool.query('DELETE FROM song_chords WHERE song_id=$1', [id]);
+    await pool.query('DELETE FROM song_word_splits WHERE song_id=$1', [id]);
+    if (chords?.length) {
+      for (const c of chords) {
+        await pool.query(
+          'INSERT INTO song_chords(song_id,block_index,word_index,part_index,chord) VALUES($1,$2,$3,$4,$5) ON CONFLICT(song_id,block_index,word_index,part_index) DO UPDATE SET chord=$5',
+          [id, c.block_index, c.word_index, c.part_index||0, c.chord]
+        );
+      }
+    }
+    if (splits?.length) {
+      for (const s of splits) {
+        await pool.query(
+          'INSERT INTO song_word_splits(song_id,block_index,word_index,parts) VALUES($1,$2,$3,$4) ON CONFLICT(song_id,block_index,word_index) DO UPDATE SET parts=$4',
+          [id, s.block_index, s.word_index, s.parts]
+        );
+      }
+    }
     res.json({ ok: true });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
