@@ -364,7 +364,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .chord-below{font-size:.65rem;font-weight:800;color:#c4395a;min-height:1rem;text-align:center;white-space:nowrap;padding:0 1px;order:1;}
 .chord-word-text{order:0;}
 .chord-below ~ .chord-word-text{order:-1;}
-.split-marker{display:inline-block;width:1.5px;height:.9em;background:#3b82f6;margin:0 1px;vertical-align:middle;opacity:.6;}
+.split-marker{display:inline-block;color:#3b82f6;font-weight:800;font-size:.75rem;margin:0 0px;vertical-align:baseline;}
 /* Popup accords */
 .chord-popup{position:fixed;z-index:600;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:.6rem;min-width:200px;max-width:280px;}
 .chord-popup-title{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.45rem;}
@@ -2070,6 +2070,10 @@ async function selectSong(id){
   el.innerHTML=`<div class="loader">Chargement&#x2026;</div>`;
   try {
     const song = await apiFetch(`/api/songs/${id}`);
+    // Stocker le song complet (avec lyrics) dans le cache global
+    const idx = songs.findIndex(s=>s.id===id);
+    if(idx>=0) songs[idx]={...songs[idx],...song};
+    else songs.push(song);
     renderDetail(song);
   } catch(e){ el.innerHTML=`<div class="loader">Erreur de chargement</div>`; }
 }
@@ -3923,7 +3927,7 @@ function renderLyricBlock(content, songId, blockIdx){
         const chord = _chordsData[chordKey]||'';
         const chordSpan = chord ? `<span class="chord-${_chordPos}">${chord}</span>` : `<span class="chord-${_chordPos}" style="opacity:0">.</span>`;
         return `<span class="chord-word-part" onclick="openChordPopup(event,${songId},${blockIdx},${wIdx},${pIdx})">${chordSpan}<span class="chord-word-text">${escHtml(part)}</span></span>`;
-      }).join('<span class="split-marker"></span>');
+      }).join('<span class="split-marker">-</span>');
       return `<span class="chord-word">${partsHtml}</span>`;
     }).join(' ');
     return `<div class="chord-line">${wordHtml}</div>`;
@@ -4040,7 +4044,9 @@ function openChordPopup(e, songId, blockIdx, wordIdx, partIdx){
   popup.onclick = (ev)=>ev.stopPropagation();
   document.body.appendChild(popup);
   _chordPopup = popup;
-  const rect = e.target.closest('.chord-word-part,.chord-word').getBoundingClientRect();
+  const targetEl = e.target.closest('.chord-word-part,.chord-word');
+  if(!targetEl){ closeChordPopup(); return; }
+  const rect = targetEl.getBoundingClientRect();
   let top = _chordPos==='above' ? rect.top - popup.offsetHeight - 8 : rect.bottom + 8;
   let left = rect.left;
   if(top < 10) top = rect.bottom + 8;
