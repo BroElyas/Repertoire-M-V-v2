@@ -4037,6 +4037,7 @@ function openChordPopup(e, songId, blockIdx, wordIdx, partIdx){
   }
 
   // Positionner
+  popup.onclick = (ev)=>ev.stopPropagation();
   document.body.appendChild(popup);
   _chordPopup = popup;
   const rect = e.target.closest('.chord-word-part,.chord-word').getBoundingClientRect();
@@ -4073,7 +4074,15 @@ function openSplitUI(popup, songId, blockIdx, wordIdx){
   const song = songs.find(s=>s.id===songId);
   if(!song) return;
   const splitKey = blockIdx+'_'+wordIdx;
-  const fullWord = (_splitsData[splitKey] || [((song.lyrics||[])[blockIdx]||{content:''}).content.split(' ')[wordIdx]||'']).join('');
+  // Retrouver le mot par index global (en tenant compte des sauts de ligne)
+  function getWordByGlobalIdx(content, idx){
+    const words = content.split(/[ \n]/);
+    return words[idx]||'';
+  }
+  const blockContent = ((song.lyrics||[])[blockIdx]||{content:''}).content;
+  const rawWord = getWordByGlobalIdx(blockContent, wordIdx);
+  const fullWord = (_splitsData[splitKey]||[rawWord]).join('');
+  if(!fullWord){ closeChordPopup(); return; }
   const currentParts = _splitsData[splitKey] || [fullWord];
 
   // Vider le popup et afficher l'UI de découpage
@@ -4115,13 +4124,13 @@ function openSplitUI(popup, songId, blockIdx, wordIdx){
         marker.textContent = hasCut ? '' : '';
         if(hasCut){
           marker.title = 'Cliquer pour retirer';
-          marker.onclick = ()=>{ cuts=cuts.filter(c=>c!==i); renderSplitWord(); };
+          marker.onclick = (ev)=>{ ev.stopPropagation(); cuts=cuts.filter(c=>c!==i); renderSplitWord(); };
         } else {
           marker.style.cssText='display:inline-block;width:6px;height:1.2em;cursor:pointer;vertical-align:middle;';
           marker.title = 'Cliquer pour couper ici';
           marker.onmouseenter = ()=>{ marker.style.background='rgba(59,130,246,0.4)'; };
           marker.onmouseleave = ()=>{ marker.style.background=''; };
-          marker.onclick = ()=>{ cuts.push(i); cuts.sort((a,b)=>a-b); renderSplitWord(); };
+          marker.onclick = (ev)=>{ ev.stopPropagation(); cuts.push(i); cuts.sort((a,b)=>a-b); renderSplitWord(); };
         }
         wordDisplay.appendChild(marker);
       }
