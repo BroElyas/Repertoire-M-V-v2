@@ -1351,7 +1351,18 @@ function setPinSession(level, contributorData) {
 function clearContributorSession(){
   currentContributor = null;
   sessionStorage.removeItem('pin_session_contributor');
+  refreshCurrentSong();
 }
+
+// ── RE-RENDER UTILITAIRE ─────────────────────────────────────────────────────
+// Appelé après tout changement d'état qui affecte l'affichage de la fiche
+function refreshCurrentSong(){
+  if(!currentId) return;
+  const song = songs.find(s=>s.id===currentId);
+  if(song && song.lyrics) renderDetail(song);
+  else if(currentId) selectSong(currentId);
+}
+
 let stemSongId=null, stemType='voice', stemSubId=null;
 
 // &#x2500;&#x2500; LEADS &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
@@ -1403,6 +1414,7 @@ async function deleteLead(id){
   await fetch('/api/leads/'+id,{method:'DELETE'});
   _leads = _leads.filter(l=>l.id!==id);
   renderAdminLeads();
+  refreshCurrentSong();
   toast('Lead supprim&#x00E9;');
 }
 
@@ -2321,6 +2333,8 @@ async function verifyPin(){
     if(pinLevel==='contributor' && currentContributor){
       updateContributorBadge();
     }
+    // Re-render la fiche ouverte pour afficher les boutons selon le nouveau niveau d'accès
+    refreshCurrentSong();
     setTimeout(() => { if(cb) cb(); }, 150);
   }catch(e){
     const errEl=document.getElementById('pinError');
@@ -3135,6 +3149,11 @@ async function deleteContributor(id, name){
   if(!confirm(`Supprimer ${name} ? Son PIN ne fonctionnera plus.`)) return;
   await apiFetch(`/api/contributors/${id}`,{method:'DELETE'});
   contributors = contributors.filter(c=>c.id!==id);
+  if(currentContributor && currentContributor.id===id){
+    currentContributor=null;
+    sessionStorage.removeItem('pin_session_contributor');
+    updateContributorBadge();
+  }
   renderAdminContributors();
   toast(`${name} supprim&#x00E9;`);
 }
@@ -3346,7 +3365,9 @@ async function saveAdmin(){
     await apiFetch('/api/settings',{method:'PUT',body:JSON.stringify(payload)});
     document.getElementById('gName').innerHTML=payload.group_name||'R&#x00E9;pertoire Musical';
     document.getElementById('gSub').textContent=payload.group_subtitle||'';
-    closeAdmin(); toast('Param&#x00E8;tres sauvegard&#x00E9;s &#x2713;');
+    closeAdmin();
+    renderList();
+    toast('Param&#x00E8;tres sauvegard&#x00E9;s &#x2713;');
   }catch(e){toast('PIN admin incorrect','danger');}
 }
 
