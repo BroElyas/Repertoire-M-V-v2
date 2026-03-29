@@ -596,7 +596,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
   .mob-song-card:active{background:var(--surface);}
 .swipe-wrap{position:relative;overflow:hidden;}
 .mob-song-card{transition:transform .15s ease-out;}
-.swipe-reveal{position:absolute;right:0;top:0;bottom:0;width:80px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8b1a2e,#c4395a);color:#fff;font-size:.65rem;font-weight:800;flex-direction:column;gap:2px;}
+.swipe-reveal{position:absolute;left:0;top:0;bottom:0;width:80px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8b1a2e,#c4395a);color:#fff;font-size:.65rem;font-weight:800;flex-direction:column;gap:2px;}
 .swipe-reveal .swipe-icon{font-size:1.2rem;}
   .mob-song-card-title{
     font-size:.92rem;font-weight:900;color:#f0ece8;text-transform:uppercase;
@@ -3743,9 +3743,13 @@ function _renderSetlistHTML(clickFn){
 function renderSetlistView(){
   const el = document.getElementById('setlistView');
   if(!el) return;
-  // Ne s'affiche que si on est dans la vue détail d'une setlist
+  // Ne render que si la vue détail est active
   const detailView = document.getElementById('mvSetlistDetailView');
-  if(detailView && detailView.style.display === 'none') return;
+  const panelSetlist = document.getElementById('panelSetlist');
+  // Si le panel setlist est visible et qu'on n'est PAS dans le détail → ne pas toucher
+  if(panelSetlist && panelSetlist.style.display !== 'none'){
+    if(!detailView || detailView.style.display === 'none') return;
+  }
   el.innerHTML = _renderSetlistHTML('selectSongById');
 }
 
@@ -4741,7 +4745,8 @@ async function saveSetlist(){
   try{
     await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:payload})});
     toast('Setlist sauvegardee');
-    loadSetlist();
+    // Recharger seulement si on est dans le détail d'une setlist
+    if(_currentMvSetlistId) await loadSetlist(_currentMvSetlistId);
   }catch(e){ toast(e.message||'Erreur','danger'); }
 }
 </script>
