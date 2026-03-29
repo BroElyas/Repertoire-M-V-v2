@@ -881,7 +881,27 @@ select.fi option{background:var(--surface2);color:var(--text);}
   <div class="alpha-index" id="alphaIndex"></div>
 </div>
   <div id="mobPanelSet" style="display:none;flex:1;overflow-y:auto;padding:.6rem .8rem;">
-    <div id="mobSetlistView"></div>
+    <!-- Vue liste des setlists -->
+    <div id="mobMvSetlistListView">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;">
+        <div style="font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Mes setlists</div>
+        <button onclick="openCreateMvSetlist()" style="font-size:.65rem;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text-mid);border-radius:50px;padding:.2rem .65rem;cursor:pointer;font-family:'Nunito',sans-serif;">+ Nouvelle</button>
+      </div>
+      <div id="mobMvSetlistCards"></div>
+    </div>
+    <!-- Vue détail d'une setlist -->
+    <div id="mobMvSetlistDetailView" style="display:none;">
+      <div class="mv-setlist-header">
+        <div class="mv-setlist-back" onclick="closeMobMvSetlistDetail()">&#x2190; Retour</div>
+        <div style="display:flex;gap:.3rem;">
+          <button onclick="startRenameMvSetlist()" style="font-size:.62rem;font-weight:700;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:50px;padding:.18rem .55rem;cursor:pointer;font-family:'Nunito',sans-serif;">&#x270E;</button>
+          <button onclick="deleteMvSetlist(true)" style="font-size:.62rem;font-weight:700;border:1px solid var(--danger);background:transparent;color:var(--danger);border-radius:50px;padding:.18rem .55rem;cursor:pointer;font-family:'Nunito',sans-serif;">&#x2715;</button>
+        </div>
+      </div>
+      <div class="mv-setlist-title" id="mobMvSetlistDetailName" style="margin-bottom:.25rem;"></div>
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:.8rem;" id="mobMvSetlistDetailDate"></div>
+      <div id="mobSetlistView"></div>
+    </div>
   </div>
   <!-- Filtres cat&#x00E9;gories flottants au-dessus de la barre noire -->
   <div class="mob-filters" id="mobFilters">
@@ -3618,13 +3638,7 @@ function mobSwitchTab(tab){
   if(setBtn){ setBtn.classList.toggle('mob-tab-active', isSet); }
 
   if(isSet){
-    // Render mobile setlist
-    const el = document.getElementById('mobSetlistView');
-    if(el){
-      loadSetlist().then(()=>{
-        el.innerHTML = _renderSetlistHTML('mobSelectSongById');
-      });
-    }
+    loadMvSetlistsMob();
   }
 }
 
@@ -4356,6 +4370,7 @@ async function loadMvSetlists(){
   try{
     _mvSetlists = await apiFetch('/api/mv-setlists');
     renderMvSetlistCards();
+    renderMobMvSetlistCards(); // Sync aussi le mobile
   }catch(e){ console.warn('mv setlists load error', e); }
 }
 
@@ -4729,6 +4744,85 @@ async function saveSetlistSilent(){
   try{
     await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:payload})});
   }catch(e){ toast('Erreur PIN: sauvegarde échouée','danger'); }
+}
+
+
+// ── MV SETLISTS MOBILE ───────────────────────────────────────────────────────
+var _currentMobMvSetlistId = null;
+
+async function loadMvSetlistsMob(){
+  try{
+    _mvSetlists = await apiFetch('/api/mv-setlists');
+    renderMobMvSetlistCards();
+  }catch(e){ console.warn('mv setlists mob error', e); }
+}
+
+function renderMobMvSetlistCards(){
+  const el = document.getElementById('mobMvSetlistCards');
+  if(!el) return;
+  if(!_mvSetlists.length){
+    el.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.78rem;font-weight:600;">Aucune setlist.<br>Crée la première !</div>';
+    return;
+  }
+  el.innerHTML = _mvSetlists.map(sl=>{
+    const date = new Date(sl.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    const count = parseInt(sl.item_count)||0;
+    return `<div class="mv-setlist-card" onclick="openMobMvSetlistDetail(${sl.id})">
+      <div>
+        <div class="mv-setlist-card-name">${sl.name}</div>
+        <div class="mv-setlist-card-meta">${date}</div>
+      </div>
+      <span class="mv-setlist-card-count">${count} chant${count>1?'s':''}</span>
+      <span style="color:var(--muted);font-size:.8rem;">&#8250;</span>
+    </div>`;
+  }).join('');
+}
+
+async function openMobMvSetlistDetail(id){
+  _currentMobMvSetlistId = id;
+  _currentMvSetlistId = id;
+  const sl = _mvSetlists.find(s=>s.id===id);
+  if(!sl) return;
+
+  document.getElementById('mobMvSetlistDetailName').textContent = sl.name;
+  document.getElementById('mobMvSetlistDetailDate').textContent =
+    new Date(sl.created_at).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  setlistData = await apiFetch('/api/setlist?mv_setlist_id='+id);
+  const orderItem = setlistData.find(i=>i.section==='_order');
+  if(orderItem?.special_label){
+    try{ _sectionOrder = JSON.parse(orderItem.special_label); }catch(e){}
+  }
+
+  document.getElementById('mobMvSetlistListView').style.display = 'none';
+  document.getElementById('mobMvSetlistDetailView').style.display = '';
+
+  const el = document.getElementById('mobSetlistView');
+  if(el) el.innerHTML = _renderSetlistHTML('mobSelectSongById');
+}
+
+function closeMobMvSetlistDetail(){
+  _currentMobMvSetlistId = null;
+  document.getElementById('mobMvSetlistDetailView').style.display = 'none';
+  document.getElementById('mobMvSetlistListView').style.display = '';
+}
+
+// Override deleteMvSetlist pour gérer le contexte mobile
+const _origDeleteMvSetlist = typeof deleteMvSetlist === 'function' ? deleteMvSetlist : null;
+async function deleteMvSetlist(isMob){
+  const id = isMob ? _currentMobMvSetlistId : _currentMvSetlistId;
+  if(!id) return;
+  const sl = _mvSetlists.find(s=>s.id===id);
+  if(!confirm('Supprimer "'+sl?.name+'" et tous ses chants ?')) return;
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  try{
+    await apiFetch('/api/mv-setlists/'+id,{method:'DELETE',body:JSON.stringify({pin_admin:pin})});
+    _mvSetlists = _mvSetlists.filter(s=>s.id!==id);
+    if(isMob){ closeMobMvSetlistDetail(); renderMobMvSetlistCards(); }
+    else { closeMvSetlistDetail(); renderMvSetlistCards(); }
+    toast('Setlist supprimée');
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
 }
 
 async function saveSetlist(){
