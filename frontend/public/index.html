@@ -388,6 +388,15 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 /* Toolbar accords */
 .chord-toolbar{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:.6rem;border:1.5px solid var(--border);flex-wrap:wrap;}
 .chord-toolbar-label{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+.mv-setlist-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:.7rem .9rem;margin-bottom:.5rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.6rem;}
+.mv-setlist-card:hover{border-color:#8b1a2e;background:var(--surface2);}
+.mv-setlist-card-name{flex:1;font-weight:800;font-size:.82rem;color:var(--text);}
+.mv-setlist-card-meta{font-size:.65rem;color:var(--muted);font-weight:600;}
+.mv-setlist-card-count{font-size:.62rem;background:var(--surface2);border:1px solid var(--border);border-radius:50px;padding:1px 7px;color:var(--muted);font-weight:700;}
+.mv-setlist-back{display:flex;align-items:center;gap:.4rem;padding:.35rem .5rem;border-radius:var(--r-xs);font-size:.72rem;font-weight:700;color:var(--muted);cursor:pointer;border:1px solid var(--border);background:var(--surface2);margin-bottom:.7rem;-webkit-tap-highlight-color:transparent;}
+.mv-setlist-back:hover{color:var(--text);}
+.mv-setlist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;}
+.mv-setlist-title{font-size:.9rem;font-weight:900;color:var(--text);}
 .chord-pos-toggle{display:flex;border:1.5px solid var(--border);border-radius:var(--r-xs);overflow:hidden;}
 .chord-pos-btn{padding:.22rem .55rem;font-size:.62rem;font-weight:700;border:none;background:var(--surface2);color:var(--muted);cursor:pointer;font-family:"Nunito",sans-serif;}
 .chord-pos-btn.active{background:var(--perm-bg,#2a1018);color:#c4395a;}
@@ -583,6 +592,9 @@ select.fi option{background:var(--surface2);color:var(--text);}
     -webkit-tap-highlight-color:transparent;
   }
   .mob-song-card:active{background:var(--surface);}
+.mob-song-card{position:relative;overflow:hidden;transition:transform .15s;}
+.swipe-reveal{position:absolute;right:0;top:0;bottom:0;width:72px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8b1a2e,#c4395a);color:#fff;font-size:.65rem;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;border-radius:0 var(--r-sm) var(--r-sm) 0;flex-direction:column;gap:2px;}
+.swipe-reveal .swipe-icon{font-size:1.1rem;}
   .mob-song-card-title{
     font-size:.92rem;font-weight:900;color:#f0ece8;text-transform:uppercase;
     letter-spacing:-.01em;line-height:1.25;margin-bottom:3px;
@@ -938,7 +950,27 @@ select.fi option{background:var(--surface2);color:var(--text);}
     <div class="song-list" id="songList"></div>
   </div><!-- end panelRepertoire -->
   <div id="panelSetlist" style="display:none;flex:1;overflow-y:auto;padding:.6rem .8rem;">
-    <div id="setlistView"></div>
+    <!-- Vue liste des setlists -->
+    <div id="mvSetlistListView">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.7rem;">
+        <div style="font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;">Mes setlists</div>
+        <button onclick="openCreateMvSetlist()" style="font-size:.65rem;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text-mid);border-radius:50px;padding:.2rem .65rem;cursor:pointer;font-family:'Nunito',sans-serif;">+ Nouvelle</button>
+      </div>
+      <div id="mvSetlistCards"></div>
+    </div>
+    <!-- Vue détail d'une setlist -->
+    <div id="mvSetlistDetailView" style="display:none;">
+      <div class="mv-setlist-header">
+        <div class="mv-setlist-back" onclick="closeMvSetlistDetail()">&#x2190; Retour</div>
+        <div style="display:flex;gap:.3rem;">
+          <button id="mvSetlistEditBtn" onclick="startRenameMvSetlist()" style="font-size:.62rem;font-weight:700;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:50px;padding:.18rem .55rem;cursor:pointer;font-family:'Nunito',sans-serif;">&#x270E;</button>
+          <button id="mvSetlistDeleteBtn" onclick="deleteMvSetlist()" style="font-size:.62rem;font-weight:700;border:1px solid var(--danger);background:transparent;color:var(--danger);border-radius:50px;padding:.18rem .55rem;cursor:pointer;font-family:'Nunito',sans-serif;">&#x2715;</button>
+        </div>
+      </div>
+      <div class="mv-setlist-title" id="mvSetlistDetailName" style="margin-bottom:.25rem;"></div>
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:.8rem;" id="mvSetlistDetailDate"></div>
+      <div id="setlistView"></div>
+    </div>
   </div>
   </aside>
 
@@ -1121,6 +1153,68 @@ Vous pourrez ensuite d&#x00E9;finir si chaque bloc est un Refrain, Couplet, Brid
     <div class="form-actions" style="margin-top:1rem;">
       <button class="btn" onclick="closeLeadKeysModal()">Annuler</button>
       <button class="btn btn-primary" onclick="validateLeadKeysModal()">&#x2714; Valider</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── SWIPE TO SETLIST MODAL ── -->
+<div class="overlay hidden" id="swipeSetlistOverlay">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-hdr">
+      <div class="modal-title">&#x1F4CB; Ajouter &#x00E0; la setlist</div>
+      <button class="modal-close" onclick="closeSwipeSetlist()">&#x2715;</button>
+    </div>
+    <!-- Infos du chant -->
+    <div id="swipeSongInfo" style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:.7rem .9rem;margin-bottom:.9rem;">
+      <div id="swipeSongTitle" style="font-weight:800;font-size:.88rem;color:var(--text);"></div>
+      <div id="swipeSongMeta" style="display:flex;gap:.4rem;margin-top:.3rem;flex-wrap:wrap;"></div>
+    </div>
+    <!-- Choix : setlist existante ou nouvelle -->
+    <div style="display:flex;gap:.4rem;margin-bottom:.8rem;">
+      <button id="swipeBtnExisting" class="btn btn-sm" onclick="swipeSetlistTab('existing')" style="flex:1;">Setlist existante</button>
+      <button id="swipeBtnNew" class="btn btn-sm" onclick="swipeSetlistTab('new')" style="flex:1;">+ Nouvelle setlist</button>
+    </div>
+    <!-- Setlist existante -->
+    <div id="swipeTabExisting">
+      <div class="form-row" style="margin-bottom:.6rem;">
+        <label>Setlist</label>
+        <select class="fi" id="swipeSelectSetlist" onchange="swipeUpdateSections()">
+          <option value="">&#x2014; Choisir une setlist</option>
+        </select>
+      </div>
+      <div class="form-row" id="swipeSectionWrap" style="margin-bottom:.6rem;display:none;">
+        <label>Rubrique</label>
+        <select class="fi" id="swipeSelectSection" onchange="swipeRenderSectionItems(_swipeCurrentItems||[]);swipeCheckDuplicate(_swipeCurrentItems||[],this.value);">
+          <option value="principale">Principale</option>
+          <option value="intro">Intro</option>
+          <option value="special">Sp&#x00E9;ciale</option>
+          <option value="offrande">Offrande</option>
+          <option value="fin">Chant de fin</option>
+        </select>
+        <div id="swipeSectionItems" style="margin-top:.4rem;max-height:100px;overflow-y:auto;"></div>
+        <div id="swipeDupeWarn" style="display:none;margin-top:.35rem;font-size:.65rem;font-weight:700;color:var(--danger);">&#x26A0; Ce chant est déjà dans cette rubrique</div>
+      </div>
+    </div>
+    <!-- Nouvelle setlist -->
+    <div id="swipeTabNew" style="display:none;">
+      <div class="form-row" style="margin-bottom:.6rem;">
+        <label>Nom de la setlist</label>
+        <input class="fi" id="swipeNewSetlistName" placeholder="Ex: Dimanche 6 avril">
+      </div>
+      <div class="form-row" style="margin-bottom:.6rem;">
+        <label>Rubrique</label>
+        <select class="fi" id="swipeNewSection">
+          <option value="principale">Principale</option>
+          <option value="intro">Intro</option>
+          <option value="special">Sp&#x00E9;ciale</option>
+          <option value="offrande">Offrande</option>
+          <option value="fin">Chant de fin</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeSwipeSetlist()">Annuler</button>
+      <button class="btn btn-primary" onclick="confirmSwipeSetlist()">&#x2714; Ajouter</button>
     </div>
   </div>
 </div>
@@ -1600,6 +1694,8 @@ async function init() {
     songs = sgs;
     contributors = contribs;
     _leads = Array.isArray(leads) ? leads : [];
+    // Charger les setlists MV
+    loadMvSetlists();
     buildColorPicker();
     renderCatPills();
     renderMobFilters();
@@ -1967,7 +2063,7 @@ function renderMobList(prefiltered){
         html += `<div class="alpha-sep" data-letter="${letter}">${letter}</div>`;
       }
     }
-    html += `<div class="mob-song-card" onclick="selectSong(${s.id})">
+    html += `<div class="mob-song-card" data-song-id="${s.id}" onclick="selectSong(${s.id})">
       <div class="mob-song-card-title">${s.pinned?'&#x1F4CC; ':''}${s._hasPending?'&#x23F3; ':''}${s.title}</div>
       <div class="mob-song-card-author">${s.author||'&#x2014;'}</div>
       <div class="mob-song-card-tags">
@@ -1979,6 +2075,12 @@ function renderMobList(prefiltered){
     </div>`;
   });
   el.innerHTML = html;
+  // Attacher swipe sur chaque card (mobile, admin)
+  if(isPinSessionValid('admin')){
+    el.querySelectorAll('.mob-song-card[data-song-id]').forEach(card=>{
+      initSwipeOnCard(card, parseInt(card.dataset.songId));
+    });
+  }
 
   // Alpha index
   const alphaEl = document.getElementById('alphaIndex');
@@ -3522,6 +3624,7 @@ function switchSidebarTab(tab){
   const isSetlist = tab === 'setlist';
   document.getElementById('panelRepertoire').style.display = isSetlist ? 'none' : '';
   document.getElementById('panelSetlist').style.display = isSetlist ? '' : 'none';
+  if(isSetlist){ loadMvSetlists(); }
 
   const tabRep = document.getElementById('tabRepertoire');
   const tabSet = document.getElementById('tabSetlist');
@@ -3565,9 +3668,10 @@ function getSectionLabel(key){
   return SECTION_DEFAULTS[key]?.label || key;
 }
 
-async function loadSetlist(){
+async function loadSetlist(mvId){
   try{
-    setlistData = await apiFetch('/api/setlist');
+    const url = mvId ? '/api/setlist?mv_setlist_id='+mvId : '/api/setlist';
+    setlistData = await apiFetch(url);
     // Enrichir chaque item avec les lead_keys du chant correspondant
     for(const item of setlistData){
       if(item.song_id){
@@ -4222,6 +4326,318 @@ async function saveChords(songId){
     rerenderChords(songId);
     toast('Accords sauvegardés !');
   }catch(e){ toast('Erreur: '+e.message,'danger'); }
+}
+
+
+
+// ════════════════════════════════════════════════════════════════════════════
+// MV SETLISTS — plusieurs setlists nommées
+// ════════════════════════════════════════════════════════════════════════════
+var _mvSetlists = [];
+var _currentMvSetlistId = null;
+
+async function loadMvSetlists(){
+  try{
+    _mvSetlists = await apiFetch('/api/mv-setlists');
+    renderMvSetlistCards();
+  }catch(e){ console.warn('mv setlists load error', e); }
+}
+
+function renderMvSetlistCards(){
+  const el = document.getElementById('mvSetlistCards');
+  if(!el) return;
+  if(!_mvSetlists.length){
+    el.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.78rem;font-weight:600;">Aucune setlist.<br>Crée la première !</div>';
+    return;
+  }
+  el.innerHTML = _mvSetlists.map(sl=>{
+    const date = new Date(sl.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
+    const count = parseInt(sl.item_count)||0;
+    return `<div class="mv-setlist-card" onclick="openMvSetlistDetail(${sl.id})">
+      <div>
+        <div class="mv-setlist-card-name">${sl.name}</div>
+        <div class="mv-setlist-card-meta">${date}</div>
+      </div>
+      <span class="mv-setlist-card-count">${count} chant${count>1?'s':''}</span>
+      <span style="color:var(--muted);font-size:.8rem;">&#8250;</span>
+    </div>`;
+  }).join('');
+}
+
+async function openMvSetlistDetail(id){
+  _currentMvSetlistId = id;
+  const sl = _mvSetlists.find(s=>s.id===id);
+  if(!sl) return;
+
+  document.getElementById('mvSetlistDetailName').textContent = sl.name;
+  document.getElementById('mvSetlistDetailDate').textContent =
+    new Date(sl.created_at).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+
+  // Afficher/masquer boutons selon permissions
+  const canEdit = isPinSessionValid('admin') || canDo('can_edit_lyrics');
+  document.getElementById('mvSetlistEditBtn').style.display = canEdit ? '' : 'none';
+  document.getElementById('mvSetlistDeleteBtn').style.display = isPinSessionValid('admin') ? '' : 'none';
+
+  // Charger les items
+  setlistData = await apiFetch('/api/setlist?mv_setlist_id='+id);
+  // Reconstruire _sectionOrder depuis l'item _order
+  const orderItem = setlistData.find(i=>i.section==='_order');
+  if(orderItem?.special_label){
+    try{ _sectionOrder = JSON.parse(orderItem.special_label); }catch(e){}
+  }
+
+  document.getElementById('mvSetlistListView').style.display = 'none';
+  document.getElementById('mvSetlistDetailView').style.display = '';
+  renderSetlistView();
+}
+
+function closeMvSetlistDetail(){
+  _currentMvSetlistId = null;
+  document.getElementById('mvSetlistDetailView').style.display = 'none';
+  document.getElementById('mvSetlistListView').style.display = '';
+}
+
+async function openCreateMvSetlist(){
+  if(!isPinSessionValid('admin') && !canDo('can_edit_lyrics')){
+    requirePin('admin','&#x1F510; PIN Admin','Connexion requise pour créer une setlist',()=>openCreateMvSetlist());
+    return;
+  }
+  const name = prompt('Nom de la setlist :');
+  if(!name) return;
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  try{
+    const sl = await apiFetch('/api/mv-setlists',{method:'POST',body:JSON.stringify({name:name.trim(),pin_admin:pin})});
+    _mvSetlists.unshift(sl);
+    renderMvSetlistCards();
+    toast('Setlist "'+sl.name+'" créée !');
+    openMvSetlistDetail(sl.id);
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
+}
+
+async function startRenameMvSetlist(){
+  if(!_currentMvSetlistId) return;
+  const sl = _mvSetlists.find(s=>s.id===_currentMvSetlistId);
+  const name = prompt('Nouveau nom :', sl?.name||'');
+  if(!name) return;
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  try{
+    await apiFetch('/api/mv-setlists/'+_currentMvSetlistId,{method:'PATCH',body:JSON.stringify({name:name.trim(),pin_admin:pin})});
+    const idx = _mvSetlists.findIndex(s=>s.id===_currentMvSetlistId);
+    if(idx>=0) _mvSetlists[idx].name = name.trim();
+    document.getElementById('mvSetlistDetailName').textContent = name.trim();
+    renderMvSetlistCards();
+    toast('Setlist renommée');
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
+}
+
+async function deleteMvSetlist(){
+  if(!_currentMvSetlistId) return;
+  const sl = _mvSetlists.find(s=>s.id===_currentMvSetlistId);
+  if(!confirm('Supprimer "'+sl?.name+'" et tous ses chants ?')) return;
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  try{
+    await apiFetch('/api/mv-setlists/'+_currentMvSetlistId,{method:'DELETE',body:JSON.stringify({pin_admin:pin})});
+    _mvSetlists = _mvSetlists.filter(s=>s.id!==_currentMvSetlistId);
+    closeMvSetlistDetail();
+    toast('Setlist supprimée');
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
+}
+
+// Override saveSetlist pour cibler la setlist courante
+// La fonction saveSetlist existante est réutilisée mais avec mv_setlist_id
+
+// ════════════════════════════════════════════════════════════════════════════
+// SWIPE TO SETLIST (mobile)
+// ════════════════════════════════════════════════════════════════════════════
+var _swipeSongId = null;
+var _swipeCurrentItems = [];
+var _swipeTab = 'existing';
+var _allSetlists = []; // setlists chargées depuis le serveur
+
+function initSwipeOnCard(el, songId){
+  let startX = 0, startY = 0, dx = 0;
+  let dragging = false;
+  const THRESHOLD = 72; // px pour déclencher
+
+  // Indicator
+  const reveal = document.createElement('div');
+  reveal.className = 'swipe-reveal';
+  reveal.innerHTML = '<span class="swipe-icon">&#x1F4CB;</span><span>Setlist</span>';
+  el.appendChild(reveal);
+
+  function onStart(e){
+    if(!isPinSessionValid('admin')) return;
+    const t = e.touches ? e.touches[0] : e;
+    startX = t.clientX; startY = t.clientY; dx = 0; dragging = false;
+  }
+  function onMove(e){
+    if(!isPinSessionValid('admin')) return;
+    const t = e.touches ? e.touches[0] : e;
+    dx = t.clientX - startX;
+    const dy = Math.abs(t.clientY - startY);
+    if(!dragging && Math.abs(dx) < 8 && dy < 8) return;
+    if(!dragging && dy > Math.abs(dx)) return; // scroll vertical
+    dragging = true;
+    if(dx < 0) return; // seulement vers la droite
+    e.preventDefault();
+    const clamped = Math.min(dx, THRESHOLD + 16);
+    el.style.transform = `translateX(${clamped}px)`;
+    reveal.style.opacity = Math.min(dx / THRESHOLD, 1);
+  }
+  function onEnd(){
+    if(!isPinSessionValid('admin')) return;
+    el.style.transform = '';
+    reveal.style.opacity = '0';
+    if(dragging && dx >= THRESHOLD){
+      openSwipeSetlist(songId);
+    }
+    dragging = false; dx = 0;
+  }
+
+  el.addEventListener('touchstart', onStart, {passive:true});
+  el.addEventListener('touchmove', onMove, {passive:false});
+  el.addEventListener('touchend', onEnd, {passive:true});
+}
+
+async function openSwipeSetlist(songId){
+  _swipeSongId = songId;
+  const song = songs.find(s=>s.id===songId);
+  if(!song) return;
+
+  // Infos du chant
+  document.getElementById('swipeSongTitle').textContent = song.title;
+  const meta = [];
+  if(song.key_signature) meta.push(`<span class="key-badge">${song.key_signature.split(' ')[0]}</span>`);
+  if(song.bpm) meta.push(`<span class="key-badge" style="background:#2a1800;color:#c06020;border-color:#4a2800">${song.bpm} BPM</span>`);
+  document.getElementById('swipeSongMeta').innerHTML = meta.join('');
+
+  // Charger les setlists MV
+  try{ _allSetlists = await apiFetch('/api/mv-setlists'); }catch(e){ _allSetlists = []; }
+
+  // Peupler le select setlists
+  const sel = document.getElementById('swipeSelectSetlist');
+  sel.innerHTML = '<option value="">&#x2014; Choisir une setlist</option>';
+  _allSetlists.forEach(sl=>{
+    const date = new Date(sl.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+    const opt = document.createElement('option');
+    opt.value = sl.id;
+    opt.textContent = sl.name + ' (' + date + ')';
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('swipeSectionWrap').style.display = 'none';
+  document.getElementById('swipeSectionItems').innerHTML = '';
+  swipeSetlistTab('existing');
+  document.getElementById('swipeSetlistOverlay').classList.remove('hidden');
+}
+
+function closeSwipeSetlist(){
+  document.getElementById('swipeSetlistOverlay').classList.add('hidden');
+  _swipeSongId = null;
+}
+
+function swipeSetlistTab(tab){
+  _swipeTab = tab;
+  document.getElementById('swipeTabExisting').style.display = tab==='existing' ? '' : 'none';
+  document.getElementById('swipeTabNew').style.display = tab==='new' ? '' : 'none';
+  document.getElementById('swipeBtnExisting').className = 'btn btn-sm' + (tab==='existing' ? ' btn-primary' : '');
+  document.getElementById('swipeBtnNew').className = 'btn btn-sm' + (tab==='new' ? ' btn-primary' : '');
+}
+
+async function swipeUpdateSections(){
+  const val = document.getElementById('swipeSelectSetlist').value;
+  document.getElementById('swipeSectionWrap').style.display = val ? '' : 'none';
+  if(!val){ document.getElementById('swipeSectionItems').innerHTML=''; return; }
+  // Charger les items de cette setlist
+  try{
+    const items = await apiFetch('/api/setlist?mv_setlist_id='+val);
+    _swipeCurrentItems = items;
+    swipeRenderSectionItems(items);
+    const section = document.getElementById('swipeSelectSection').value;
+    swipeCheckDuplicate(items, section);
+  }catch(e){}
+}
+
+function swipeRenderSectionItems(items){
+  const section = document.getElementById('swipeSelectSection').value;
+  const inSection = items.filter(i=>i.section===section && i.section!=='_order');
+  const el = document.getElementById('swipeSectionItems');
+  if(!inSection.length){
+    el.innerHTML='<div style="font-size:.65rem;color:var(--muted);padding:.3rem 0;">Aucun chant dans cette rubrique.</div>';
+    return;
+  }
+  el.innerHTML='<div style="font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:.3rem;">Dans cette rubrique :</div>'+
+    inSection.filter(i=>i.song_title).map(i=>`<div style="font-size:.72rem;color:var(--text-mid);padding:.15rem 0;border-bottom:1px solid var(--border);">&#x1F3B5; ${i.song_title}</div>`).join('');
+}
+
+function swipeCheckDuplicate(items, section){
+  const song = songs.find(s=>s.id===_swipeSongId);
+  if(!song) return;
+  const isDupe = items.some(i=>i.section===section && i.song_id===_swipeSongId);
+  const btn = document.querySelector('#swipeSetlistOverlay .btn-primary');
+  if(btn){
+    btn.disabled = isDupe;
+    btn.title = isDupe ? 'Ce chant est déjà dans cette rubrique' : '';
+  }
+  const warn = document.getElementById('swipeDupeWarn');
+  if(warn) warn.style.display = isDupe ? '' : 'none';
+}
+
+async function confirmSwipeSetlist(){
+  const song = songs.find(s=>s.id===_swipeSongId);
+  if(!song){ closeSwipeSetlist(); return; }
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+
+  if(_swipeTab === 'existing'){
+    const setlistVal = document.getElementById('swipeSelectSetlist').value;
+    if(!setlistVal){ toast('Choisis une setlist','danger'); return; }
+    const section = document.getElementById('swipeSelectSection').value || 'principale';
+    const mvId = parseInt(setlistVal);
+    try{
+      const existingItems = await apiFetch('/api/setlist?mv_setlist_id='+mvId);
+      if(existingItems.some(i=>i.section===section && i.song_id===song.id)){
+        toast('Ce chant est déjà dans cette rubrique !','danger'); return;
+      }
+      const newItem = {section, song_id:song.id, song_title:song.title, lead_id:null, position:existingItems.length};
+      const allItems = [...existingItems, newItem];
+      await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:allItems, mv_setlist_id:mvId})});
+      const sl = _mvSetlists.find(s=>s.id===mvId);
+      if(sl) sl.item_count = (parseInt(sl.item_count)||0)+1;
+      renderMvSetlistCards();
+      toast('Ajouté à "'+(sl?.name||'la setlist')+'" !');
+    }catch(e){ toast('Erreur: '+e.message,'danger'); return; }
+  } else {
+    const name = document.getElementById('swipeNewSetlistName').value.trim();
+    if(!name){ toast('Nomme la setlist','danger'); return; }
+    const section = document.getElementById('swipeNewSection').value || 'principale';
+    try{
+      const newSl = await apiFetch('/api/mv-setlists',{method:'POST',body:JSON.stringify({name,pin_admin:pin})});
+      const newItem = {section, song_id:song.id, song_title:song.title, lead_id:null, position:0};
+      await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:[newItem], mv_setlist_id:newSl.id})});
+      _mvSetlists.unshift({...newSl, item_count:1});
+      renderMvSetlistCards();
+      toast('Setlist "'+name+'" créée !');
+    }catch(e){ toast('Erreur: '+e.message,'danger'); return; }
+  }
+  closeSwipeSetlist();
+}
+
+// Sauvegarder la setlist principale sans prompt
+async function saveSetlistSilent(){
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  _saveLabelsBeforeRender();
+  const orderItem = {section:'_order', song_id:null, song_title:'', special_label: JSON.stringify(_sectionOrder), position:-1};
+  const payload = setlistData.filter(i=>i.section!=='_order').map(item=>({
+    ...item, lead_id: item.lead_id||null
+  })).concat([orderItem]);
+  try{
+    await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:payload})});
+  }catch(e){ toast('Erreur PIN: sauvegarde échouée','danger'); }
 }
 
 async function saveSetlist(){
