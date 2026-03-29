@@ -1458,6 +1458,9 @@ function refreshCurrentSong(){
   const song = songs.find(s=>s.id===currentId);
   if(song && song.lyrics) renderDetail(song);
   else if(currentId) selectSong(currentId);
+  // Re-render la liste des setlists si visible (les boutons admin peuvent changer)
+  const panel = document.getElementById('panelSetlist');
+  if(panel && panel.style.display !== 'none') renderMvSetlistCards();
 }
 
 let stemSongId=null, stemType='voice', stemSubId=null;
@@ -3651,7 +3654,7 @@ function switchSidebarTab(tab){
   inactiveTab.style.borderBottom = '2px solid transparent';
   inactiveTab.classList.remove('tab-active');
 
-  if(isSetlist) loadSetlist();
+  // loadSetlist() est maintenant géré via openMvSetlistDetail()
 }
 
 // &#x2550;&#x2550; SETLIST &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
@@ -3739,7 +3742,11 @@ function _renderSetlistHTML(clickFn){
 
 function renderSetlistView(){
   const el = document.getElementById('setlistView');
-  if(el) el.innerHTML = _renderSetlistHTML('selectSongById');
+  if(!el) return;
+  // Ne s'affiche que si on est dans la vue détail d'une setlist
+  const detailView = document.getElementById('mvSetlistDetailView');
+  if(detailView && detailView.style.display === 'none') return;
+  el.innerHTML = _renderSetlistHTML('selectSongById');
 }
 
 // &#x2550;&#x2550; ADMIN SETLIST MANAGEMENT &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
@@ -4355,18 +4362,52 @@ function renderMvSetlistCards(){
     el.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.78rem;font-weight:600;">Aucune setlist.<br>Crée la première !</div>';
     return;
   }
+  const isAdmin = isPinSessionValid('admin');
   el.innerHTML = _mvSetlists.map(sl=>{
     const date = new Date(sl.created_at).toLocaleDateString('fr-FR',{day:'numeric',month:'long',year:'numeric'});
     const count = parseInt(sl.item_count)||0;
+    const adminBtns = isAdmin ? `
+      <button onclick="event.stopPropagation();renameMvSetlistFromCard(${sl.id})"
+        style="background:none;border:1px solid var(--border);border-radius:50px;color:var(--muted);font-size:.65rem;padding:.18rem .5rem;cursor:pointer;font-family:'Nunito',sans-serif;flex-shrink:0;">&#x270E;</button>
+      <button onclick="event.stopPropagation();deleteMvSetlistFromCard(${sl.id},'${sl.name.replace(/'/g,"\'")}')"
+        style="background:none;border:1px solid var(--danger);border-radius:50px;color:var(--danger);font-size:.65rem;padding:.18rem .5rem;cursor:pointer;font-family:'Nunito',sans-serif;flex-shrink:0;">&#x2715;</button>` : '';
     return `<div class="mv-setlist-card" onclick="openMvSetlistDetail(${sl.id})">
-      <div>
+      <div style="flex:1;min-width:0;">
         <div class="mv-setlist-card-name">${sl.name}</div>
         <div class="mv-setlist-card-meta">${date}</div>
       </div>
       <span class="mv-setlist-card-count">${count} chant${count>1?'s':''}</span>
+      ${adminBtns}
       <span style="color:var(--muted);font-size:.8rem;">&#8250;</span>
     </div>`;
   }).join('');
+}
+
+async function renameMvSetlistFromCard(id){
+  const sl = _mvSetlists.find(s=>s.id===id);
+  const name = prompt('Nouveau nom :', sl?.name||'');
+  if(!name||!name.trim()) return;
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  try{
+    await apiFetch('/api/mv-setlists/'+id,{method:'PATCH',body:JSON.stringify({name:name.trim(),pin_admin:pin})});
+    const idx = _mvSetlists.findIndex(s=>s.id===id);
+    if(idx>=0) _mvSetlists[idx].name = name.trim();
+    renderMvSetlistCards();
+    toast('Setlist renommée');
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
+}
+
+async function deleteMvSetlistFromCard(id, name){
+  if(!confirm('Supprimer "'+name+'" et tous ses chants ?')) return;
+  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
+  if(!pin) return;
+  try{
+    await apiFetch('/api/mv-setlists/'+id,{method:'DELETE',body:JSON.stringify({pin_admin:pin})});
+    _mvSetlists = _mvSetlists.filter(s=>s.id!==id);
+    renderMvSetlistCards();
+    toast('Setlist supprimée');
+  }catch(e){ toast('Erreur: '+e.message,'danger'); }
 }
 
 async function openMvSetlistDetail(id){
@@ -4473,7 +4514,7 @@ function initSwipeOnCard(wrap, card, songId){
   if(!wrap.querySelector('.swipe-reveal')){
     const reveal = document.createElement('div');
     reveal.className = 'swipe-reveal';
-    reveal.innerHTML = '<span class="swipe-icon">&#x1F4CB;</span><span>Setlist</span>';
+    reveal.innerHTML = '<span class="swipe-icon">&#x1F4CB;</span><span style="font-size:.8rem;font-weight:900;">+</span><span>Setlist</span>';
     reveal.style.opacity = '0';
     reveal.style.transition = 'opacity .15s';
     wrap.insertBefore(reveal, card);
