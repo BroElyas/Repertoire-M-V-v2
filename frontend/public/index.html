@@ -592,9 +592,10 @@ select.fi option{background:var(--surface2);color:var(--text);}
     -webkit-tap-highlight-color:transparent;
   }
   .mob-song-card:active{background:var(--surface);}
-.mob-song-card{position:relative;overflow:hidden;transition:transform .15s;}
-.swipe-reveal{position:absolute;right:0;top:0;bottom:0;width:72px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8b1a2e,#c4395a);color:#fff;font-size:.65rem;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;border-radius:0 var(--r-sm) var(--r-sm) 0;flex-direction:column;gap:2px;}
-.swipe-reveal .swipe-icon{font-size:1.1rem;}
+.swipe-wrap{position:relative;overflow:hidden;}
+.swipe-wrap .mob-song-card{transition:transform .2s cubic-bezier(.25,.46,.45,.94);will-change:transform;}
+.swipe-reveal{position:absolute;right:0;top:0;bottom:0;width:80px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8b1a2e,#c4395a);color:#fff;font-size:.65rem;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;flex-direction:column;gap:2px;}
+.swipe-reveal .swipe-icon{font-size:1.2rem;}
   .mob-song-card-title{
     font-size:.92rem;font-weight:900;color:#f0ece8;text-transform:uppercase;
     letter-spacing:-.01em;line-height:1.25;margin-bottom:3px;
@@ -2063,7 +2064,7 @@ function renderMobList(prefiltered){
         html += `<div class="alpha-sep" data-letter="${letter}">${letter}</div>`;
       }
     }
-    html += `<div class="mob-song-card" data-song-id="${s.id}" onclick="selectSong(${s.id})">
+    html += `<div class="swipe-wrap"><div class="mob-song-card" data-song-id="${s.id}" onclick="selectSong(${s.id})">
       <div class="mob-song-card-title">${s.pinned?'&#x1F4CC; ':''}${s._hasPending?'&#x23F3; ':''}${s.title}</div>
       <div class="mob-song-card-author">${s.author||'&#x2014;'}</div>
       <div class="mob-song-card-tags">
@@ -2072,13 +2073,14 @@ function renderMobList(prefiltered){
         ${cats.map(c=>`<span class="cat-badge" style="${catStyle(c)}">${c.name}</span>`).join('')}
         ${s.audio_count?`<span class="audio-badge">&#x266A;</span>`:''}
       </div>
-    </div>`;
+    </div></div>`;
   });
   el.innerHTML = html;
   // Attacher swipe sur chaque card (mobile, admin)
   if(isPinSessionValid('admin')){
-    el.querySelectorAll('.mob-song-card[data-song-id]').forEach(card=>{
-      initSwipeOnCard(card, parseInt(card.dataset.songId));
+    el.querySelectorAll('.swipe-wrap').forEach(wrap=>{
+      const card = wrap.querySelector('.mob-song-card[data-song-id]');
+      if(card) initSwipeOnCard(wrap, card, parseInt(card.dataset.songId));
     });
   }
 
@@ -4457,49 +4459,49 @@ var _swipeCurrentItems = [];
 var _swipeTab = 'existing';
 var _allSetlists = []; // setlists chargées depuis le serveur
 
-function initSwipeOnCard(el, songId){
+function initSwipeOnCard(wrap, card, songId){
   let startX = 0, startY = 0, dx = 0;
   let dragging = false;
-  const THRESHOLD = 72; // px pour déclencher
+  const THRESHOLD = 80;
 
-  // Indicator
+  // Reveal derrière la card
   const reveal = document.createElement('div');
   reveal.className = 'swipe-reveal';
   reveal.innerHTML = '<span class="swipe-icon">&#x1F4CB;</span><span>Setlist</span>';
-  el.appendChild(reveal);
+  wrap.insertBefore(reveal, card);
 
   function onStart(e){
-    if(!isPinSessionValid('admin')) return;
-    const t = e.touches ? e.touches[0] : e;
+    const t = e.touches[0];
     startX = t.clientX; startY = t.clientY; dx = 0; dragging = false;
   }
   function onMove(e){
-    if(!isPinSessionValid('admin')) return;
-    const t = e.touches ? e.touches[0] : e;
-    dx = t.clientX - startX;
+    const t = e.touches[0];
+    const rawDx = t.clientX - startX;
     const dy = Math.abs(t.clientY - startY);
-    if(!dragging && Math.abs(dx) < 8 && dy < 8) return;
-    if(!dragging && dy > Math.abs(dx)) return; // scroll vertical
-    dragging = true;
-    if(dx < 0) return; // seulement vers la droite
+    if(!dragging){
+      if(Math.abs(rawDx) < 6 && dy < 6) return;
+      if(dy > Math.abs(rawDx)){ dragging=false; return; } // scroll vertical — abandonner
+      if(rawDx < 0) return; // vers la gauche — abandonner
+      dragging = true;
+    }
+    if(!dragging) return;
+    dx = rawDx;
     e.preventDefault();
-    const clamped = Math.min(dx, THRESHOLD + 16);
-    el.style.transform = `translateX(${clamped}px)`;
+    const clamped = Math.min(Math.max(dx,0), THRESHOLD + 20);
+    card.style.transform = 'translateX('+clamped+'px)';
     reveal.style.opacity = Math.min(dx / THRESHOLD, 1);
   }
   function onEnd(){
-    if(!isPinSessionValid('admin')) return;
-    el.style.transform = '';
+    const triggered = dragging && dx >= THRESHOLD;
+    card.style.transform = '';
     reveal.style.opacity = '0';
-    if(dragging && dx >= THRESHOLD){
-      openSwipeSetlist(songId);
-    }
+    if(triggered) openSwipeSetlist(songId);
     dragging = false; dx = 0;
   }
 
-  el.addEventListener('touchstart', onStart, {passive:true});
-  el.addEventListener('touchmove', onMove, {passive:false});
-  el.addEventListener('touchend', onEnd, {passive:true});
+  wrap.addEventListener('touchstart', onStart, {passive:true});
+  wrap.addEventListener('touchmove', onMove, {passive:false});
+  wrap.addEventListener('touchend', onEnd, {passive:true});
 }
 
 async function openSwipeSetlist(songId){
