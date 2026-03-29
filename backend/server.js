@@ -296,6 +296,11 @@ app.post('/api/verify-pin', async (req, res) => {
     const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
     return rows[0]?.value === String(pin) ? res.json({ ok: true, level: 'admin' }) : res.status(401).json({ ok: false });
   }
+  // Pour level='contributor' ou 'any' : vérifier d'abord l'admin, puis les contributeurs
+  const { rows: adminRows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
+  if (adminRows[0]?.value === String(pin)) {
+    return res.json({ ok: true, level: 'admin' });
+  }
   const { rows: contribs } = await pool.query('SELECT * FROM contributors WHERE pin = $1', [String(pin)]);
   if (contribs[0]) {
     const c = contribs[0];
