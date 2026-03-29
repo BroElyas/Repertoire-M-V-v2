@@ -4461,10 +4461,10 @@ var _allSetlists = []; // setlists chargées depuis le serveur
 
 function initSwipeOnCard(wrap, card, songId){
   let startX = 0, startY = 0, dx = 0;
-  let dragging = false;
+  let intent = null; // null | 'swipe' | 'scroll'
   const THRESHOLD = 80;
+  const DECISION_PX = 8; // px min avant de décider
 
-  // Reveal derrière la card
   const reveal = document.createElement('div');
   reveal.className = 'swipe-reveal';
   reveal.innerHTML = '<span class="swipe-icon">&#x1F4CB;</span><span>Setlist</span>';
@@ -4472,31 +4472,47 @@ function initSwipeOnCard(wrap, card, songId){
 
   function onStart(e){
     const t = e.touches[0];
-    startX = t.clientX; startY = t.clientY; dx = 0; dragging = false;
+    startX = t.clientX; startY = t.clientY;
+    dx = 0; intent = null;
   }
+
   function onMove(e){
     const t = e.touches[0];
     const rawDx = t.clientX - startX;
-    const dy = Math.abs(t.clientY - startY);
-    if(!dragging){
-      if(Math.abs(rawDx) < 6 && dy < 6) return;
-      if(dy > Math.abs(rawDx)){ dragging=false; return; } // scroll vertical — abandonner
-      if(rawDx < 0) return; // vers la gauche — abandonner
-      dragging = true;
+    const rawDy = t.clientY - startY;
+    const absDx = Math.abs(rawDx);
+    const absDy = Math.abs(rawDy);
+
+    // Pas encore décidé — attendre qu'un axe domine clairement
+    if(intent === null){
+      if(absDx < DECISION_PX && absDy < DECISION_PX) return;
+      if(absDy > absDx){
+        intent = 'scroll'; // scroll vertical — laisser passer
+        return;
+      }
+      if(rawDx < 0){
+        intent = 'scroll'; // swipe gauche — ignorer
+        return;
+      }
+      intent = 'swipe'; // swipe droite confirmé
     }
-    if(!dragging) return;
-    dx = rawDx;
+
+    if(intent !== 'swipe') return;
+
+    // Bloquer le scroll de la liste
     e.preventDefault();
-    const clamped = Math.min(Math.max(dx,0), THRESHOLD + 20);
+    dx = rawDx;
+    const clamped = Math.min(Math.max(dx, 0), THRESHOLD + 20);
     card.style.transform = 'translateX('+clamped+'px)';
     reveal.style.opacity = Math.min(dx / THRESHOLD, 1);
   }
+
   function onEnd(){
-    const triggered = dragging && dx >= THRESHOLD;
+    const triggered = intent === 'swipe' && dx >= THRESHOLD;
     card.style.transform = '';
     reveal.style.opacity = '0';
+    intent = null; dx = 0;
     if(triggered) openSwipeSetlist(songId);
-    dragging = false; dx = 0;
   }
 
   wrap.addEventListener('touchstart', onStart, {passive:true});
