@@ -592,10 +592,8 @@ select.fi option{background:var(--surface2);color:var(--text);}
     -webkit-tap-highlight-color:transparent;
   }
   .mob-song-card:active{background:var(--surface);}
-.swipe-wrap{position:relative;overflow:hidden;}
-.swipe-wrap .mob-song-card{transition:transform .2s cubic-bezier(.25,.46,.45,.94);will-change:transform;}
-.swipe-reveal{position:absolute;right:0;top:0;bottom:0;width:80px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#8b1a2e,#c4395a);color:#fff;font-size:.65rem;font-weight:800;opacity:0;transition:opacity .15s;pointer-events:none;flex-direction:column;gap:2px;}
-.swipe-reveal .swipe-icon{font-size:1.2rem;}
+.swipe-wrap{position:relative;}
+.mob-song-card.longpress-active{background:var(--surface2) !important;transform:scale(.98);transition:transform .1s;}
   .mob-song-card-title{
     font-size:.92rem;font-weight:900;color:#f0ece8;text-transform:uppercase;
     letter-spacing:-.01em;line-height:1.25;margin-bottom:3px;
@@ -4460,64 +4458,45 @@ var _swipeTab = 'existing';
 var _allSetlists = []; // setlists chargées depuis le serveur
 
 function initSwipeOnCard(wrap, card, songId){
-  let startX = 0, startY = 0, dx = 0;
-  let intent = null; // null | 'swipe' | 'scroll'
-  const THRESHOLD = 80;
-  const DECISION_PX = 8; // px min avant de décider
+  // Long press — 600ms sans mouvement → ouvre la modale setlist
+  const DELAY = 600;
+  const MAX_MOVE = 10; // px max autorisés (sinon c'est un scroll)
+  let timer = null;
+  let startX = 0, startY = 0;
+  let cancelled = false;
 
-  const reveal = document.createElement('div');
-  reveal.className = 'swipe-reveal';
-  reveal.innerHTML = '<span class="swipe-icon">&#x1F4CB;</span><span>Setlist</span>';
-  wrap.insertBefore(reveal, card);
+  function trigger(){
+    card.classList.remove('longpress-active');
+    if(navigator.vibrate) navigator.vibrate(40);
+    openSwipeSetlist(songId);
+  }
 
   function onStart(e){
     const t = e.touches[0];
     startX = t.clientX; startY = t.clientY;
-    dx = 0; intent = null;
+    cancelled = false;
+    card.classList.add('longpress-active');
+    timer = setTimeout(trigger, DELAY);
+  }
+
+  function cancel(){
+    if(timer){ clearTimeout(timer); timer = null; }
+    card.classList.remove('longpress-active');
+    cancelled = true;
   }
 
   function onMove(e){
+    if(cancelled) return;
     const t = e.touches[0];
-    const rawDx = t.clientX - startX;
-    const rawDy = t.clientY - startY;
-    const absDx = Math.abs(rawDx);
-    const absDy = Math.abs(rawDy);
-
-    // Pas encore décidé — attendre qu'un axe domine clairement
-    if(intent === null){
-      if(absDx < DECISION_PX && absDy < DECISION_PX) return;
-      if(absDy > absDx){
-        intent = 'scroll'; // scroll vertical — laisser passer
-        return;
-      }
-      if(rawDx < 0){
-        intent = 'scroll'; // swipe gauche — ignorer
-        return;
-      }
-      intent = 'swipe'; // swipe droite confirmé
-    }
-
-    if(intent !== 'swipe') return;
-
-    // Bloquer le scroll de la liste
-    e.preventDefault();
-    dx = rawDx;
-    const clamped = Math.min(Math.max(dx, 0), THRESHOLD + 20);
-    card.style.transform = 'translateX('+clamped+'px)';
-    reveal.style.opacity = Math.min(dx / THRESHOLD, 1);
-  }
-
-  function onEnd(){
-    const triggered = intent === 'swipe' && dx >= THRESHOLD;
-    card.style.transform = '';
-    reveal.style.opacity = '0';
-    intent = null; dx = 0;
-    if(triggered) openSwipeSetlist(songId);
+    const dx = Math.abs(t.clientX - startX);
+    const dy = Math.abs(t.clientY - startY);
+    if(dx > MAX_MOVE || dy > MAX_MOVE) cancel();
   }
 
   wrap.addEventListener('touchstart', onStart, {passive:true});
-  wrap.addEventListener('touchmove', onMove, {passive:false});
-  wrap.addEventListener('touchend', onEnd, {passive:true});
+  wrap.addEventListener('touchmove', onMove, {passive:true});
+  wrap.addEventListener('touchend', cancel, {passive:true});
+  wrap.addEventListener('touchcancel', cancel, {passive:true});
 }
 
 async function openSwipeSetlist(songId){
