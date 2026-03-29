@@ -168,8 +168,14 @@ async function initDB() {
       reviewed_by TEXT
     );
     ALTER TABLE pending_changes ADD COLUMN IF NOT EXISTS affected_fields TEXT[];
+    CREATE TABLE IF NOT EXISTS mv_setlists (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
     CREATE TABLE IF NOT EXISTS setlist (
       id SERIAL PRIMARY KEY,
+      mv_setlist_id INTEGER REFERENCES mv_setlists(id) ON DELETE CASCADE,
       section TEXT NOT NULL,
       song_id INTEGER REFERENCES songs(id) ON DELETE SET NULL,
       song_title TEXT,
@@ -178,6 +184,7 @@ async function initDB() {
       special_after TEXT DEFAULT 'principale',
       updated_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE setlist ADD COLUMN IF NOT EXISTS mv_setlist_id INTEGER REFERENCES mv_setlists(id) ON DELETE CASCADE;
 
     -- MIVE TABLES --------------------------------------------------------------
     CREATE TABLE IF NOT EXISTS mive_loops (
@@ -255,6 +262,19 @@ async function initDB() {
       ('pin_admin', '0000')
     ON CONFLICT (key) DO NOTHING;
   `);
+  // Migration : rattacher les items setlist sans mv_setlist_id à une setlist "Setlist principale"
+  const { rows: orphans } = await pool.query('SELECT COUNT(*) as n FROM setlist WHERE mv_setlist_id IS NULL');
+  if (parseInt(orphans[0].n) > 0) {
+    let { rows: existing } = await pool.query("SELECT id FROM mv_setlists WHERE name='Setlist principale' LIMIT 1");
+    let mainId;
+    if (existing.length) { mainId = existing[0].id; }
+    else {
+      const { rows: created } = await pool.query("INSERT INTO mv_setlists(name) VALUES('Setlist principale') RETURNING id");
+      mainId = created[0].id;
+    }
+    await pool.query('UPDATE setlist SET mv_setlist_id=$1 WHERE mv_setlist_id IS NULL', [mainId]);
+    console.log(' Migration setlist: items rattachés à mv_setlist_id=' + mainId);
+  }
   console.log(' Base de donnees initialisee');
 }
 
@@ -573,23 +593,113 @@ app.delete('/api/pending-changes/:id', async (req, res) => {
 });
 
 // -- SETLIST -------------------------------------------------------------------
+// ── MV SETLISTS (plusieurs setlists nommées) ─────────────────────────────────
+app.get('/api/mv-setlists', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT ms.*, COUNT(s.id) as item_count FROM mv_setlists ms LEFT JOIN setlist s ON s.mv_setlist_id=ms.id GROUP BY ms.id ORDER BY ms.created_at DESC');
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/mv-setlists', async (req, res) => {
+  try {
+    const { name, pin_admin } = req.body;
+    const { rows: pinRows } = await pool.query('SELECT value FROM settings WHERE key=$1', ['pin_admin']);
+    if (pinRows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    if (!name) return res.status(400).json({ error: 'Nom requis' });
+    const { rows } = await pool.query('INSERT INTO mv_setlists(name) VALUES($1) RETURNING *', [name.trim()]);
+    res.json(rows[0]);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.patch('/api/mv-setlists/:id', async (req, res) => {
+  try {
+    const { name, pin_admin } = req.body;
+    const { rows: pinRows } = await pool.query('SELECT value FROM settings WHERE key=$1', ['pin_admin']);
+    if (pinRows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    await pool.query('UPDATE mv_setlists SET name=$1 WHERE id=$2', [name, req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.delete('/api/mv-setlists/:id', async (req, res) => {
+  try {
+    const { pin_admin } = req.body;
+    const { rows: pinRows } = await pool.query('SELECT value FROM settings WHERE key=$1', ['pin_admin']);
+    if (pinRows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    await pool.query('DELETE FROM mv_setlists WHERE id=$1', [req.params.id]);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/mv-setlists/:id/items', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM setlist WHERE mv_setlist_id=$1 ORDER BY position', [req.params.id]);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put('/api/mv-setlists/:id/items', async (req, res) => {
+  try {
+    const { pin_admin, items } = req.body;
+    const { rows: pinRows } = await pool.query('SELECT value FROM settings WHERE key=$1', ['pin_admin']);
+    if (pinRows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    const mvId = req.params.id;
+    await pool.query('DELETE FROM setlist WHERE mv_setlist_id=$1', [mvId]);
+    if (items && items.length) {
+      for (const [i, item] of items.entries()) {
+        await pool.query(
+          'INSERT INTO setlist(mv_setlist_id, section, song_id, song_title, position, special_label, special_after, lead_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+          [mvId, item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale', item.lead_id||null]
+        );
+      }
+    }
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Legacy: GET /api/setlist retourne les items de la première setlist (compatibilité)
 app.get('/api/setlist', async (req, res) => {
-  const { rows } = await pool.query('SELECT * FROM setlist ORDER BY position');
-  res.json(rows);
+  try {
+    const mvId = req.query.mv_setlist_id;
+    if (mvId) {
+      const { rows } = await pool.query('SELECT * FROM setlist WHERE mv_setlist_id=$1 ORDER BY position', [mvId]);
+      return res.json(rows);
+    }
+    // Sans ID : retourner la setlist la plus récente
+    const { rows: lists } = await pool.query('SELECT id FROM mv_setlists ORDER BY created_at DESC LIMIT 1');
+    if (!lists.length) return res.json([]);
+    const { rows } = await pool.query('SELECT * FROM setlist WHERE mv_setlist_id=$1 ORDER BY position', [lists[0].id]);
+    res.json(rows);
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 app.put('/api/setlist', async (req, res) => {
-  const { pin_admin, items } = req.body;
-  const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
-  if (rows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
-  await pool.query('DELETE FROM setlist');
-  if (items && items.length) {
-    for (const [i, item] of items.entries()) {
-      await pool.query('INSERT INTO setlist(section, song_id, song_title, position, special_label, special_after, lead_id) VALUES($1,$2,$3,$4,$5,$6,$7)',
-        [item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale', item.lead_id||null]);
+  try {
+    const { pin_admin, items, mv_setlist_id } = req.body;
+    const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
+    if (rows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    // Déterminer mv_setlist_id : utilisé si fourni, sinon la plus récente
+    let mvId = mv_setlist_id;
+    if (!mvId) {
+      const { rows: lists } = await pool.query('SELECT id FROM mv_setlists ORDER BY created_at DESC LIMIT 1');
+      if (lists.length) mvId = lists[0].id;
+      else {
+        const { rows: created } = await pool.query("INSERT INTO mv_setlists(name) VALUES('Setlist principale') RETURNING id");
+        mvId = created[0].id;
+      }
     }
-  }
-  res.json({ ok: true });
+    await pool.query('DELETE FROM setlist WHERE mv_setlist_id=$1', [mvId]);
+    if (items && items.length) {
+      for (const [i, item] of items.entries()) {
+        await pool.query(
+          'INSERT INTO setlist(mv_setlist_id, section, song_id, song_title, position, special_label, special_after, lead_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
+          [mvId, item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale', item.lead_id||null]
+        );
+      }
+    }
+    res.json({ ok: true, mv_setlist_id: mvId });
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // -- SONGS ---------------------------------------------------------------------
