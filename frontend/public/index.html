@@ -389,6 +389,10 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .split-line:hover{background:#ef4444;}
 /* Toolbar accords */
 .chord-toolbar{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:.6rem;border:1.5px solid var(--border);flex-wrap:wrap;}
+.chord-transpose-group{display:flex;align-items:center;gap:.25rem;margin-left:.3rem;}
+.chord-transpose-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-size:.75rem;font-weight:800;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;}
+.chord-transpose-btn:hover{background:var(--surface2);border-color:var(--muted);}
+.chord-transpose-select{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-size:.65rem;font-weight:700;padding:.18rem .35rem;cursor:pointer;font-family:'Nunito',sans-serif;max-width:70px;}
 .chord-toolbar-label{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
 .mv-setlist-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:.7rem .9rem;margin-bottom:.5rem;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:.6rem;}
 .mv-setlist-card:hover{border-color:#8b1a2e;background:var(--surface2);}
@@ -2254,6 +2258,7 @@ async function selectSong(id){
     _chordMode = false;
     _chordSongId = null;
     _chordsData = {};
+    _transposeOffset = 0;
     _splitsData = {};
     closeChordPopup();
   }
@@ -2345,12 +2350,11 @@ function renderDetail(song, targetEl){
   <div class="section-card">
     <div class="section-hdr">
       <div class="section-ttl"><div class="sdot"></div>Paroles</div>
-      ${(isPinSessionValid('admin')||canDo('can_edit_lyrics'))?`
       <div style="display:flex;align-items:center;gap:.4rem;">
         <button class="btn btn-sm" id="chordModeBtn" onclick="toggleChordMode(${song.id})" style="font-size:.62rem;">
           &#x1F3B5; Accords
         </button>
-      </div>`:''}
+      </div>
     </div>
     <div id="chordToolbar_${song.id}" style="display:none;">
       <div class="chord-toolbar">
@@ -2364,7 +2368,15 @@ function renderDetail(song, targetEl){
           <button class="chord-fmt-btn ${_chordFmt==='fr'?'active':''}" onclick="setChordFmt('fr')">Do/Ré</button>
           <button class="chord-fmt-btn ${_chordFmt==='en'?'active':''}" onclick="setChordFmt('en')">C/D</button>
         </div>
-        <button class="btn btn-sm btn-primary" onclick="saveChords(${song.id})" style="margin-left:auto;font-size:.62rem;">&#x1F4BE; Sauvegarder</button>
+        <span class="chord-toolbar-label" style="margin-left:.5rem;">Transpose</span>
+        <div class="chord-transpose-group">
+          <button class="chord-transpose-btn" onclick="transposeChords(-1,${song.id})" title="-1 demi-ton">−</button>
+          <button class="chord-transpose-btn" onclick="transposeChords(+1,${song.id})" title="+1 demi-ton">+</button>
+          <select class="chord-transpose-select" id="transposeTarget_${song.id}" onchange="transposeToKey(this.value,${song.id});this.value=''">
+            <option value="">&#x2192; Gamme</option>
+          </select>
+        </div>
+        ${(isPinSessionValid('admin')||canDo('can_edit_lyrics'))?`<button class="btn btn-sm btn-primary" onclick="saveChords(${song.id})" style="margin-left:auto;font-size:.62rem;">&#x1F4BE; Sauvegarder</button>`:``}
       </div>
     </div>
     <div class="lyrics-wrap" id="lyricsWrap_${song.id}">
@@ -4083,6 +4095,7 @@ function setChordFmt(fmt){
     });
   }
   if(_chordSongId) rerenderChords(_chordSongId);
+  if(_chordSongId) _populateTransposeSelect(_chordSongId);
   document.querySelectorAll('.chord-fmt-btn').forEach(b=>{
     b.classList.toggle('active', b.textContent===( fmt==='fr'?'Do/R\u00e9':'C/D'));
   });
@@ -4100,6 +4113,101 @@ function convertChord(chord, fromFmt, toFmt){
     }
   }
   return chord;
+}
+
+
+// ── Transposition des accords ─────────────────────────────────────────────────
+// Gamme courante en mémoire (demi-tons par rapport à la gamme originale)
+var _transposeOffset = 0;
+var _transposeSongId = null;
+
+function _chordToSemitone(chord, fmt){
+  const notes = fmt==='fr' ? NOTES_FR : NOTES_EN;
+  const sorted = notes.map((n,i)=>({n,i})).sort((a,b)=>b.n.length-a.n.length);
+  for(const {n,i} of sorted){
+    if(chord.startsWith(n)) return {rootIdx:i, suffix:chord.slice(n.length)};
+  }
+  return null;
+}
+
+function _semitoneToChord(idx, suffix, fmt){
+  const notes = fmt==='fr' ? NOTES_FR : NOTES_EN;
+  return notes[((idx%12)+12)%12] + suffix;
+}
+
+function transposeChords(semitones, songId){
+  if(!Object.keys(_chordsData).length){ toast('Aucun accord à transposer','danger'); return; }
+  const newData = {};
+  Object.entries(_chordsData).forEach(([k, chord])=>{
+    const parsed = _chordToSemitone(chord, _chordFmt);
+    if(parsed){
+      newData[k] = _semitoneToChord(parsed.rootIdx + semitones, parsed.suffix, _chordFmt);
+    } else {
+      newData[k] = chord;
+    }
+  });
+  _chordsData = newData;
+  _transposeOffset += semitones;
+  _transposeSongId = songId;
+  rerenderChords(songId);
+  _updateTransposedKey(songId);
+}
+
+function transposeToKey(targetNote, songId){
+  if(!targetNote) return;
+  if(!Object.keys(_chordsData).length){ toast('Aucun accord à transposer','danger'); return; }
+  // Trouver la gamme actuelle du chant
+  const song = songs.find(s=>s.id===songId);
+  if(!song) return;
+  const currentKey = song.key_signature ? song.key_signature.split(' ')[0] : null;
+  if(!currentKey){ toast('Gamme du chant non définie','danger'); return; }
+  const notes = _chordFmt==='fr' ? NOTES_FR : NOTES_EN;
+  // Convertir la gamme courante en format actuel
+  const currentKeyConverted = convertChord(currentKey, 'fr', _chordFmt);
+  const fromIdx = notes.indexOf(currentKeyConverted);
+  const toIdx   = notes.indexOf(targetNote);
+  if(fromIdx < 0){ toast('Gamme non reconnue','danger'); return; }
+  const semitones = toIdx - fromIdx;
+  const adjusted = ((semitones % 12) + 12) % 12;
+  const delta = adjusted > 6 ? adjusted - 12 : adjusted;
+  transposeChords(delta, songId);
+}
+
+function _updateTransposedKey(songId){
+  // Mettre à jour la gamme affichée sur la fiche (DOM uniquement, pas en DB)
+  const song = songs.find(s=>s.id===songId);
+  if(!song || !song.key_signature) return;
+  const origKey = song.key_signature.split(' ')[0];
+  const origKeyEn = convertChord(origKey, 'fr', 'en');
+  const notes = NOTES_EN;
+  const origIdx = notes.indexOf(origKeyEn);
+  if(origIdx < 0) return;
+  const newIdx = ((origIdx + _transposeOffset) % 12 + 12) % 12;
+  const newKeyEn = notes[newIdx];
+  const newKeyFr = convertChord(newKeyEn, 'en', 'fr');
+  const displayKey = _chordFmt==='fr' ? newKeyFr : newKeyEn;
+  // Mettre à jour les badges gamme dans le DOM
+  document.querySelectorAll('.key-badge').forEach(el=>{
+    if(el.textContent.trim() === origKey || el.textContent.trim() === (song._lastDisplayedKey||origKey)){
+      el.textContent = displayKey;
+      song._lastDisplayedKey = displayKey;
+    }
+  });
+}
+
+
+function _populateTransposeSelect(songId){
+  const sel = document.getElementById('transposeTarget_'+songId);
+  if(!sel) return;
+  const notes = _chordFmt==='fr' ? NOTES_FR : NOTES_EN;
+  // Garder la première option
+  sel.innerHTML = '<option value="">&#x2192; Gamme</option>';
+  notes.forEach(n=>{
+    const opt = document.createElement('option');
+    opt.value = n;
+    opt.textContent = n;
+    sel.appendChild(opt);
+  });
 }
 
 // ── Toggle mode accords ──────────────────────────────────────────────────────
@@ -4125,6 +4233,7 @@ async function toggleChordMode(songId){
       }catch(e){ console.warn('song reload',e); }
     }
     // Charger les accords depuis le serveur
+    _transposeOffset = 0;
     try{
       const data = await apiFetch('/api/songs/'+songId+'/chords');
       _chordsData = {};
@@ -4142,6 +4251,8 @@ async function toggleChordMode(songId){
     toolbar.style.display='';
     wrap.classList.add('chord-mode-active');
     rerenderChords(songId);
+    // Peupler le select de transposition
+    _populateTransposeSelect(songId);
   } else {
     btn.style.background='';btn.style.borderColor='';btn.style.color='';
     toolbar.style.display='none';
