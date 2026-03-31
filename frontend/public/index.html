@@ -370,7 +370,9 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .chord-below{font-size:.65rem;font-weight:800;color:#c4395a;min-height:1rem;text-align:center;white-space:nowrap;padding:0 1px;order:1;}
 .chord-word-text{order:0;}
 .chord-below ~ .chord-word-text{order:-1;}
-.split-marker{display:inline-flex;align-self:flex-end;align-items:flex-end;color:#3b82f6;font-weight:800;font-size:.75rem;margin:0;line-height:1;padding-bottom:1px;}
+.split-marker{display:inline-flex;align-items:center;color:#3b82f6;font-weight:800;font-size:.75rem;margin:0;line-height:1;}
+.chord-word.pos-above .split-marker{align-self:flex-end;padding-bottom:2px;}
+.chord-word.pos-below .split-marker{align-self:flex-start;padding-top:2px;}
 /* Popup accords */
 .chord-popup{position:fixed;z-index:600;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:.6rem;min-width:200px;max-width:280px;}
 .chord-popup-title{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.45rem;}
@@ -1018,6 +1020,24 @@ select.fi option{background:var(--surface2);color:var(--text);}
   </div>
 </div>
 
+<!-- ── CONFIRM DELETE MODAL ── -->
+<div class="overlay hidden" id="confirmDeleteOverlay">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-hdr">
+      <div class="modal-title">&#x1F5D1;&#xFE0F; Supprimer ce chant ?</div>
+    </div>
+    <div style="padding:.8rem 0;font-size:.82rem;color:var(--text-mid);line-height:1.5;">
+      Cette action est <strong>irréversible</strong>.<br>
+      Le chant et toutes ses pistes audio seront définitivement supprimés.
+    </div>
+    <div id="confirmDeleteSongName" style="font-size:.88rem;font-weight:800;color:var(--text);padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-xs);margin-bottom:.8rem;"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeConfirmDelete()">Annuler</button>
+      <button class="btn btn-danger" onclick="executeDeleteSong()">&#x1F5D1;&#xFE0F; Supprimer</button>
+    </div>
+  </div>
+</div>
+
 <!-- &#x2500;&#x2500; PIN MODAL &#x2500;&#x2500; -->
 <div class="overlay hidden" id="pinOverlay">
   <div class="modal modal-xs">
@@ -1455,16 +1475,20 @@ const PIN_SESSION_DURATION = 30 * 60 * 1000;
 let currentContributor = null; // { name, id, permissions } or null
 
 function canDo(perm) {
+  // Admin peut tout faire
+  if (isPinSessionValid('admin')) return true;
   if (!currentContributor) return false;
-  if (perm === 'admin') return isPinSessionValid('admin');
   const p = currentContributor.permissions || {};
   return p[perm] === true;
 }
 
 function isPinSessionValid(level) {
+  // L'admin a tous les droits contributeur
+  if(level==='contributor' && isPinSessionValid('admin')) return true;
   if(level==='contributor' && currentContributor) return true;
+  if(level==='any') return isPinSessionValid('admin') || !!currentContributor;
   const exp = sessionStorage.getItem('pin_session_' + level);
-  return exp && Date.now() < parseInt(exp);
+  return !!(exp && Date.now() < parseInt(exp));
 }
 function setPinSession(level, contributorData) {
   if(level==='contributor' && contributorData) {
@@ -2663,8 +2687,10 @@ function applyFieldPermissions(){
   show('catsFieldWrap', canCategories);
   // Lyrics
   show('lyricsBuilderSection', canLyrics);
-  // BPM
+  // BPM + Mesure (même droit)
   show('bpmFieldWrap', canBpm);
+  const timeSigWrap = document.getElementById('fTimeSig')?.closest('.form-row');
+  if(timeSigWrap) timeSigWrap.style.display = canBpm ? '' : 'none';
   // Gamme/Key
   show('keyFieldWrap', canKey);
   show('leadKeysBtnWrap', !!_leads.length);
@@ -2744,7 +2770,8 @@ async function submitSong(){
         // Detect which fields changed
         const fieldMap = {
           title:'Titre', author:'Auteur', genre:'Genre',
-          bpm:'BPM', key_signature:'Gamme', reference_link:'Lien'
+          bpm:'BPM', key_signature:'Gamme', reference_link:'Lien',
+          time_signature:'Mesure'
         };
         const affectedFields = [];
         for(const [k,label] of Object.entries(fieldMap)){
@@ -2788,12 +2815,14 @@ async function submitSong(){
         const oldSnap = JSON.stringify({
           title:oldSong.title, author:oldSong.author, genre:oldSong.genre,
           bpm:oldSong.bpm, key_signature:oldSong.key_signature,
+          time_signature:oldSong.time_signature,
           reference_link:oldSong.reference_link,
           lyrics:(oldSong.lyrics||[]).map(b=>({type:b.type,num:b.num,content:b.content||''}))
         });
         const newSnap = JSON.stringify({
           title:payload.title, author:payload.author, genre:payload.genre,
           bpm:payload.bpm, key_signature:payload.key_signature,
+          time_signature:payload.time_signature,
           reference_link:payload.reference_link, lyrics:payload.lyrics
         });
 
@@ -2846,20 +2875,38 @@ async function submitSong(){
   }catch(e){toast('Erreur: '+e.message,'danger');}
 }
 
-async function deleteSong(id){
-  requirePin('admin','&#x1F510; PIN Admin','Seul l\'administrateur peut supprimer un chant',async()=>{
-    if(!confirm('Supprimer ce chant et toutes ses pistes audio ?'))return;
-    try{
-      await apiFetch(`/api/songs/${id}`,{method:'DELETE'});
-      const deletedSong = songs.find(s=>s.id===id);
-      logActivity('&#x1F5D1;&#xFE0F; Supprim&#x00E9;', deletedSong?.title||'?');
-      songs=songs.filter(s=>s.id!==id); currentId=null;
-      renderList();
-      document.getElementById('songDetail').classList.add('hidden');
-      document.getElementById('emptyState').classList.remove('hidden');
-      toast('Chant supprim&#x00E9;');
-    }catch(e){toast('Erreur','danger');}
-  });
+var _deleteSongId = null;
+
+function deleteSong(id){
+  if(!isPinSessionValid('admin')){
+    requirePin('admin','&#x1F510; PIN Admin','Connexion admin requise pour supprimer',()=>deleteSong(id));
+    return;
+  }
+  _deleteSongId = id;
+  const song = songs.find(s=>s.id===id);
+  document.getElementById('confirmDeleteSongName').textContent = song?.title || 'Chant #'+id;
+  document.getElementById('confirmDeleteOverlay').classList.remove('hidden');
+}
+
+function closeConfirmDelete(){
+  document.getElementById('confirmDeleteOverlay').classList.add('hidden');
+  _deleteSongId = null;
+}
+
+async function executeDeleteSong(){
+  if(!_deleteSongId) return;
+  const id = _deleteSongId;
+  closeConfirmDelete();
+  try{
+    const deletedSong = songs.find(s=>s.id===id);
+    await apiFetch('/api/songs/'+id,{method:'DELETE'});
+    logActivity('&#x1F5D1;&#xFE0F; Supprimé', deletedSong?.title||'?');
+    songs=songs.filter(s=>s.id!==id); currentId=null;
+    renderList();
+    document.getElementById('songDetail').classList.add('hidden');
+    document.getElementById('emptyState').classList.remove('hidden');
+    toast('Chant supprimé');
+  }catch(e){toast('Erreur','danger');}
 }
 
 // &#x2500;&#x2500; LYRICS TABS &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
@@ -4307,7 +4354,7 @@ function renderLyricBlock(content, songId, blockIdx){
         const chordSpan = chord ? `<span class="chord-${_chordPos}">${chord}</span>` : `<span class="chord-${_chordPos}" style="opacity:0">.</span>`;
         return `<span class="chord-word-part" onclick="openChordPopup(event,${songId},${blockIdx},${wIdx},${pIdx})">${chordSpan}<span class="chord-word-text">${escHtml(part)}</span></span>`;
       }).join('<span class="split-marker">-</span>');
-      return `<span class="chord-word">${partsHtml}</span>`;
+      return `<span class="chord-word pos-${_chordPos}">${partsHtml}</span>`;
     }).join(' ');
     return `<div class="chord-line">${wordHtml}</div>`;
   }).join('');
@@ -4697,16 +4744,14 @@ function closeMvSetlistDetail(){
 }
 
 async function openCreateMvSetlist(){
-  if(!isPinSessionValid('admin') && !canDo('can_edit_lyrics')){
-    requirePin('admin','&#x1F510; PIN Admin','Connexion requise pour créer une setlist',()=>openCreateMvSetlist());
+  if(!isPinSessionValid('admin')){
+    requirePin('admin','&#x1F510; PIN Admin','Connexion admin requise pour créer une setlist',()=>openCreateMvSetlist());
     return;
   }
   const name = prompt('Nom de la setlist :');
   if(!name) return;
-  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
-  if(!pin) return;
   try{
-    const sl = await apiFetch('/api/mv-setlists',{method:'POST',body:JSON.stringify({name:name.trim(),pin_admin:pin})});
+    const sl = await apiFetch('/api/mv-setlists',{method:'POST',body:JSON.stringify({name:name.trim()})});
     _mvSetlists.unshift(sl);
     renderMvSetlistCards();
     toast('Setlist "'+sl.name+'" créée !');
