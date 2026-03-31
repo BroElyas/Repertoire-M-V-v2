@@ -362,6 +362,11 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 /* ── MODE ACCORDS ── */
 .chord-mode-active .lyric-blk-body{cursor:default;user-select:none;-webkit-user-select:none;}
 .chord-line{display:flex;flex-wrap:wrap;gap:0;align-items:flex-end;line-height:1;}
+.chord-space{display:inline-flex;flex-direction:column;align-items:center;position:relative;cursor:default;min-width:14px;}
+.chord-space.editable{cursor:pointer;}
+.chord-space.editable:hover .chord-space-hit{background:rgba(59,130,246,0.15);border-radius:3px;}
+.chord-space-hit{display:block;width:14px;height:1.2em;}
+.chord-space.has-chord .chord-space-hit{min-width:8px;}
 .chord-word{display:inline-flex;flex-direction:row;align-items:flex-end;margin:0 2px 6px 2px;cursor:pointer;position:relative;}
 .chord-word:hover .chord-word-text{background:rgba(139,26,46,0.12);border-radius:3px;}
 .chord-word-text{font-size:.82rem;color:var(--text);padding:1px 2px;white-space:pre;}
@@ -389,10 +394,12 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 /* Split word UI */
 .split-word-wrap{padding:.5rem 0;overflow-x:auto;width:100%;display:flex;justify-content:center;}
 .split-word-display{display:inline-flex;flex-direction:row;align-items:center;flex-wrap:nowrap;font-size:1.1rem;font-weight:800;color:var(--text);letter-spacing:.05em;position:relative;user-select:none;-webkit-user-select:none;white-space:nowrap;}
-.split-char{display:inline-flex;align-items:center;padding:2px 1px;cursor:pointer;position:relative;}
-.split-char:hover::after{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:#3b82f6;border-radius:1px;}
-.split-line{display:inline-block;width:2px;height:1.2em;background:#3b82f6;margin:0 1px;vertical-align:middle;border-radius:1px;cursor:pointer;}
-.split-line:hover{background:#ef4444;}
+.split-char{display:inline-flex;align-items:center;padding:2px 3px;cursor:pointer;position:relative;}
+.split-char:hover::after{content:"";position:absolute;left:50%;top:10%;bottom:10%;width:2px;transform:translateX(-50%);background:rgba(59,130,246,0.3);border-radius:1px;}
+.split-line{display:inline-flex;align-items:center;justify-content:center;width:10px;height:1.3em;cursor:pointer;position:relative;}
+.split-line::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;transform:translateX(-50%);background:#3b82f6;border-radius:1px;transition:background .15s;}
+.split-line:hover::after{background:#ef4444;}
+.split-line:hover::before{content:"×";position:absolute;font-size:.55rem;color:#ef4444;top:-2px;left:50%;transform:translateX(-50%);line-height:1;}
 /* Toolbar accords */
 .chord-toolbar{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:.6rem;border:1.5px solid var(--border);flex-wrap:wrap;}
 .chord-transpose-group{display:flex;align-items:center;gap:.25rem;margin-left:.3rem;}
@@ -4337,27 +4344,80 @@ async function toggleChordMode(songId){
 }
 
 // ── Rendu des paroles avec accords ──────────────────────────────────────────
+
+// ── Accords sur les espaces ──────────────────────────────────────────────────
+// Encodage : word_index négatif = espace
+// -(lineIdx * 1000 + spaceIdx + 1)
+// spaceIdx = 0 avant mot 0, 1 entre mot 0 et 1, ..., n après dernier mot
+function _encodeSpaceIdx(lineIdx, spaceIdx){
+  return -(lineIdx * 1000 + spaceIdx + 1);
+}
+function _isSpaceKey(wordIdx){
+  return wordIdx < 0;
+}
+function _spaceChordKey(blockIdx, lineIdx, spaceIdx){
+  return blockIdx + '_' + _encodeSpaceIdx(lineIdx, spaceIdx) + '_0';
+}
+
 function renderLyricBlock(content, songId, blockIdx){
-  if(!_chordMode) return escHtml(content);
+  const canEdit = isPinSessionValid('admin') || canDo('can_edit_lyrics');
+  if(!_chordMode){
+    // Lecture simple sans mode accord
+    return escHtml(content);
+  }
   const lines = content.split('\n');
-  let globalWIdx = 0; // index global du mot dans le bloc (pas par ligne)
-  return lines.map(line=>{
+  let globalWIdx = 0;
+  return lines.map((line, lineIdx)=>{
     const words = line.split(' ');
-    const wordHtml = words.map((word)=>{
+    let lineHtml = '';
+
+    // Espace AVANT le premier mot
+    const spaceKey0 = _spaceChordKey(blockIdx, lineIdx, 0);
+    const spaceChord0 = _chordsData[spaceKey0]||'';
+    lineHtml += _renderSpaceSlot(songId, blockIdx, lineIdx, 0, spaceChord0, canEdit);
+
+    words.forEach((word, wi)=>{
       const wIdx = globalWIdx++;
-      if(!word) return '<span class="chord-word-text"> </span>';
-      const splitKey = blockIdx+'_'+wIdx;
-      const parts = _splitsData[splitKey] || [word];
-      const partsHtml = parts.map((part, pIdx)=>{
-        const chordKey = blockIdx+'_'+wIdx+'_'+pIdx;
-        const chord = _chordsData[chordKey]||'';
-        const chordSpan = chord ? `<span class="chord-${_chordPos}">${chord}</span>` : `<span class="chord-${_chordPos}" style="opacity:0">.</span>`;
-        return `<span class="chord-word-part" onclick="openChordPopup(event,${songId},${blockIdx},${wIdx},${pIdx})">${chordSpan}<span class="chord-word-text">${escHtml(part)}</span></span>`;
-      }).join('<span class="split-marker">-</span>');
-      return `<span class="chord-word pos-${_chordPos}">${partsHtml}</span>`;
-    }).join(' ');
-    return `<div class="chord-line">${wordHtml}</div>`;
+      if(!word){
+        lineHtml += '<span style="display:inline-block;width:6px;"></span>';
+      } else {
+        const splitKey = blockIdx+'_'+wIdx;
+        const parts = _splitsData[splitKey] || [word];
+        const partsHtml = parts.map((part, pIdx)=>{
+          const chordKey = blockIdx+'_'+wIdx+'_'+pIdx;
+          const chord = _chordsData[chordKey]||'';
+          const chordSpan = chord
+            ? `<span class="chord-${_chordPos}">${chord}</span>`
+            : `<span class="chord-${_chordPos}" style="opacity:0">.</span>`;
+          const clickable = canEdit ? `onclick="openChordPopup(event,${songId},${blockIdx},${wIdx},${pIdx})"` : '';
+          return `<span class="chord-word-part" ${clickable}>${chordSpan}<span class="chord-word-text">${escHtml(part)}</span></span>`;
+        }).join('<span class="split-marker">-</span>');
+        lineHtml += `<span class="chord-word pos-${_chordPos}">${partsHtml}</span>`;
+      }
+      // Espace APRÈS ce mot (= avant le mot suivant)
+      const spaceIdx = wi + 1;
+      const spKey = _spaceChordKey(blockIdx, lineIdx, spaceIdx);
+      const spChord = _chordsData[spKey]||'';
+      lineHtml += _renderSpaceSlot(songId, blockIdx, lineIdx, spaceIdx, spChord, canEdit);
+    });
+
+    return `<div class="chord-line">${lineHtml}</div>`;
   }).join('');
+}
+
+function _renderSpaceSlot(songId, blockIdx, lineIdx, spaceIdx, chord, canEdit){
+  const hasChord = !!chord;
+  const editableClass = canEdit ? ' editable' : '';
+  const hasChordClass = hasChord ? ' has-chord' : '';
+  const chordSpan = hasChord
+    ? `<span class="chord-${_chordPos}" style="font-size:.7rem;">${chord}</span>`
+    : (canEdit ? `<span class="chord-${_chordPos}" style="opacity:0">.</span>` : '');
+  const clickHandler = canEdit
+    ? `onclick="openSpaceChordPopup(event,${songId},${blockIdx},${lineIdx},${spaceIdx})"`
+    : '';
+  // En lecture, si pas d'accord : juste un espace normal
+  if(!hasChord && !canEdit) return ' ';
+  return `<span class="chord-space${editableClass}${hasChordClass}" ${clickHandler}>${chordSpan}<span class="chord-space-hit"></span></span>`;
 }
 
 function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -4491,6 +4551,100 @@ function openChordPopup(e, songId, blockIdx, wordIdx, partIdx){
   popup.style.left = left+'px';
 
   setTimeout(()=>document.addEventListener('click', closeChordPopupOutside), 50);
+}
+
+
+function openSpaceChordPopup(e, songId, blockIdx, lineIdx, spaceIdx){
+  e.stopPropagation();
+  e.preventDefault();
+  closeChordPopup();
+  if(!_chordMode || _chordSongId !== songId) return;
+  if(!isPinSessionValid('admin') && !canDo('can_edit_lyrics')) return;
+
+  const spKey = _spaceChordKey(blockIdx, lineIdx, spaceIdx);
+  const currentChord = _chordsData[spKey]||'';
+  const {basic, advanced} = buildChordList(_chordFmt);
+
+  const popup = document.createElement('div');
+  popup.className = 'chord-popup';
+  popup.id = 'chordPopup';
+
+  const title = document.createElement('div');
+  title.className = 'chord-popup-title';
+  title.textContent = 'Espace';
+  popup.appendChild(title);
+
+  // Bouton effacer si accord existant
+  if(currentChord){
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'chord-popup-btn';
+    clearBtn.style.cssText = 'color:var(--danger);border-color:var(--danger);margin-bottom:.4rem;';
+    clearBtn.innerHTML = '&#x2715; Effacer l\'accord';
+    clearBtn.onclick = (ev)=>{
+      ev.stopPropagation();
+      delete _chordsData[spKey];
+      rerenderChords(songId);
+      closeChordPopup();
+    };
+    popup.appendChild(clearBtn);
+  }
+
+  // Grille accords basiques
+  const basicTitle = document.createElement('div');
+  basicTitle.className = 'chord-section-title';
+  basicTitle.textContent = 'Accords basiques';
+  popup.appendChild(basicTitle);
+
+  const basicGrid = document.createElement('div');
+  basicGrid.className = 'chord-basic-grid';
+  basic.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className = 'chord-btn'+(c===currentChord?' selected':'');
+    btn.textContent = c;
+    btn.onclick = (ev)=>{
+      ev.stopPropagation();
+      _chordsData[spKey] = c;
+      rerenderChords(songId);
+      closeChordPopup();
+    };
+    basicGrid.appendChild(btn);
+  });
+  popup.appendChild(basicGrid);
+
+  // Grille accords avancés
+  const advTitle = document.createElement('div');
+  advTitle.className = 'chord-section-title';
+  advTitle.textContent = 'Accords avancés';
+  popup.appendChild(advTitle);
+
+  const advGrid = document.createElement('div');
+  advGrid.className = 'chord-basic-grid';
+  advanced.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className = 'chord-btn'+(c===currentChord?' selected':'');
+    btn.textContent = c;
+    btn.onclick = (ev)=>{
+      ev.stopPropagation();
+      _chordsData[spKey] = c;
+      rerenderChords(songId);
+      closeChordPopup();
+    };
+    advGrid.appendChild(btn);
+  });
+  popup.appendChild(advGrid);
+
+  // Positionner le popup
+  document.body.appendChild(popup);
+  _chordPopup = popup;
+  const rect = e.target.getBoundingClientRect();
+  let top = rect.bottom + window.scrollY + 4;
+  let left = rect.left + window.scrollX;
+  const pw = popup.offsetWidth || 220;
+  if(left + pw > window.innerWidth - 10) left = window.innerWidth - pw - 10;
+  if(top + 300 > window.innerHeight + window.scrollY) top = rect.top + window.scrollY - 310;
+  popup.style.top = top + 'px';
+  popup.style.left = left + 'px';
+  setTimeout(()=>document.addEventListener('click', closeChordPopupOutside, {once:true}), 50);
 }
 
 function closeChordPopupOutside(e){
