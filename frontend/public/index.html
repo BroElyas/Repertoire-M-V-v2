@@ -171,6 +171,8 @@ body.light .mob-search-wrap input:focus { background:#fff; }
 body.light #mobPanelSet { background:#f5f0eb; }
 /* Bridge block */
 body.light .lyric-blk-hdr.bridge { background:linear-gradient(90deg,#fdf0e8,#fdf5ef); color:#a0522d; border-bottom-color:#e8c9a8; }
+body.light .lyric-blk-hdr.hook { background:linear-gradient(90deg,#edf5fd,#f0f8ff); color:#1a5276; border-bottom-color:#aed6f1; }
+body.light .lyric-blk-hdr.prechorus { background:linear-gradient(90deg,#f5edf9,#fbf0ff); color:#6c3483; border-bottom-color:#d2b4de; }
 
 /* Setlist sidebar (desktop) */
 body.light #panelSetlist { background:#f8f4f0; }
@@ -353,6 +355,8 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .lyric-blk-hdr.chorus{background:linear-gradient(90deg,#3a1520,#2a1018);color:#c4395a;border-bottom:1.5px solid #3a1520;}
 .lyric-blk-hdr.verse{background:var(--surface2);color:var(--text-mid);border-bottom:1.5px solid var(--border);}
 .lyric-blk-hdr.bridge{background:linear-gradient(90deg,#2a1a10,#1e1510);color:#c47a4a;border-bottom:1.5px solid #3a2518;}
+.lyric-blk-hdr.hook{background:linear-gradient(90deg,#101a2a,#101e2a);color:#4a9ad4;border-bottom:1.5px solid #1a3550;}
+.lyric-blk-hdr.prechorus{background:linear-gradient(90deg,#1e1030,#1a0a28);color:#b07acc;border-bottom:1.5px solid #3a1a50;}
 .lyric-blk-body{padding:.8rem .9rem;font-size:.82rem;color:var(--text);line-height:1.85;white-space:pre-wrap;background:var(--surface2);-webkit-user-select:text;user-select:text;}
 .lyric-blk-body.empty{color:var(--muted);font-style:italic;}
 /* ── MODE ACCORDS ── */
@@ -366,7 +370,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .chord-below{font-size:.65rem;font-weight:800;color:#c4395a;min-height:1rem;text-align:center;white-space:nowrap;padding:0 1px;order:1;}
 .chord-word-text{order:0;}
 .chord-below ~ .chord-word-text{order:-1;}
-.split-marker{display:inline-flex;align-self:flex-end;align-items:center;color:#3b82f6;font-weight:800;font-size:.75rem;margin:0;padding-bottom:2px;line-height:1;}
+.split-marker{display:inline-flex;align-self:flex-end;align-items:flex-end;color:#3b82f6;font-weight:800;font-size:.75rem;margin:0;line-height:1;padding-bottom:1px;}
 /* Popup accords */
 .chord-popup{position:fixed;z-index:600;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:.6rem;min-width:200px;max-width:280px;}
 .chord-popup-title{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.45rem;}
@@ -1069,6 +1073,7 @@ select.fi option{background:var(--surface2);color:var(--text);}
     </div>
     <div class="form-2col">
       <div class="form-row" id="bpmFieldWrap"><label>BPM</label><input class="fi" id="fBpm" type="number" min="40" max="300" placeholder="Ex: 120"></div>
+      <div class="form-row"><label>Mesure</label><select class="fi" id="fTimeSig"><option value="">Non définie</option><option value="4/4">4/4</option><option value="3/4">3/4</option><option value="6/8">6/8</option><option value="2/4">2/4</option><option value="12/8">12/8</option></select></div>
       <div class="form-row" id="leadKeysBtnWrap">
         <label>Gammes leads</label>
         <button type="button" class="fi" onclick="openLeadKeysModal()" style="text-align:left;cursor:pointer;display:flex;align-items:center;gap:.5rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-xs);padding:.45rem .7rem;font-family:'Nunito',sans-serif;font-size:.8rem;font-weight:700;color:var(--text-mid);">
@@ -1104,6 +1109,8 @@ select.fi option{background:var(--surface2);color:var(--text);}
         <div class="add-blk-row">
           <button class="add-blk-btn" onclick="addBlk('chorus')">+ Refrain</button>
           <button class="add-blk-btn" onclick="addBlk('verse')">+ Couplet</button>
+          <button class="add-blk-btn" onclick="addBlk('prechorus')">+ Pré-refrain</button>
+          <button class="add-blk-btn" onclick="addBlk('hook')">+ Hook</button>
           <button class="add-blk-btn" onclick="addBlk('bridge')">+ Bridge</button>
           <button class="add-blk-btn" onclick="addBlk('intro')">+ Intro</button>
           <button class="add-blk-btn" onclick="addBlk('outro')">+ Outro</button>
@@ -1433,7 +1440,7 @@ Vous pourrez ensuite d&#x00E9;finir si chaque bloc est un Refrain, Couplet, Brid
 <script>
 const API = '';
 const PALETTE = ['#2d5be3','#7b5ea7','#3db87a','#e05577','#e08c35','#3db8c4','#8b5cf6','#d4742c','#1a7a6e','#c04040'];
-const BLOCK_TYPES = {chorus:{label:'Refrain',cls:'chorus'},verse:{label:'Couplet',cls:'verse'},bridge:{label:'Bridge',cls:'bridge'},intro:{label:'Intro',cls:'verse'},outro:{label:'Outro',cls:'verse'}};
+const BLOCK_TYPES = {chorus:{label:'Refrain',cls:'chorus'},verse:{label:'Couplet',cls:'verse'},bridge:{label:'Bridge',cls:'bridge'},intro:{label:'Intro',cls:'verse'},outro:{label:'Outro',cls:'verse'},hook:{label:'Hook',cls:'hook'},prechorus:{label:'Pré-refrain',cls:'prechorus'}};
 
 const VOICE_STEMS = [{id:'mezzo',label:'Voix principale / Mezzo'},{id:'soprano',label:'Soprano'},{id:'alto',label:'Alto'},{id:'tenor',label:'T&#x00E9;nor'},{id:'other_voice',label:'Autre voix&#x2026;',custom:true}];
 const INSTR_STEMS = [{id:'piano',label:'Piano / Clavier'},{id:'drums',label:'Batterie / Percussions'},{id:'bass',label:'Basse'},{id:'guitar',label:'Guitare'},{id:'other_instr',label:'Nouvel instrument&#x2026;',custom:true}];
@@ -2019,6 +2026,7 @@ function renderList(){
       <div class="song-card-meta">
         <span>${s.author||'&#x2014;'}</span>
         ${s.key_signature?`<span class="key-badge">${s.key_signature.split(' ')[0]}</span>`:''}
+        ${s.time_signature?`<span class="key-badge" style="background:var(--surface2);color:var(--text-mid);">${s.time_signature}</span>`:''}
         ${s.bpm?`<span class="key-badge" style="background:linear-gradient(135deg,#fff0e8,#ffe0cc);color:#c06020;border-color:#f0c090">${s.bpm} BPM</span>`:''}
         ${sCats.map(c=>`<span class="cat-badge" style="${catStyle(c)}">${c.name}</span>`).join('')}
         ${an?`<span class="audio-badge">&#x266A; ${an}</span>`:''}
@@ -2167,6 +2175,7 @@ function renderMobList(prefiltered){
       <div class="mob-song-card-author">${s.author||'&#x2014;'}</div>
       <div class="mob-song-card-tags">
         ${s.key_signature?`<span class="key-badge">${s.key_signature.split(' ')[0]}</span>`:''}
+        ${s.time_signature?`<span class="key-badge" style="background:var(--surface2);color:var(--text-mid);">${s.time_signature}</span>`:''}
         ${s.bpm?`<span class="key-badge" style="background:#2a1800;color:#c06020;border-color:#4a2800">${s.bpm} BPM</span>`:''}
         ${cats.map(c=>`<span class="cat-badge" style="${catStyle(c)}">${c.name}</span>`).join('')}
         ${s.audio_count?`<span class="audio-badge">&#x266A;</span>`:''}
@@ -2325,7 +2334,7 @@ function renderDetail(song, targetEl){
         const activeLead = _activeLeadBySong[song.id];
         const leadKeys = song.lead_keys||[];
         const displayKey = activeLead ? (leadKeys.find(lk=>lk.lead_id===activeLead.id)||{}).key_signature||song.key_signature : song.key_signature;
-        const keyPill = displayKey ? `<div class="info-pill"><span class="lbl">Gamme</span>${displayKey}</div>` : '';
+        const keyPill = displayKey ? `<div class="info-pill"><span class="lbl">Gamme</span><span class="info-pill-gamme">${displayKey}</span></div>` : '';
         const hasLeadKeys = leadKeys.length > 0;
         const leadSelect = hasLeadKeys ? `<select
           class="lead-native-select"
@@ -2341,6 +2350,7 @@ function renderDetail(song, targetEl){
         </select>` : '';
         return `<div class="lead-key-row">${keyPill}${leadSelect}</div>`;
       })()}
+      ${song.time_signature?`<div class="info-pill"><span class="lbl">Mesure</span>${song.time_signature}</div>`:''}
       ${song.bpm?`<div class="info-pill"><span class="lbl">BPM</span>${song.bpm}</div>`:''}
       ${song.reference_link?`<div class="info-pill"><a href="${song.reference_link}" target="_blank" rel="noopener">&#x25B6; Version de r&#x00E9;f&#x00E9;rence</a></div>`:''}
     </div>
@@ -2369,6 +2379,7 @@ function renderDetail(song, targetEl){
           <button class="chord-fmt-btn ${_chordFmt==='en'?'active':''}" onclick="setChordFmt('en')">C/D</button>
         </div>
         <span class="chord-toolbar-label" style="margin-left:.5rem;">Transpose</span>
+        <span id="transposeKeyLabel_${song.id}" style="font-size:.65rem;font-weight:800;color:var(--text);background:var(--surface);border:1.5px solid var(--border);border-radius:50px;padding:.1rem .45rem;min-width:28px;text-align:center;">${(()=>{ const s=songs.find(x=>x.id===song.id); const rk=s&&s.key_signature?_extractRootNote(s.key_signature,'fr'):'?'; return _chordFmt==='fr'?rk:convertChord(rk,'fr','en'); })()}</span>
         <div class="chord-transpose-group">
           <button class="chord-transpose-btn" onclick="transposeChords(-1,${song.id})" title="-1 demi-ton">−</button>
           <button class="chord-transpose-btn" onclick="transposeChords(+1,${song.id})" title="+1 demi-ton">+</button>
@@ -2593,7 +2604,7 @@ function startEditSong(id){
 function openAddModal(){
   editingId=null;lyricBlocks=[];lyricCounter={};
   document.getElementById('songModalTitle').textContent='Nouveau chant';
-  ['fTitle','fAuthor','fLink','fGenre','fBpm'].forEach(id=>document.getElementById(id).value='');
+  ['fTitle','fAuthor','fLink','fGenre','fBpm','fTimeSig'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('fKey').value='';
   renderLeadKeysForm([]);
   document.getElementById('duplicateWarning').classList.add('hidden');
@@ -2612,6 +2623,7 @@ async function openEditModal(id){
   document.getElementById('fTitle').value=song.title||'';
   document.getElementById('fAuthor').value=song.author||'';
   document.getElementById('fKey').value=song.key_signature||'';
+  document.getElementById('fTimeSig').value=song.time_signature||'';
   renderLeadKeysForm(song.lead_keys||[]);
   document.getElementById('fGenre').value=song.genre||'';
   document.getElementById('fBpm').value=song.bpm||'';
@@ -2711,6 +2723,7 @@ async function submitSong(){
     title,
     author:document.getElementById('fAuthor').value.trim()||null,
     key_signature:newKey,
+    time_signature:document.getElementById('fTimeSig')?.value||null,
     lead_keys:leadKeysPayload,
     genre:document.getElementById('fGenre').value.trim()||null,
     bpm:newBpm,
@@ -2900,8 +2913,8 @@ function renumberBlocks(){
   });
 }
 function renderLyricsBuilder(){
-  const typeOptions=['chorus','verse','bridge','intro','outro'];
-  const typeLabels={chorus:'Refrain',verse:'Couplet',bridge:'Bridge',intro:'Intro',outro:'Outro'};
+  const typeOptions=['chorus','prechorus','verse','hook','bridge','intro','outro'];
+  const typeLabels={chorus:'Refrain',prechorus:'Pré-refrain',verse:'Couplet',hook:'Hook',bridge:'Bridge',intro:'Intro',outro:'Outro'};
   document.getElementById('lyricsBuilder').innerHTML=lyricBlocks.map((b,i)=>{
     const bt=BLOCK_TYPES[b.type]||{label:b.type};
     return `<div class="lb-edit" id="lbe_${b.id}" draggable="true"
@@ -4038,8 +4051,8 @@ function removeSetlistItem(section, idx){
 // ════════════════════════════════════════════════════════════════════════════
 
 // ── Données accords ──────────────────────────────────────────────────────────
-const NOTES_FR = ['Do','Do\u266f','R\u00e9','R\u00e9\u266f','Mi','Fa','Fa\u266f','Sol','Sol\u266f','La','La\u266f','Si'];
-const NOTES_EN = ['C','C\u266f','D','D\u266f','E','F','F\u266f','G','G\u266f','A','A\u266f','B'];
+const NOTES_FR = ['Do','Do#','Ré','Ré#','Mi','Fa','Fa#','Sol','Sol#','La','La#','Si'];
+const NOTES_EN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
 function buildChordList(fmt){
   const notes = fmt==='fr' ? NOTES_FR : NOTES_EN;
@@ -4153,20 +4166,34 @@ function transposeChords(semitones, songId){
   _updateTransposedKey(songId);
 }
 
+function _extractRootNote(keySignature, fmt){
+  // 'Do (C)' → 'Do', 'Do# (C#)' → 'Do#', 'Sol min (Gm)' → 'Sol'
+  if(!keySignature) return null;
+  const notes = fmt==='fr' ? NOTES_FR : NOTES_EN;
+  const sorted = notes.slice().sort((a,b)=>b.length-a.length);
+  for(const n of sorted){
+    if(keySignature.startsWith(n)) return n;
+  }
+  // Fallback : premier mot
+  return keySignature.split(' ')[0];
+}
+
 function transposeToKey(targetNote, songId){
   if(!targetNote) return;
   if(!Object.keys(_chordsData).length){ toast('Aucun accord à transposer','danger'); return; }
-  // Trouver la gamme actuelle du chant
   const song = songs.find(s=>s.id===songId);
   if(!song) return;
-  const currentKey = song.key_signature ? song.key_signature.split(' ')[0] : null;
-  if(!currentKey){ toast('Gamme du chant non définie','danger'); return; }
+  const rawKey = song._lastDisplayedKey || song.key_signature;
+  if(!rawKey){ toast('Gamme du chant non définie','danger'); return; }
+  // Extraire la note racine dans le format FR (KEY_OPTIONS est en FR)
+  const rootFr = _extractRootNote(rawKey, 'fr');
+  if(!rootFr){ toast('Gamme non reconnue','danger'); return; }
+  // Convertir en format courant
+  const rootCurrent = convertChord(rootFr, 'fr', _chordFmt);
   const notes = _chordFmt==='fr' ? NOTES_FR : NOTES_EN;
-  // Convertir la gamme courante en format actuel
-  const currentKeyConverted = convertChord(currentKey, 'fr', _chordFmt);
-  const fromIdx = notes.indexOf(currentKeyConverted);
+  const fromIdx = notes.indexOf(rootCurrent);
   const toIdx   = notes.indexOf(targetNote);
-  if(fromIdx < 0){ toast('Gamme non reconnue','danger'); return; }
+  if(fromIdx < 0){ toast('Gamme non reconnue : '+rootCurrent,'danger'); return; }
   const semitones = toIdx - fromIdx;
   const adjusted = ((semitones % 12) + 12) % 12;
   const delta = adjusted > 6 ? adjusted - 12 : adjusted;
@@ -4174,25 +4201,25 @@ function transposeToKey(targetNote, songId){
 }
 
 function _updateTransposedKey(songId){
-  // Mettre à jour la gamme affichée sur la fiche (DOM uniquement, pas en DB)
   const song = songs.find(s=>s.id===songId);
   if(!song || !song.key_signature) return;
-  const origKey = song.key_signature.split(' ')[0];
-  const origKeyEn = convertChord(origKey, 'fr', 'en');
-  const notes = NOTES_EN;
-  const origIdx = notes.indexOf(origKeyEn);
+  const origRootFr = _extractRootNote(song.key_signature, 'fr');
+  if(!origRootFr) return;
+  const origRootEn = convertChord(origRootFr, 'fr', 'en');
+  const notesEn = NOTES_EN;
+  const origIdx = notesEn.indexOf(origRootEn);
   if(origIdx < 0) return;
   const newIdx = ((origIdx + _transposeOffset) % 12 + 12) % 12;
-  const newKeyEn = notes[newIdx];
+  const newKeyEn = notesEn[newIdx];
   const newKeyFr = convertChord(newKeyEn, 'en', 'fr');
   const displayKey = _chordFmt==='fr' ? newKeyFr : newKeyEn;
-  // Mettre à jour les badges gamme dans le DOM
-  document.querySelectorAll('.key-badge').forEach(el=>{
-    if(el.textContent.trim() === origKey || el.textContent.trim() === (song._lastDisplayedKey||origKey)){
-      el.textContent = displayKey;
-      song._lastDisplayedKey = displayKey;
-    }
-  });
+  song._lastDisplayedKey = displayKey;
+  // Mettre à jour le badge gamme dans le DOM de la fiche
+  const infoGamme = document.querySelector('#detail_'+songId+' .info-pill-gamme');
+  if(infoGamme) infoGamme.textContent = displayKey;
+  // Mettre à jour l'indicateur gamme dans la toolbar
+  const keyIndicator = document.getElementById('transposeKeyLabel_'+songId);
+  if(keyIndicator) keyIndicator.textContent = displayKey;
 }
 
 
