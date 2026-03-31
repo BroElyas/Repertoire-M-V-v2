@@ -609,9 +609,7 @@ app.get('/api/mv-setlists', async (req, res) => {
 
 app.post('/api/mv-setlists', async (req, res) => {
   try {
-    const { name, pin_admin } = req.body;
-    const { rows: pinRows } = await pool.query('SELECT value FROM settings WHERE key=$1', ['pin_admin']);
-    if (pinRows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    const { name } = req.body;
     if (!name) return res.status(400).json({ error: 'Nom requis' });
     const { rows } = await pool.query('INSERT INTO mv_setlists(name) VALUES($1) RETURNING *', [name.trim()]);
     res.json(rows[0]);
