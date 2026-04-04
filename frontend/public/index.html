@@ -379,7 +379,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .chord-word.pos-above .split-marker{align-self:flex-end;padding-bottom:2px;}
 .chord-word.pos-below .split-marker{align-self:flex-start;padding-top:2px;}
 /* Popup accords */
-.chord-popup{position:fixed;z-index:600;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:.6rem;min-width:200px;max-width:280px;}
+.chord-popup{position:fixed;z-index:600;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5);padding:.6rem;min-width:200px;max-width:280px;max-height:75vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 .chord-popup-title{font-size:.6rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.45rem;}
 .chord-popup-actions{display:flex;gap:.4rem;margin-bottom:.6rem;}
 .chord-popup-btn{flex:1;padding:.35rem .5rem;border-radius:var(--r-xs);font-size:.68rem;font-weight:700;border:1.5px solid var(--border);background:var(--surface2);color:var(--text-mid);cursor:pointer;font-family:"Nunito",sans-serif;text-align:center;}
@@ -403,6 +403,16 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 /* Toolbar accords */
 .chord-toolbar{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:.6rem;border:1.5px solid var(--border);flex-wrap:wrap;}
 .chord-transpose-group{display:flex;align-items:center;gap:.25rem;margin-left:.3rem;}
+/* ── Setlist item swipe + drag ── */
+.sl-item-wrap{position:relative;overflow:hidden;border-radius:6px;margin-bottom:.25rem;touch-action:pan-y;}
+.sl-item-card{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem;background:var(--surface);border-radius:6px;border:1px solid var(--border);transition:transform .15s;will-change:transform;user-select:none;-webkit-user-select:none;}
+.sl-item-card.dragging-active{opacity:.5;border:1.5px dashed var(--muted);}
+.sl-item-card.drag-over-top{border-top:2px solid #3b82f6;}
+.sl-item-card.drag-over-bottom{border-bottom:2px solid #3b82f6;}
+.sl-item-delete-reveal{position:absolute;right:0;top:0;bottom:0;width:64px;display:flex;align-items:center;justify-content:center;background:#c0293a;border-radius:0 6px 6px 0;pointer-events:none;opacity:0;}
+.sl-item-delete-reveal span{color:#fff;font-size:.7rem;font-weight:800;}
+.sl-drag-handle{cursor:grab;color:var(--muted);font-size:.95rem;padding:0 .2rem;user-select:none;-webkit-user-select:none;touch-action:none;flex-shrink:0;}
+.sl-drag-handle:active{cursor:grabbing;}
 .chord-transpose-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-size:.75rem;font-weight:800;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;}
 .chord-transpose-btn:hover{background:var(--surface2);border-color:var(--muted);}
 .chord-transpose-select{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-size:.65rem;font-weight:700;padding:.18rem .35rem;cursor:pointer;font-family:'Nunito',sans-serif;max-width:70px;}
@@ -1380,6 +1390,9 @@ Vous pourrez ensuite d&#x00E9;finir si chaque bloc est un Refrain, Couplet, Brid
           </label>
           <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
             <input type="checkbox" id="permCreate"> Creer un chant
+          </label>
+          <label style="display:flex;align-items:center;gap:.3rem;font-size:.72rem;font-weight:700;cursor:pointer;">
+            <input type="checkbox" id="permChords"> Accords
           </label>
         </div>
       </div>
@@ -2418,7 +2431,7 @@ function renderDetail(song, targetEl){
             <option value="">&#x2192; Gamme</option>
           </select>
         </div>
-        ${(isPinSessionValid('admin')||canDo('can_edit_lyrics'))?`<button class="btn btn-sm btn-primary" onclick="saveChords(${song.id})" style="margin-left:auto;font-size:.62rem;">&#x1F4BE; Sauvegarder</button>`:``}
+        ${(isPinSessionValid('admin')||canDo('can_edit_chords'))?`<button class="btn btn-sm btn-primary" onclick="saveChords(${song.id})" style="margin-left:auto;font-size:.62rem;">&#x1F4BE; Sauvegarder</button>`:``}
       </div>
     </div>
     <div class="lyrics-wrap" id="lyricsWrap_${song.id}">
@@ -2577,7 +2590,7 @@ async function verifyPin(){
       setPinSession('contributor', {
         name: resp.contributor_name || 'Contributeur',
         id: resp.contributor_id || null,
-        permissions: resp.permissions || { can_edit_lyrics: true, can_edit_author: false, can_edit_genre: false, can_edit_categories: false, can_edit_link: false, can_edit_bpm: false, can_edit_key: false, can_create_song: false }
+        permissions: resp.permissions || { can_edit_lyrics: true, can_edit_author: false, can_edit_genre: false, can_edit_categories: false, can_edit_link: false, can_edit_bpm: false, can_edit_key: false, can_create_song: false, can_edit_chords: false }
       });
     } else {
       setPinSession(actualLevel);
@@ -3320,6 +3333,7 @@ async function saveContribEdit(id){
     can_edit_bpm:        document.getElementById('editPermBpm_'+id)?.checked,
     can_edit_key:        document.getElementById('editPermKey_'+id)?.checked,
     can_create_song:     document.getElementById('editPermCreate_'+id)?.checked,
+    can_edit_chords:     document.getElementById('editPermChords_'+id)?.checked,
   };
   if(pin) body.pin = pin;
   try{
@@ -3347,6 +3361,7 @@ async function renderAdminContributors(){
     if(c.can_edit_link)       perms.push('Lien');
     if(c.can_edit_bpm)        perms.push('BPM');
     if(c.can_edit_key)        perms.push('Gamme');
+    if(c.can_edit_chords)     perms.push('Accords');
     if(c.can_create_song)     perms.push('Cr&#x00E9;er');
     const permBadges = perms.length
       ? perms.map(p=>'<span style="background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:4px;padding:1px 5px;margin-right:3px;font-weight:700;display:inline-block;">'+p+'</span>').join('')
@@ -3385,6 +3400,7 @@ async function renderAdminContributors(){
           +_permCheckbox('editPermBpm_'+c.id,'BPM',c.can_edit_bpm)
           +_permCheckbox('editPermKey_'+c.id,'Gamme',c.can_edit_key)
           +_permCheckbox('editPermCreate_'+c.id,'Cr&#x00E9;er chant',c.can_create_song)
+          +_permCheckbox('editPermChords_'+c.id,'Accords',c.can_edit_chords)
         +'</div>'
         +'<div style="display:flex;gap:.4rem;justify-content:flex-end;">'
           +'<button onclick="toggleContribEdit('+c.id+')" class="btn btn-ghost btn-sm" style="font-size:.65rem;">Annuler</button>'
@@ -3408,7 +3424,8 @@ async function addContributor(){
     can_edit_link:       document.getElementById('permLink')?.checked       || false,
     can_edit_bpm:        document.getElementById('permBpm')?.checked        || false,
     can_edit_key:        document.getElementById('permKey')?.checked        || false,
-    can_create_song:     document.getElementById('permCreate')?.checked     || false
+    can_create_song:     document.getElementById('permCreate')?.checked     || false,
+    can_edit_chords:     document.getElementById('permChords')?.checked      || false
   };
   try{
     const c = await apiFetch('/api/contributors',{method:'POST',body:JSON.stringify({name,pin,color:newContribColor,...perms})});
@@ -3423,6 +3440,7 @@ async function addContributor(){
     document.getElementById('permBpm').checked = false;
     document.getElementById('permKey').checked = false;
     document.getElementById('permCreate').checked = false;
+    document.getElementById('permChords').checked = false;
     renderAdminContributors();
     toast(c.name+' ajoute');
   }catch(e){ toast(e.message||'Erreur','danger'); }
@@ -3870,6 +3888,7 @@ async function loadSetlist(mvId){
 }
 
 function _renderSetlistHTML(clickFn){
+  const isAdmin = isPinSessionValid('admin');
   const realData = setlistData.filter(i=>i.section!=='_order');
   if(!realData.length) return '<div style="padding:1rem;text-align:center;color:var(--muted);font-size:.78rem;">Aucune setlist definie.</div>';
   let html = '';
@@ -3877,47 +3896,232 @@ function _renderSetlistHTML(clickFn){
     const items = realData.filter(i => i.section === sec);
     if(!items.length) return;
     const label = getSectionLabel(sec);
+    const secItems = realData.filter(i=>i.section===sec); // pour index global
     html += `<div style="margin-bottom:.8rem;">
       <div style="font-size:.6rem;font-weight:900;color:#8b1a2e;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.3rem;padding:.2rem .4rem;border-left:3px solid #8b1a2e;">${label}</div>`;
-    items.forEach((item,i) => {
+    items.forEach((item, i) => {
       const songData = item.song_id ? songs.find(s=>s.id===item.song_id) : null;
       const bpmTag = songData?.bpm ? `<span style="font-size:.55rem;color:var(--muted);font-weight:600;">${songData.bpm} BPM</span>` : '';
-      // Gamme : utiliser celle du lead si d&#x00E9;fini pour cet item, sinon gamme d&#x00E9;faut
       let displayKey = songData?.key_signature||'';
       if(item.lead_id && songData?.lead_keys){
         const lk = songData.lead_keys.find(k=>k.lead_id===item.lead_id);
         if(lk) displayKey = lk.key_signature;
       }
+      const timeSigTag = songData?.time_signature ? `<span style="font-size:.55rem;color:var(--muted);font-weight:600;">${songData.time_signature}</span>` : '';
       const leadName = item.lead_id ? _leads.find(l=>l.id===item.lead_id)?.name : null;
       const keyTag = displayKey ? `<span style="font-size:.55rem;background:var(--perm-bg,#2a1018);color:var(--perm-fg,#c4395a);border-radius:3px;padding:1px 4px;font-weight:700;">${displayKey}${leadName?` &#x00B7; ${leadName}`:''}</span>` : '';
-      const clickable = item.song_id
-        ? `onclick="${clickFn}(${item.song_id})" style="padding:.4rem .6rem;background:var(--surface);border-radius:6px;margin-bottom:.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'"`
-        : `style="padding:.4rem .6rem;background:var(--surface);border-radius:6px;margin-bottom:.25rem;display:flex;align-items:center;gap:.4rem;"`;
-      html += `<div ${clickable}>
-        <span style="color:var(--muted);min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:.78rem;font-weight:800;color:var(--text);">${item.song_title||'&#x2014;'}</div>
-          ${(bpmTag||keyTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;">${keyTag}${bpmTag}</div>` : ''}
-        </div>
-        ${item.song_id ? '<span style="color:var(--muted);font-size:.62rem;">&#8250;</span>' : ''}
-      </div>`;
+
+      // adminControls remplacés par swipe+drag
+
+      if(isAdmin){
+        // Vue admin : wrap avec swipe-to-delete + handle drag
+        html += `
+        <div class="sl-item-wrap" id="slw_${sec}_${i}" data-sec="${sec}" data-idx="${i}">
+          <div class="sl-item-delete-reveal" id="slr_${sec}_${i}"><span>&#x1F5D1; Suppr.</span></div>
+          <div class="sl-item-card" id="slc_${sec}_${i}"
+            ondragover="slDragOver(event,'${sec}',${i})"
+            ondragleave="slDragLeave('${sec}',${i})"
+            ondrop="slDrop(event,'${sec}',${i})">
+            <span class="sl-drag-handle" id="slh_${sec}_${i}" title="Glisser pour réordonner">&#x283F;</span>
+            <span style="color:var(--muted);min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
+            <div style="flex:1;min-width:0;cursor:pointer;" onclick="${clickFn}(${item.song_id||0})">
+              <div style="font-size:.78rem;font-weight:800;color:var(--text);">${item.song_title||'&#x2014;'}</div>
+              ${(bpmTag||keyTag||timeSigTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;flex-wrap:wrap;">${keyTag}${timeSigTag}${bpmTag}</div>` : ''}
+            </div>
+          </div>
+        </div>`;
+      } else {
+        // Vue lecture
+        const clickableStyle = item.song_id
+          ? `onclick="${clickFn}(${item.song_id})" style="padding:.4rem .6rem;background:var(--surface);border-radius:6px;margin-bottom:.25rem;cursor:pointer;display:flex;align-items:center;gap:.4rem;" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='var(--surface)'"`
+          : `style="padding:.4rem .6rem;background:var(--surface);border-radius:6px;margin-bottom:.25rem;display:flex;align-items:center;gap:.4rem;"`;
+        html += `<div ${clickableStyle}>
+          <span style="color:var(--muted);min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.78rem;font-weight:800;color:var(--text);">${item.song_title||'&#x2014;'}</div>
+            ${(bpmTag||keyTag||timeSigTag) ? `<div style="display:flex;gap:.3rem;margin-top:.1rem;align-items:center;flex-wrap:wrap;">${keyTag}${timeSigTag}${bpmTag}</div>` : ''}
+          </div>
+          ${item.song_id ? '<span style="color:var(--muted);font-size:.62rem;">&#8250;</span>' : ''}
+        </div>`;
+      }
     });
     html += '</div>';
   });
   return html;
 }
 
+// ── Drag & drop setlist view (Pointer Events — stable mobile) ──
+let _slDragSec=null, _slDragIdx=null;
+let _slDragStartY=0, _slDragEl=null;
+
+function _initSetlistDragHandles(){
+  // Swipe gauche pour révéler supprimer + drag via handle
+  document.querySelectorAll('[id^="slh_"]').forEach(handle=>{
+    handle.removeEventListener('pointerdown', _slPointerDown);
+    handle.addEventListener('pointerdown', _slPointerDown, {passive:false});
+  });
+  document.querySelectorAll('[id^="slc_"]').forEach(card=>{
+    card.removeEventListener('touchstart', _slTouchStart);
+    card.addEventListener('touchstart', _slTouchStart, {passive:true});
+  });
+}
+
+let _slSwipeCard=null, _slSwipeX0=0, _slSwipeDx=0, _slSwipeReveal=null;
+const SL_SWIPE_THRESHOLD = 55;
+
+function _slTouchStart(e){
+  const card = e.currentTarget;
+  const id = card.id; // slc_sec_idx
+  const parts = id.split('_'); const sec=parts[1]; const idx=parseInt(parts[2]);
+  const reveal = document.getElementById('slr_'+sec+'_'+idx);
+  _slSwipeCard=card; _slSwipeReveal=reveal; _slSwipeDx=0;
+  _slSwipeX0 = e.touches[0].clientX;
+  card.addEventListener('touchmove', _slTouchMove, {passive:false});
+  card.addEventListener('touchend', _slTouchEnd, {passive:true});
+}
+function _slTouchMove(e){
+  const dx = _slSwipeX0 - e.touches[0].clientX;
+  if(dx < 0){ _slTouchEnd(); return; }
+  _slSwipeDx = dx;
+  const t = Math.min(dx, SL_SWIPE_THRESHOLD);
+  if(_slSwipeCard) _slSwipeCard.style.transform=`translateX(-${t}px)`;
+  if(_slSwipeReveal){ _slSwipeReveal.style.opacity=String(t/SL_SWIPE_THRESHOLD); _slSwipeReveal.style.pointerEvents='none'; }
+  if(dx > 5) e.preventDefault();
+}
+function _slTouchEnd(){
+  if(!_slSwipeCard) return;
+  if(_slSwipeDx >= SL_SWIPE_THRESHOLD){
+    // Déclencher suppression
+    const id = _slSwipeCard.id;
+    const parts = id.split('_'); const sec=parts[1]; const idx=parseInt(parts[2]);
+    _slSwipeCard.style.transform='';
+    if(_slSwipeReveal){ _slSwipeReveal.style.opacity='0'; }
+    removeSetlistItemView(sec, idx);
+  } else {
+    _slSwipeCard.style.transform='';
+    if(_slSwipeReveal) _slSwipeReveal.style.opacity='0';
+  }
+  _slSwipeCard.removeEventListener('touchmove', _slTouchMove);
+  _slSwipeCard.removeEventListener('touchend', _slTouchEnd);
+  _slSwipeCard=null; _slSwipeReveal=null; _slSwipeDx=0;
+}
+
+function _slPointerDown(e){
+  e.preventDefault();
+  const handle = e.currentTarget;
+  const id = handle.id; // slh_sec_idx
+  const parts = id.split('_'); const sec=parts[1]; const idx=parseInt(parts[2]);
+  _slDragSec=sec; _slDragIdx=idx;
+  _slDragStartY=e.clientY;
+  const card = document.getElementById('slc_'+sec+'_'+idx);
+  if(card) card.classList.add('dragging-active');
+  handle.setPointerCapture(e.pointerId);
+  handle.addEventListener('pointermove', _slPointerMove);
+  handle.addEventListener('pointerup', _slPointerUp);
+  handle.addEventListener('pointercancel', _slPointerUp);
+}
+function _slPointerMove(e){
+  // Trouver l'élément sous le curseur
+  const cards = [...document.querySelectorAll('[id^="slc_'+_slDragSec+'_"]')];
+  cards.forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const targetCard = el?.closest('[id^="slc_"]');
+  if(targetCard && targetCard.id !== 'slc_'+_slDragSec+'_'+_slDragIdx){
+    const parts = targetCard.id.split('_'); const toIdx=parseInt(parts[2]);
+    const rect = targetCard.getBoundingClientRect();
+    const mid = rect.top + rect.height/2;
+    targetCard.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
+  }
+}
+function _slPointerUp(e){
+  const handle = e.currentTarget;
+  handle.removeEventListener('pointermove', _slPointerMove);
+  handle.removeEventListener('pointerup', _slPointerUp);
+  handle.removeEventListener('pointercancel', _slPointerUp);
+  // Trouver la cible de drop
+  const cards = [...document.querySelectorAll('[id^="slc_'+_slDragSec+'_"]')];
+  let toIdx = null;
+  cards.forEach(c=>{
+    if(c.classList.contains('drag-over-top') || c.classList.contains('drag-over-bottom')){
+      const parts = c.id.split('_'); toIdx=parseInt(parts[2]);
+      if(c.classList.contains('drag-over-bottom') && toIdx > _slDragIdx) toIdx++;
+      if(c.classList.contains('drag-over-top') && toIdx < _slDragIdx) {} // toIdx ok
+      c.classList.remove('drag-over-top','drag-over-bottom');
+    }
+  });
+  const dragCard = document.getElementById('slc_'+_slDragSec+'_'+_slDragIdx);
+  if(dragCard) dragCard.classList.remove('dragging-active');
+  if(toIdx !== null && toIdx !== _slDragIdx){
+    const sec = _slDragSec;
+    const fromIdx = _slDragIdx;
+    const items = setlistData.filter(i=>i.section===sec);
+    const others = setlistData.filter(i=>i.section!==sec);
+    const moved = items.splice(fromIdx,1)[0];
+    const insertAt = Math.max(0,Math.min(toIdx > fromIdx ? toIdx-1 : toIdx, items.length));
+    items.splice(insertAt,0,moved);
+    setlistData=[...others,...items];
+    renderSetlistView();
+    _saveSetlistViewSilent();
+  }
+  _slDragSec=null; _slDragIdx=null;
+}
+
+function slDragOver(e,sec,idx){ e.preventDefault(); }
+function slDragLeave(sec,idx){
+  const c=document.getElementById('slc_'+sec+'_'+idx);
+  if(c) c.classList.remove('drag-over-top','drag-over-bottom');
+}
+function slDrop(e,sec,toIdx){ e.preventDefault(); }
+
+function moveSetlistItemView(sec, idx, dir){
+  const items = setlistData.filter(i=>i.section===sec);
+  const others = setlistData.filter(i=>i.section!==sec);
+  const newIdx = idx + dir;
+  if(newIdx < 0 || newIdx >= items.length) return;
+  [items[idx], items[newIdx]] = [items[newIdx], items[idx]];
+  setlistData = [...others, ...items];
+  renderSetlistView();
+  _saveSetlistViewSilent();
+}
+
+function removeSetlistItemView(sec, idx){
+  const items = setlistData.filter(i=>i.section===sec);
+  const toRemove = items[idx];
+  if(!toRemove) return;
+  const globalIdx = setlistData.indexOf(toRemove);
+  if(globalIdx >= 0) setlistData.splice(globalIdx, 1);
+  renderSetlistView();
+  _saveSetlistViewSilent();
+}
+
+async function _saveSetlistViewSilent(){
+  if(!_currentMvSetlistId) return;
+  try{
+    await apiFetch('/api/setlist', {method:'POST', body:JSON.stringify({
+      mv_setlist_id: _currentMvSetlistId,
+      items: setlistData.filter(i=>i.section!=='_order').map((item,pos)=>({
+        song_id: item.song_id,
+        section: item.section,
+        special_label: item.special_label||null,
+        lead_id: item.lead_id||null,
+        position: pos
+      })),
+      section_order: JSON.stringify(_sectionOrder)
+    })});
+  }catch(e){ console.warn('save setlist silent', e); }
+}
+
 function renderSetlistView(){
   const el = document.getElementById('setlistView');
   if(!el) return;
-  // Ne render que si la vue détail est active
   const detailView = document.getElementById('mvSetlistDetailView');
   const panelSetlist = document.getElementById('panelSetlist');
-  // Si le panel setlist est visible et qu'on n'est PAS dans le détail → ne pas toucher
   if(panelSetlist && panelSetlist.style.display !== 'none'){
     if(!detailView || detailView.style.display === 'none') return;
   }
   el.innerHTML = _renderSetlistHTML('selectSongById');
+  // Init drag handles après rendu DOM
+  requestAnimationFrame(()=>_initSetlistDragHandles());
 }
 
 // &#x2550;&#x2550; ADMIN SETLIST MANAGEMENT &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
@@ -4360,7 +4564,7 @@ function _spaceChordKey(blockIdx, lineIdx, spaceIdx){
 }
 
 function renderLyricBlock(content, songId, blockIdx){
-  const canEdit = isPinSessionValid('admin') || canDo('can_edit_lyrics');
+  const canEdit = isPinSessionValid('admin') || canDo('can_edit_chords');
   if(!_chordMode){
     // Lecture simple sans mode accord
     return escHtml(content);
@@ -4559,7 +4763,7 @@ function openSpaceChordPopup(e, songId, blockIdx, lineIdx, spaceIdx){
   e.preventDefault();
   closeChordPopup();
   if(!_chordMode || _chordSongId !== songId) return;
-  if(!isPinSessionValid('admin') && !canDo('can_edit_lyrics')) return;
+  if(!isPinSessionValid('admin') && !canDo('can_edit_chords')) return;
 
   const spKey = _spaceChordKey(blockIdx, lineIdx, spaceIdx);
   const currentChord = _chordsData[spKey]||'';
@@ -4569,27 +4773,13 @@ function openSpaceChordPopup(e, songId, blockIdx, lineIdx, spaceIdx){
   popup.className = 'chord-popup';
   popup.id = 'chordPopup';
 
+  // Titre
   const title = document.createElement('div');
   title.className = 'chord-popup-title';
   title.textContent = 'Espace';
   popup.appendChild(title);
 
-  // Bouton effacer si accord existant
-  if(currentChord){
-    const clearBtn = document.createElement('button');
-    clearBtn.className = 'chord-popup-btn';
-    clearBtn.style.cssText = 'color:var(--danger);border-color:var(--danger);margin-bottom:.4rem;';
-    clearBtn.innerHTML = '&#x2715; Effacer l\'accord';
-    clearBtn.onclick = (ev)=>{
-      ev.stopPropagation();
-      delete _chordsData[spKey];
-      rerenderChords(songId);
-      closeChordPopup();
-    };
-    popup.appendChild(clearBtn);
-  }
-
-  // Grille accords basiques
+  // Accords basiques — grille
   const basicTitle = document.createElement('div');
   basicTitle.className = 'chord-section-title';
   basicTitle.textContent = 'Accords basiques';
@@ -4611,27 +4801,50 @@ function openSpaceChordPopup(e, songId, blockIdx, lineIdx, spaceIdx){
   });
   popup.appendChild(basicGrid);
 
-  // Grille accords avancés
+  // Accords avancés — select déroulant (identique à openChordPopup)
   const advTitle = document.createElement('div');
   advTitle.className = 'chord-section-title';
   advTitle.textContent = 'Accords avancés';
   popup.appendChild(advTitle);
 
-  const advGrid = document.createElement('div');
-  advGrid.className = 'chord-basic-grid';
+  const advSelect = document.createElement('select');
+  advSelect.className = 'chord-adv-select';
+  const defOpt = document.createElement('option');
+  defOpt.value = ''; defOpt.textContent = 'Sélectionner...';
+  advSelect.appendChild(defOpt);
   advanced.forEach(c=>{
-    const btn = document.createElement('button');
-    btn.className = 'chord-btn'+(c===currentChord?' selected':'');
-    btn.textContent = c;
-    btn.onclick = (ev)=>{
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    if(c === currentChord) opt.selected = true;
+    advSelect.appendChild(opt);
+  });
+  advSelect.onchange = (ev)=>{
+    ev.stopPropagation();
+    if(advSelect.value){
+      _chordsData[spKey] = advSelect.value;
+      rerenderChords(songId);
+      closeChordPopup();
+    }
+  };
+  popup.appendChild(advSelect);
+
+  // Supprimer accord existant
+  if(currentChord){
+    const sep = document.createElement('div');
+    sep.style.cssText = 'border-top:1px solid var(--border);margin:.4rem 0;';
+    popup.appendChild(sep);
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'chord-popup-btn';
+    clearBtn.style.cssText = 'color:var(--danger);border-color:var(--danger);width:100%;';
+    clearBtn.innerHTML = '&#x2715; Supprimer l\'accord';
+    clearBtn.onclick = (ev)=>{
       ev.stopPropagation();
-      _chordsData[spKey] = c;
+      delete _chordsData[spKey];
       rerenderChords(songId);
       closeChordPopup();
     };
-    advGrid.appendChild(btn);
-  });
-  popup.appendChild(advGrid);
+    popup.appendChild(clearBtn);
+  }
 
   // Positionner le popup
   document.body.appendChild(popup);
@@ -4873,9 +5086,8 @@ async function openMvSetlistDetail(id){
   document.getElementById('mvSetlistDetailDate').textContent =
     new Date(sl.created_at).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
-  // Afficher/masquer boutons selon permissions
-  const canEdit = isPinSessionValid('admin') || canDo('can_edit_lyrics');
-  document.getElementById('mvSetlistEditBtn').style.display = canEdit ? '' : 'none';
+  // Afficher/masquer boutons selon permissions (setlist = admin seulement)
+  document.getElementById('mvSetlistEditBtn').style.display = isPinSessionValid('admin') ? '' : 'none';
   document.getElementById('mvSetlistDeleteBtn').style.display = isPinSessionValid('admin') ? '' : 'none';
 
   // Charger les items
@@ -5026,7 +5238,7 @@ function initListSwipe(){
       const songId = parseInt(activeWrap.dataset.swipeSongId);
       if(activeCard){ activeCard.style.transform=''; }
       if(activeReveal){ activeReveal.style.opacity='0'; }
-      if(isPinSessionValid('admin')) openSwipeSetlist(songId);
+      openSwipeSetlist(songId);
     } else {
       if(activeCard){ activeCard.style.transform=''; }
       if(activeReveal){ activeReveal.style.opacity='0'; }
