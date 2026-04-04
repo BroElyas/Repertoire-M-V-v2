@@ -404,15 +404,15 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .chord-toolbar{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;background:var(--surface2);border-radius:var(--r-sm);margin-bottom:.6rem;border:1.5px solid var(--border);flex-wrap:wrap;}
 .chord-transpose-group{display:flex;align-items:center;gap:.25rem;margin-left:.3rem;}
 /* ── Setlist item swipe + drag ── */
-.sl-item-wrap{position:relative;overflow:hidden;border-radius:6px;margin-bottom:.25rem;touch-action:pan-y;}
-.sl-item-card{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem;background:var(--surface);border-radius:6px;border:1px solid var(--border);transition:transform .15s;will-change:transform;user-select:none;-webkit-user-select:none;}
-.sl-item-card.dragging-active{opacity:.5;border:1.5px dashed var(--muted);}
-.sl-item-card.drag-over-top{border-top:2px solid #3b82f6;}
-.sl-item-card.drag-over-bottom{border-bottom:2px solid #3b82f6;}
-.sl-item-delete-reveal{position:absolute;right:0;top:0;bottom:0;width:64px;display:flex;align-items:center;justify-content:center;background:#c0293a;border-radius:0 6px 6px 0;pointer-events:none;opacity:0;}
-.sl-item-delete-reveal span{color:#fff;font-size:.7rem;font-weight:800;}
-.sl-drag-handle{cursor:grab;color:var(--muted);font-size:.95rem;padding:0 .2rem;user-select:none;-webkit-user-select:none;touch-action:none;flex-shrink:0;}
-.sl-drag-handle:active{cursor:grabbing;}
+.sl-item-wrap{position:relative;overflow:hidden;border-radius:6px;margin-bottom:.25rem;}
+.sl-item-card{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem;background:var(--surface);border-radius:6px;border:1px solid var(--border);transition:transform .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.sl-item-card.is-dragging{opacity:.45;border:1.5px dashed var(--muted);transition:none;}
+.sl-item-card.drop-before{box-shadow:0 -2px 0 0 #3b82f6;}
+.sl-item-card.drop-after{box-shadow:0 2px 0 0 #3b82f6;}
+.sl-item-delete-reveal{position:absolute;right:0;top:0;bottom:0;width:72px;display:flex;align-items:center;justify-content:center;background:#c0293a;border-radius:0 6px 6px 0;}
+.sl-item-delete-reveal span{color:#fff;font-size:.68rem;font-weight:800;pointer-events:none;}
+.sl-drag-handle{cursor:grab;color:var(--muted);font-size:.95rem;padding:2px .3rem;user-select:none;-webkit-user-select:none;touch-action:none;flex-shrink:0;-webkit-touch-callout:none;}
+.sl-drag-handle:active{cursor:grabbing;color:var(--text);}
 .chord-transpose-btn{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-size:.75rem;font-weight:800;width:26px;height:26px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;}
 .chord-transpose-btn:hover{background:var(--surface2);border-color:var(--muted);}
 .chord-transpose-select{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-xs);color:var(--text);font-size:.65rem;font-weight:700;padding:.18rem .35rem;cursor:pointer;font-family:'Nunito',sans-serif;max-width:70px;}
@@ -3919,9 +3919,7 @@ function _renderSetlistHTML(clickFn){
         <div class="sl-item-wrap" id="slw_${sec}_${i}" data-sec="${sec}" data-idx="${i}">
           <div class="sl-item-delete-reveal" id="slr_${sec}_${i}"><span>&#x1F5D1; Suppr.</span></div>
           <div class="sl-item-card" id="slc_${sec}_${i}"
-            ondragover="slDragOver(event,'${sec}',${i})"
-            ondragleave="slDragLeave('${sec}',${i})"
-            ondrop="slDrop(event,'${sec}',${i})">
+            >
             <span class="sl-drag-handle" id="slh_${sec}_${i}" title="Glisser pour réordonner">&#x283F;</span>
             <span style="color:var(--muted);min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
             <div style="flex:1;min-width:0;cursor:pointer;" onclick="${clickFn}(${item.song_id||0})">
@@ -3950,128 +3948,159 @@ function _renderSetlistHTML(clickFn){
   return html;
 }
 
-// ── Drag & drop setlist view (Pointer Events — stable mobile) ──
-let _slDragSec=null, _slDragIdx=null;
-let _slDragStartY=0, _slDragEl=null;
+// ══════════════════════════════════════════════════════════════════════
+// SETLIST VIEW — Swipe-to-delete + Drag-to-reorder (Pointer Events)
+// ══════════════════════════════════════════════════════════════════════
+// Chaque item a :
+//   .sl-item-wrap   → conteneur avec overflow:hidden
+//   .sl-item-delete-reveal → bandeau rouge absolu à droite
+//   .sl-item-card   → la carte (translateX pour swipe)
+//   .sl-drag-handle → poignée de drag (⠿)
+// IDs : slw_{sec}_{i}, slr_{sec}_{i}, slc_{sec}_{i}, slh_{sec}_{i}
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Swipe state ──
+let _sw = { active:false, card:null, reveal:null, sec:null, idx:null, x0:0, dx:0, pointerId:null };
+const SW_THRESH = 60;
+
+// ── Drag state ──
+let _dr = { active:false, sec:null, fromIdx:null, overIdx:null, overPos:null, pointerId:null };
 
 function _initSetlistDragHandles(){
-  // Swipe gauche pour révéler supprimer + drag via handle
-  document.querySelectorAll('[id^="slh_"]').forEach(handle=>{
-    handle.removeEventListener('pointerdown', _slPointerDown);
-    handle.addEventListener('pointerdown', _slPointerDown, {passive:false});
-  });
-  document.querySelectorAll('[id^="slc_"]').forEach(card=>{
-    card.removeEventListener('touchstart', _slTouchStart);
-    card.addEventListener('touchstart', _slTouchStart, {passive:true});
-  });
+  // Attacher via event delegation sur #setlistView (un seul listener, stable après re-render)
+  const root = document.getElementById('setlistView');
+  if(!root) return;
+  // Nettoyer les anciens listeners en remplaçant le noeud
+  const clone = root.cloneNode(true);
+  root.parentNode.replaceChild(clone, root);
+  clone.id = 'setlistView';
+
+  clone.addEventListener('pointerdown', _slOnPointerDown, {passive:false});
+  clone.addEventListener('pointermove', _slOnPointerMove, {passive:false});
+  clone.addEventListener('pointerup',   _slOnPointerUp,   {passive:true});
+  clone.addEventListener('pointercancel', _slOnPointerCancel, {passive:true});
 }
 
-let _slSwipeCard=null, _slSwipeX0=0, _slSwipeDx=0, _slSwipeReveal=null;
-const SL_SWIPE_THRESHOLD = 55;
+function _slParseDragId(el){
+  // Remonter jusqu'à un élément avec id sl*_sec_idx
+  let cur = el;
+  while(cur && cur.id){
+    const m = cur.id.match(/^sl[cwhr]_(.+)_(\d+)$/);
+    if(m) return { el:cur, sec:m[1], idx:parseInt(m[2]) };
+    cur = cur.parentElement;
+  }
+  return null;
+}
 
-function _slTouchStart(e){
-  const card = e.currentTarget;
-  const id = card.id; // slc_sec_idx
-  const parts = id.split('_'); const sec=parts[1]; const idx=parseInt(parts[2]);
-  const reveal = document.getElementById('slr_'+sec+'_'+idx);
-  _slSwipeCard=card; _slSwipeReveal=reveal; _slSwipeDx=0;
-  _slSwipeX0 = e.touches[0].clientX;
-  card.addEventListener('touchmove', _slTouchMove, {passive:false});
-  card.addEventListener('touchend', _slTouchEnd, {passive:true});
-}
-function _slTouchMove(e){
-  const dx = _slSwipeX0 - e.touches[0].clientX;
-  if(dx < 0){ _slTouchEnd(); return; }
-  _slSwipeDx = dx;
-  const t = Math.min(dx, SL_SWIPE_THRESHOLD);
-  if(_slSwipeCard) _slSwipeCard.style.transform=`translateX(-${t}px)`;
-  if(_slSwipeReveal){ _slSwipeReveal.style.opacity=String(t/SL_SWIPE_THRESHOLD); _slSwipeReveal.style.pointerEvents='none'; }
-  if(dx > 5) e.preventDefault();
-}
-function _slTouchEnd(){
-  if(!_slSwipeCard) return;
-  if(_slSwipeDx >= SL_SWIPE_THRESHOLD){
-    // Déclencher suppression
-    const id = _slSwipeCard.id;
-    const parts = id.split('_'); const sec=parts[1]; const idx=parseInt(parts[2]);
-    _slSwipeCard.style.transform='';
-    if(_slSwipeReveal){ _slSwipeReveal.style.opacity='0'; }
-    removeSetlistItemView(sec, idx);
+function _slOnPointerDown(e){
+  const handle = e.target.closest('.sl-drag-handle');
+  const card   = e.target.closest('.sl-item-card');
+  if(!card) return;
+
+  const p = _slParseDragId(card);
+  if(!p) return;
+
+  if(handle){
+    // MODE DRAG
+    e.preventDefault();
+    _dr = { active:true, sec:p.sec, fromIdx:p.idx, overIdx:null, overPos:null, pointerId:e.pointerId };
+    card.classList.add('is-dragging');
+    card.setPointerCapture(e.pointerId);
   } else {
-    _slSwipeCard.style.transform='';
-    if(_slSwipeReveal) _slSwipeReveal.style.opacity='0';
+    // MODE SWIPE (potentiel)
+    _sw = { active:false, card:card, reveal:document.getElementById('slr_'+p.sec+'_'+p.idx),
+            sec:p.sec, idx:p.idx, x0:e.clientX, dx:0, pointerId:e.pointerId, started:false };
   }
-  _slSwipeCard.removeEventListener('touchmove', _slTouchMove);
-  _slSwipeCard.removeEventListener('touchend', _slTouchEnd);
-  _slSwipeCard=null; _slSwipeReveal=null; _slSwipeDx=0;
 }
 
-function _slPointerDown(e){
-  e.preventDefault();
-  const handle = e.currentTarget;
-  const id = handle.id; // slh_sec_idx
-  const parts = id.split('_'); const sec=parts[1]; const idx=parseInt(parts[2]);
-  _slDragSec=sec; _slDragIdx=idx;
-  _slDragStartY=e.clientY;
-  const card = document.getElementById('slc_'+sec+'_'+idx);
-  if(card) card.classList.add('dragging-active');
-  handle.setPointerCapture(e.pointerId);
-  handle.addEventListener('pointermove', _slPointerMove);
-  handle.addEventListener('pointerup', _slPointerUp);
-  handle.addEventListener('pointercancel', _slPointerUp);
-}
-function _slPointerMove(e){
-  // Trouver l'élément sous le curseur
-  const cards = [...document.querySelectorAll('[id^="slc_'+_slDragSec+'_"]')];
-  cards.forEach(c=>c.classList.remove('drag-over-top','drag-over-bottom'));
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const targetCard = el?.closest('[id^="slc_"]');
-  if(targetCard && targetCard.id !== 'slc_'+_slDragSec+'_'+_slDragIdx){
-    const parts = targetCard.id.split('_'); const toIdx=parseInt(parts[2]);
-    const rect = targetCard.getBoundingClientRect();
-    const mid = rect.top + rect.height/2;
-    targetCard.classList.add(e.clientY < mid ? 'drag-over-top' : 'drag-over-bottom');
-  }
-}
-function _slPointerUp(e){
-  const handle = e.currentTarget;
-  handle.removeEventListener('pointermove', _slPointerMove);
-  handle.removeEventListener('pointerup', _slPointerUp);
-  handle.removeEventListener('pointercancel', _slPointerUp);
-  // Trouver la cible de drop
-  const cards = [...document.querySelectorAll('[id^="slc_'+_slDragSec+'_"]')];
-  let toIdx = null;
-  cards.forEach(c=>{
-    if(c.classList.contains('drag-over-top') || c.classList.contains('drag-over-bottom')){
-      const parts = c.id.split('_'); toIdx=parseInt(parts[2]);
-      if(c.classList.contains('drag-over-bottom') && toIdx > _slDragIdx) toIdx++;
-      if(c.classList.contains('drag-over-top') && toIdx < _slDragIdx) {} // toIdx ok
-      c.classList.remove('drag-over-top','drag-over-bottom');
+function _slOnPointerMove(e){
+  if(_dr.active && e.pointerId === _dr.pointerId){
+    e.preventDefault();
+    // Effacer anciennes cibles
+    document.querySelectorAll('.drop-before,.drop-after').forEach(c=>{
+      c.classList.remove('drop-before','drop-after');
+    });
+    // Trouver la carte sous le pointeur
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const targetCard = under?.closest('.sl-item-card');
+    if(targetCard){
+      const p2 = _slParseDragId(targetCard);
+      if(p2 && p2.sec === _dr.sec && p2.idx !== _dr.fromIdx){
+        const rect = targetCard.getBoundingClientRect();
+        const isBefore = e.clientY < rect.top + rect.height/2;
+        targetCard.classList.add(isBefore ? 'drop-before' : 'drop-after');
+        _dr.overIdx = p2.idx;
+        _dr.overPos = isBefore ? 'before' : 'after';
+      }
     }
-  });
-  const dragCard = document.getElementById('slc_'+_slDragSec+'_'+_slDragIdx);
-  if(dragCard) dragCard.classList.remove('dragging-active');
-  if(toIdx !== null && toIdx !== _slDragIdx){
-    const sec = _slDragSec;
-    const fromIdx = _slDragIdx;
-    const items = setlistData.filter(i=>i.section===sec);
-    const others = setlistData.filter(i=>i.section!==sec);
-    const moved = items.splice(fromIdx,1)[0];
-    const insertAt = Math.max(0,Math.min(toIdx > fromIdx ? toIdx-1 : toIdx, items.length));
-    items.splice(insertAt,0,moved);
-    setlistData=[...others,...items];
-    renderSetlistView();
-    _saveSetlistViewSilent();
+  } else if(_sw.card && e.pointerId === _sw.pointerId){
+    const dx = _sw.x0 - e.clientX;
+    const dy = Math.abs(e.clientY - (_sw.y0||e.clientY));
+    if(!_sw.started){
+      _sw.y0 = e.clientY;
+      if(Math.abs(dx) < 6) return; // pas encore de décision
+      if(dy > Math.abs(dx)){ _sw.card=null; return; } // scroll vertical, abandonner
+      _sw.started = true;
+    }
+    if(dx < 0){ _slResetSwipe(); return; } // swipe vers la droite, ignorer
+    e.preventDefault();
+    _sw.dx = dx;
+    const t = Math.min(dx, SW_THRESH);
+    _sw.card.style.transform = `translateX(-${t}px)`;
+    if(_sw.reveal) _sw.reveal.style.opacity = String(t/SW_THRESH);
   }
-  _slDragSec=null; _slDragIdx=null;
 }
 
-function slDragOver(e,sec,idx){ e.preventDefault(); }
-function slDragLeave(sec,idx){
-  const c=document.getElementById('slc_'+sec+'_'+idx);
-  if(c) c.classList.remove('drag-over-top','drag-over-bottom');
+function _slOnPointerUp(e){
+  if(_dr.active && e.pointerId === _dr.pointerId){
+    // Finaliser drag
+    document.querySelectorAll('.is-dragging,.drop-before,.drop-after').forEach(c=>{
+      c.classList.remove('is-dragging','drop-before','drop-after');
+    });
+    if(_dr.overIdx !== null){
+      const sec=_dr.sec, from=_dr.fromIdx;
+      let to = _dr.overIdx;
+      if(_dr.overPos==='after') to = to+1;
+      if(to > from) to--;
+      if(to !== from){
+        const items = setlistData.filter(i=>i.section===sec);
+        const others = setlistData.filter(i=>i.section!==sec);
+        const [moved] = items.splice(from,1);
+        items.splice(Math.max(0,Math.min(to,items.length)),0,moved);
+        setlistData=[...others,...items];
+        renderSetlistView();
+        _saveSetlistViewSilent();
+      }
+    }
+    _dr = { active:false, sec:null, fromIdx:null, overIdx:null, overPos:null, pointerId:null };
+  } else if(_sw.card && e.pointerId === _sw.pointerId){
+    if(_sw.dx >= SW_THRESH){
+      const {sec,idx} = _sw;
+      _slResetSwipe();
+      removeSetlistItemView(sec, idx);
+    } else {
+      _slResetSwipe();
+    }
+  }
 }
-function slDrop(e,sec,toIdx){ e.preventDefault(); }
+
+function _slOnPointerCancel(e){
+  document.querySelectorAll('.is-dragging,.drop-before,.drop-after').forEach(c=>{
+    c.classList.remove('is-dragging','drop-before','drop-after');
+  });
+  _dr = { active:false, sec:null, fromIdx:null, overIdx:null, overPos:null, pointerId:null };
+  _slResetSwipe();
+}
+
+function _slResetSwipe(){
+  if(_sw.card){ _sw.card.style.transform=''; }
+  if(_sw.reveal){ _sw.reveal.style.opacity='0'; }
+  _sw = { active:false, card:null, reveal:null, sec:null, idx:null, x0:0, dx:0, pointerId:null };
+}
+
+function slDragOver(e){ e.preventDefault(); }
+function slDragLeave(){}
+function slDrop(e){ e.preventDefault(); }
 
 function moveSetlistItemView(sec, idx, dir){
   const items = setlistData.filter(i=>i.section===sec);
@@ -4120,8 +4149,8 @@ function renderSetlistView(){
     if(!detailView || detailView.style.display === 'none') return;
   }
   el.innerHTML = _renderSetlistHTML('selectSongById');
-  // Init drag handles après rendu DOM
-  requestAnimationFrame(()=>_initSetlistDragHandles());
+  // Init listeners drag/swipe après rendu DOM
+  setTimeout(()=>_initSetlistDragHandles(), 0);
 }
 
 // &#x2550;&#x2550; ADMIN SETLIST MANAGEMENT &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
