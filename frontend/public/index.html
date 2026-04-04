@@ -3919,8 +3919,8 @@ function _renderSetlistHTML(clickFn){
         <div class="sl-item-wrap" id="slw_${sec}_${i}" data-sec="${sec}" data-idx="${i}">
           <div class="sl-item-delete-reveal" id="slr_${sec}_${i}"><span>&#x1F5D1; Suppr.</span></div>
           <div class="sl-item-card" id="slc_${sec}_${i}"
-            >
-            <span class="sl-drag-handle" id="slh_${sec}_${i}" title="Glisser pour réordonner">&#x283F;</span>
+            onpointerdown="slSwipeStart(event,'${sec}',${i})">
+            <span class="sl-drag-handle" id="slh_${sec}_${i}" title="Glisser pour réordonner" onpointerdown="slDragStart(event,'${sec}',${i})">&#x283F;</span>
             <span style="color:var(--muted);min-width:1.2rem;font-size:.7rem;font-weight:700;">${i+1}.</span>
             <div style="flex:1;min-width:0;cursor:pointer;" onclick="${clickFn}(${item.song_id||0})">
               <div style="font-size:.78rem;font-weight:800;color:var(--text);">${item.song_title||'&#x2014;'}</div>
@@ -3949,158 +3949,150 @@ function _renderSetlistHTML(clickFn){
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// SETLIST VIEW — Swipe-to-delete + Drag-to-reorder (Pointer Events)
+// SETLIST VIEW — Swipe-to-delete + Drag-to-reorder
 // ══════════════════════════════════════════════════════════════════════
-// Chaque item a :
-//   .sl-item-wrap   → conteneur avec overflow:hidden
-//   .sl-item-delete-reveal → bandeau rouge absolu à droite
-//   .sl-item-card   → la carte (translateX pour swipe)
-//   .sl-drag-handle → poignée de drag (⠿)
-// IDs : slw_{sec}_{i}, slr_{sec}_{i}, slc_{sec}_{i}, slh_{sec}_{i}
-// ══════════════════════════════════════════════════════════════════════
-
-// ── Swipe state ──
-let _sw = { active:false, card:null, reveal:null, sec:null, idx:null, x0:0, dx:0, pointerId:null };
-const SW_THRESH = 60;
-
-// ── Drag state ──
-let _dr = { active:false, sec:null, fromIdx:null, overIdx:null, overPos:null, pointerId:null };
 
 function _initSetlistDragHandles(){
-  // Attacher via event delegation sur #setlistView (un seul listener, stable après re-render)
-  const root = document.getElementById('setlistView');
-  if(!root) return;
-  // Nettoyer les anciens listeners en remplaçant le noeud
-  const clone = root.cloneNode(true);
-  root.parentNode.replaceChild(clone, root);
-  clone.id = 'setlistView';
-
-  clone.addEventListener('pointerdown', _slOnPointerDown, {passive:false});
-  clone.addEventListener('pointermove', _slOnPointerMove, {passive:false});
-  clone.addEventListener('pointerup',   _slOnPointerUp,   {passive:true});
-  clone.addEventListener('pointercancel', _slOnPointerCancel, {passive:true});
+  // Rien à faire — listeners attachés via onclick/onpointerdown inline
 }
 
-function _slParseDragId(el){
-  // Remonter jusqu'à un élément avec id sl*_sec_idx
-  let cur = el;
-  while(cur && cur.id){
-    const m = cur.id.match(/^sl[cwhr]_(.+)_(\d+)$/);
-    if(m) return { el:cur, sec:m[1], idx:parseInt(m[2]) };
-    cur = cur.parentElement;
-  }
-  return null;
-}
+// ── SWIPE TO DELETE ──────────────────────────────────────────────────
+// Appelé par onpointerdown sur .sl-item-card
+function slSwipeStart(e, sec, idx){
+  // Ignorer si c'est un clic sur le handle (drag) ou un clic souris simple
+  if(e.target.closest('.sl-drag-handle')) return;
+  if(e.pointerType === 'mouse') return;
 
-function _slOnPointerDown(e){
-  const handle = e.target.closest('.sl-drag-handle');
-  const card   = e.target.closest('.sl-item-card');
+  const card   = document.getElementById('slc_'+sec+'_'+idx);
+  const reveal = document.getElementById('slr_'+sec+'_'+idx);
   if(!card) return;
 
-  const p = _slParseDragId(card);
-  if(!p) return;
+  let x0 = e.clientX, y0 = e.clientY;
+  let dx = 0, started = false;
+  let cancelled = false;
 
-  if(handle){
-    // MODE DRAG
-    e.preventDefault();
-    _dr = { active:true, sec:p.sec, fromIdx:p.idx, overIdx:null, overPos:null, pointerId:e.pointerId };
-    card.classList.add('is-dragging');
-    card.setPointerCapture(e.pointerId);
-  } else {
-    // MODE SWIPE (potentiel)
-    _sw = { active:false, card:card, reveal:document.getElementById('slr_'+p.sec+'_'+p.idx),
-            sec:p.sec, idx:p.idx, x0:e.clientX, dx:0, pointerId:e.pointerId, started:false };
+  function onMove(ev){
+    if(cancelled) return;
+    const ddx = x0 - ev.clientX;
+    const ddy = Math.abs(ev.clientY - y0);
+    if(!started){
+      if(Math.abs(ddx) < 6 && ddy < 6) return;
+      if(ddy > Math.abs(ddx)){ cancelled=true; cleanup(); return; }
+      started = true;
+    }
+    if(ddx < 0){ cleanup(); return; }
+    dx = ddx;
+    ev.preventDefault();
+    const t = Math.min(dx, 60);
+    card.style.transition = 'none';
+    card.style.transform = 'translateX(-'+t+'px)';
+    if(reveal) reveal.style.opacity = String(t/60);
   }
-}
 
-function _slOnPointerMove(e){
-  if(_dr.active && e.pointerId === _dr.pointerId){
-    e.preventDefault();
-    // Effacer anciennes cibles
-    document.querySelectorAll('.drop-before,.drop-after').forEach(c=>{
-      c.classList.remove('drop-before','drop-after');
-    });
-    // Trouver la carte sous le pointeur
-    const under = document.elementFromPoint(e.clientX, e.clientY);
-    const targetCard = under?.closest('.sl-item-card');
-    if(targetCard){
-      const p2 = _slParseDragId(targetCard);
-      if(p2 && p2.sec === _dr.sec && p2.idx !== _dr.fromIdx){
-        const rect = targetCard.getBoundingClientRect();
-        const isBefore = e.clientY < rect.top + rect.height/2;
-        targetCard.classList.add(isBefore ? 'drop-before' : 'drop-after');
-        _dr.overIdx = p2.idx;
-        _dr.overPos = isBefore ? 'before' : 'after';
-      }
-    }
-  } else if(_sw.card && e.pointerId === _sw.pointerId){
-    const dx = _sw.x0 - e.clientX;
-    const dy = Math.abs(e.clientY - (_sw.y0||e.clientY));
-    if(!_sw.started){
-      _sw.y0 = e.clientY;
-      if(Math.abs(dx) < 6) return; // pas encore de décision
-      if(dy > Math.abs(dx)){ _sw.card=null; return; } // scroll vertical, abandonner
-      _sw.started = true;
-    }
-    if(dx < 0){ _slResetSwipe(); return; } // swipe vers la droite, ignorer
-    e.preventDefault();
-    _sw.dx = dx;
-    const t = Math.min(dx, SW_THRESH);
-    _sw.card.style.transform = `translateX(-${t}px)`;
-    if(_sw.reveal) _sw.reveal.style.opacity = String(t/SW_THRESH);
-  }
-}
-
-function _slOnPointerUp(e){
-  if(_dr.active && e.pointerId === _dr.pointerId){
-    // Finaliser drag
-    document.querySelectorAll('.is-dragging,.drop-before,.drop-after').forEach(c=>{
-      c.classList.remove('is-dragging','drop-before','drop-after');
-    });
-    if(_dr.overIdx !== null){
-      const sec=_dr.sec, from=_dr.fromIdx;
-      let to = _dr.overIdx;
-      if(_dr.overPos==='after') to = to+1;
-      if(to > from) to--;
-      if(to !== from){
-        const items = setlistData.filter(i=>i.section===sec);
-        const others = setlistData.filter(i=>i.section!==sec);
-        const [moved] = items.splice(from,1);
-        items.splice(Math.max(0,Math.min(to,items.length)),0,moved);
-        setlistData=[...others,...items];
-        renderSetlistView();
-        _saveSetlistViewSilent();
-      }
-    }
-    _dr = { active:false, sec:null, fromIdx:null, overIdx:null, overPos:null, pointerId:null };
-  } else if(_sw.card && e.pointerId === _sw.pointerId){
-    if(_sw.dx >= SW_THRESH){
-      const {sec,idx} = _sw;
-      _slResetSwipe();
+  function onEnd(){
+    cleanup();
+    if(dx >= 60){
+      card.style.transition = '';
+      card.style.transform = '';
+      if(reveal) reveal.style.opacity = '0';
       removeSetlistItemView(sec, idx);
     } else {
-      _slResetSwipe();
+      card.style.transition = 'transform .2s ease';
+      card.style.transform = '';
+      if(reveal) reveal.style.opacity = '0';
     }
   }
+
+  function cleanup(){
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup',   onEnd);
+    document.removeEventListener('pointercancel', onEnd);
+  }
+
+  document.addEventListener('pointermove', onMove, {passive:false});
+  document.addEventListener('pointerup',   onEnd,  {passive:true});
+  document.addEventListener('pointercancel', onEnd, {passive:true});
 }
 
-function _slOnPointerCancel(e){
-  document.querySelectorAll('.is-dragging,.drop-before,.drop-after').forEach(c=>{
-    c.classList.remove('is-dragging','drop-before','drop-after');
+// ── DRAG TO REORDER ──────────────────────────────────────────────────
+// Appelé par onpointerdown sur .sl-drag-handle
+function slDragStart(e, sec, fromIdx){
+  e.preventDefault();
+  e.stopPropagation();
+
+  const allItems = () => [...document.querySelectorAll('#setlistView .sl-item-card')].filter(c=>{
+    const p = c.id.match(/^slc_(.+)_(\d+)$/);
+    return p && p[1] === sec;
   });
-  _dr = { active:false, sec:null, fromIdx:null, overIdx:null, overPos:null, pointerId:null };
-  _slResetSwipe();
+
+  const fromCard = document.getElementById('slc_'+sec+'_'+fromIdx);
+  if(!fromCard) return;
+  fromCard.classList.add('is-dragging');
+
+  let lastOverCard = null, lastOverPos = null;
+
+  function clearHighlight(){
+    if(lastOverCard){
+      lastOverCard.classList.remove('drop-before','drop-after');
+      lastOverCard = null; lastOverPos = null;
+    }
+  }
+
+  function onMove(ev){
+    clearHighlight();
+    // Temporairement cacher la carte draguée pour trouver ce qui est dessous
+    fromCard.style.visibility = 'hidden';
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    fromCard.style.visibility = '';
+    if(!under) return;
+    const targetCard = under.closest('.sl-item-card');
+    if(!targetCard || targetCard === fromCard) return;
+    const tp = targetCard.id.match(/^slc_(.+)_(\d+)$/);
+    if(!tp || tp[1] !== sec) return;
+    const rect = targetCard.getBoundingClientRect();
+    const isBefore = ev.clientY < rect.top + rect.height / 2;
+    targetCard.classList.add(isBefore ? 'drop-before' : 'drop-after');
+    lastOverCard = targetCard;
+    lastOverPos = isBefore ? 'before' : 'after';
+  }
+
+  function onEnd(){
+    cleanup();
+    fromCard.classList.remove('is-dragging');
+    if(lastOverCard){
+      const tp = lastOverCard.id.match(/^slc_(.+)_(\d+)$/);
+      clearHighlight();
+      if(tp){
+        let toIdx = parseInt(tp[2]);
+        if(lastOverPos === 'after') toIdx += 1;
+        if(toIdx > fromIdx) toIdx--;
+        if(toIdx !== fromIdx){
+          const items  = setlistData.filter(i=>i.section===sec);
+          const others = setlistData.filter(i=>i.section!==sec);
+          const [moved] = items.splice(fromIdx, 1);
+          items.splice(Math.max(0, Math.min(toIdx, items.length)), 0, moved);
+          setlistData = [...others, ...items];
+          renderSetlistView();
+          _saveSetlistViewSilent();
+          return;
+        }
+      }
+    }
+    clearHighlight();
+  }
+
+  function cleanup(){
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup',   onEnd);
+    document.removeEventListener('pointercancel', onEnd);
+  }
+
+  document.addEventListener('pointermove', onMove, {passive:true});
+  document.addEventListener('pointerup',   onEnd,  {passive:true});
+  document.addEventListener('pointercancel', onEnd, {passive:true});
 }
 
-function _slResetSwipe(){
-  if(_sw.card){ _sw.card.style.transform=''; }
-  if(_sw.reveal){ _sw.reveal.style.opacity='0'; }
-  _sw = { active:false, card:null, reveal:null, sec:null, idx:null, x0:0, dx:0, pointerId:null };
-}
 
-function slDragOver(e){ e.preventDefault(); }
-function slDragLeave(){}
-function slDrop(e){ e.preventDefault(); }
 
 function moveSetlistItemView(sec, idx, dir){
   const items = setlistData.filter(i=>i.section===sec);
@@ -4149,8 +4141,6 @@ function renderSetlistView(){
     if(!detailView || detailView.style.display === 'none') return;
   }
   el.innerHTML = _renderSetlistHTML('selectSongById');
-  // Init listeners drag/swipe après rendu DOM
-  setTimeout(()=>_initSetlistDragHandles(), 0);
 }
 
 // &#x2550;&#x2550; ADMIN SETLIST MANAGEMENT &#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;
