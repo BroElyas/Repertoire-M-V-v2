@@ -409,7 +409,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .sl-item-card.is-dragging{opacity:.45;border:1.5px dashed var(--muted);transition:none;}
 .sl-item-card.drop-before{box-shadow:0 -2px 0 0 #3b82f6;}
 .sl-item-card.drop-after{box-shadow:0 2px 0 0 #3b82f6;}
-.sl-item-delete-reveal{position:absolute;right:0;top:0;bottom:0;width:72px;display:flex;align-items:center;justify-content:center;background:#c0293a;border-radius:0 6px 6px 0;}
+.sl-item-delete-reveal{position:absolute;right:0;top:0;bottom:0;width:72px;display:flex;align-items:center;justify-content:center;background:#c0293a;border-radius:0 6px 6px 0;opacity:0;transition:opacity .15s;}
 .sl-item-delete-reveal span{color:#fff;font-size:.68rem;font-weight:800;pointer-events:none;}
 .sl-drag-handle{cursor:grab;color:var(--muted);font-size:.95rem;padding:2px .3rem;user-select:none;-webkit-user-select:none;touch-action:none;flex-shrink:0;-webkit-touch-callout:none;}
 .sl-drag-handle:active{cursor:grabbing;color:var(--text);}
@@ -3959,48 +3959,57 @@ function _initSetlistDragHandles(){
 // ── SWIPE TO DELETE ──────────────────────────────────────────────────
 // Appelé par onpointerdown sur .sl-item-card
 function slSwipeStart(e, sec, idx){
-  // Ignorer si c'est un clic sur le handle (drag) ou un clic souris simple
+  // Ne pas interférer avec le drag du handle
   if(e.target.closest('.sl-drag-handle')) return;
+  // Souris : pas de swipe (clic normal)
   if(e.pointerType === 'mouse') return;
 
   const card   = document.getElementById('slc_'+sec+'_'+idx);
   const reveal = document.getElementById('slr_'+sec+'_'+idx);
   if(!card) return;
 
-  let x0 = e.clientX, y0 = e.clientY;
-  let dx = 0, started = false;
-  let cancelled = false;
+  const x0 = e.clientX, y0 = e.clientY;
+  let dx = 0, decided = false, isSwipe = false;
 
   function onMove(ev){
-    if(cancelled) return;
     const ddx = x0 - ev.clientX;
-    const ddy = Math.abs(ev.clientY - y0);
-    if(!started){
-      if(Math.abs(ddx) < 6 && ddy < 6) return;
-      if(ddy > Math.abs(ddx)){ cancelled=true; cleanup(); return; }
-      started = true;
+    const ddy = ev.clientY - y0;
+
+    if(!decided){
+      if(Math.abs(ddx) < 5 && Math.abs(ddy) < 5) return;
+      decided = true;
+      // Mouvement surtout vertical → scroll, on abandonne
+      if(Math.abs(ddy) > Math.abs(ddx)){
+        cleanup(); return;
+      }
+      isSwipe = true;
     }
-    if(ddx < 0){ cleanup(); return; }
-    dx = ddx;
+    if(!isSwipe) return;
+    if(ddx <= 0){ reset(); return; } // swipe droite → reset
     ev.preventDefault();
+    dx = ddx;
     const t = Math.min(dx, 60);
     card.style.transition = 'none';
     card.style.transform = 'translateX(-'+t+'px)';
-    if(reveal) reveal.style.opacity = String(t/60);
+    reveal.style.opacity = String(t / 60);
   }
 
   function onEnd(){
     cleanup();
-    if(dx >= 60){
+    if(isSwipe && dx >= 60){
       card.style.transition = '';
       card.style.transform = '';
-      if(reveal) reveal.style.opacity = '0';
+      reveal.style.opacity = '0';
       removeSetlistItemView(sec, idx);
     } else {
-      card.style.transition = 'transform .2s ease';
-      card.style.transform = '';
-      if(reveal) reveal.style.opacity = '0';
+      reset();
     }
+  }
+
+  function reset(){
+    card.style.transition = 'transform .2s ease';
+    card.style.transform = '';
+    reveal.style.opacity = '0';
   }
 
   function cleanup(){
@@ -4018,59 +4027,58 @@ function slSwipeStart(e, sec, idx){
 // Appelé par onpointerdown sur .sl-drag-handle
 function slDragStart(e, sec, fromIdx){
   e.preventDefault();
-  e.stopPropagation();
-
-  const allItems = () => [...document.querySelectorAll('#setlistView .sl-item-card')].filter(c=>{
-    const p = c.id.match(/^slc_(.+)_(\d+)$/);
-    return p && p[1] === sec;
-  });
+  e.stopPropagation(); // empêche slSwipeStart de la carte parente
 
   const fromCard = document.getElementById('slc_'+sec+'_'+fromIdx);
   if(!fromCard) return;
   fromCard.classList.add('is-dragging');
 
-  let lastOverCard = null, lastOverPos = null;
+  let overCard = null, overPos = null;
 
-  function clearHighlight(){
-    if(lastOverCard){
-      lastOverCard.classList.remove('drop-before','drop-after');
-      lastOverCard = null; lastOverPos = null;
-    }
+  function getCardAt(x, y){
+    fromCard.style.visibility = 'hidden';
+    const el = document.elementFromPoint(x, y);
+    fromCard.style.visibility = '';
+    if(!el) return null;
+    const c = el.closest('.sl-item-card');
+    if(!c || c === fromCard) return null;
+    const m = c.id.match(/^slc_(.+)_(\d+)$/);
+    if(!m || m[1] !== sec) return null;
+    return {card:c, idx:parseInt(m[2])};
+  }
+
+  function clearHL(){
+    if(overCard){ overCard.classList.remove('drop-before','drop-after'); }
+    overCard=null; overPos=null;
   }
 
   function onMove(ev){
-    clearHighlight();
-    // Temporairement cacher la carte draguée pour trouver ce qui est dessous
-    fromCard.style.visibility = 'hidden';
-    const under = document.elementFromPoint(ev.clientX, ev.clientY);
-    fromCard.style.visibility = '';
-    if(!under) return;
-    const targetCard = under.closest('.sl-item-card');
-    if(!targetCard || targetCard === fromCard) return;
-    const tp = targetCard.id.match(/^slc_(.+)_(\d+)$/);
-    if(!tp || tp[1] !== sec) return;
-    const rect = targetCard.getBoundingClientRect();
-    const isBefore = ev.clientY < rect.top + rect.height / 2;
-    targetCard.classList.add(isBefore ? 'drop-before' : 'drop-after');
-    lastOverCard = targetCard;
-    lastOverPos = isBefore ? 'before' : 'after';
+    clearHL();
+    const t = getCardAt(ev.clientX, ev.clientY);
+    if(!t) return;
+    const rect = t.card.getBoundingClientRect();
+    overPos = ev.clientY < rect.top + rect.height/2 ? 'before' : 'after';
+    t.card.classList.add('drop-'+overPos);
+    overCard = t.card;
   }
 
   function onEnd(){
     cleanup();
     fromCard.classList.remove('is-dragging');
-    if(lastOverCard){
-      const tp = lastOverCard.id.match(/^slc_(.+)_(\d+)$/);
-      clearHighlight();
-      if(tp){
-        let toIdx = parseInt(tp[2]);
-        if(lastOverPos === 'after') toIdx += 1;
+    if(overCard){
+      const m = overCard.id.match(/^slc_(.+)_(\d+)$/);
+      const savedOverCard = overCard;
+      const savedOverPos  = overPos;
+      clearHL();
+      if(m){
+        let toIdx = parseInt(m[2]);
+        if(savedOverPos === 'after') toIdx++;
         if(toIdx > fromIdx) toIdx--;
-        if(toIdx !== fromIdx){
+        if(toIdx !== fromIdx && toIdx >= 0){
           const items  = setlistData.filter(i=>i.section===sec);
           const others = setlistData.filter(i=>i.section!==sec);
-          const [moved] = items.splice(fromIdx, 1);
-          items.splice(Math.max(0, Math.min(toIdx, items.length)), 0, moved);
+          const [moved] = items.splice(fromIdx,1);
+          items.splice(Math.min(toIdx, items.length), 0, moved);
           setlistData = [...others, ...items];
           renderSetlistView();
           _saveSetlistViewSilent();
@@ -4078,7 +4086,7 @@ function slDragStart(e, sec, fromIdx){
         }
       }
     }
-    clearHighlight();
+    clearHL();
   }
 
   function cleanup(){
@@ -4087,7 +4095,8 @@ function slDragStart(e, sec, fromIdx){
     document.removeEventListener('pointercancel', onEnd);
   }
 
-  document.addEventListener('pointermove', onMove, {passive:true});
+  // passive:false pour pouvoir appeler preventDefault et bloquer le scroll pendant le drag
+  document.addEventListener('pointermove', onMove, {passive:false});
   document.addEventListener('pointerup',   onEnd,  {passive:true});
   document.addEventListener('pointercancel', onEnd, {passive:true});
 }
