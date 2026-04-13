@@ -4206,15 +4206,17 @@ function removeSetlistItemView(sec, idx){
 async function _saveSetlistViewSilent(){
   if(!_currentMvSetlistId) return;
   try{
-    await apiFetch('/api/setlist', {method:'POST', body:JSON.stringify({
+    const items = setlistData.filter(i=>i.section!=='_order').map((item,pos)=>({
+      song_id: item.song_id,
+      section: item.section,
+      song_title: item.song_title||null,
+      special_label: item.special_label||null,
+      lead_id: item.lead_id||null,
+      position: pos
+    }));
+    await apiFetch('/api/setlist', {method:'PUT', body:JSON.stringify({
       mv_setlist_id: _currentMvSetlistId,
-      items: setlistData.filter(i=>i.section!=='_order').map((item,pos)=>({
-        song_id: item.song_id,
-        section: item.section,
-        special_label: item.special_label||null,
-        lead_id: item.lead_id||null,
-        position: pos
-      })),
+      items,
       section_order: JSON.stringify(_sectionOrder)
     })});
   }catch(e){ console.warn('save setlist silent', e); }
@@ -5486,16 +5488,14 @@ async function confirmSwipeSetlist(){
 
 // Sauvegarder la setlist principale sans prompt
 async function saveSetlistSilent(){
-  const pin = document.getElementById('adminPinInput')?.value || prompt('PIN Admin :');
-  if(!pin) return;
   _saveLabelsBeforeRender();
   const orderItem = {section:'_order', song_id:null, song_title:'', special_label: JSON.stringify(_sectionOrder), position:-1};
   const payload = setlistData.filter(i=>i.section!=='_order').map(item=>({
     ...item, lead_id: item.lead_id||null
   })).concat([orderItem]);
   try{
-    await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({pin_admin:pin, items:payload})});
-  }catch(e){ toast('Erreur PIN: sauvegarde échouée','danger'); }
+    await apiFetch('/api/setlist',{method:'PUT',body:JSON.stringify({items:payload})});
+  }catch(e){ toast('Erreur sauvegarde','danger'); }
 }
 
 
