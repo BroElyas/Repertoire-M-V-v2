@@ -681,9 +681,7 @@ app.get('/api/setlist', async (req, res) => {
 
 app.put('/api/setlist', async (req, res) => {
   try {
-    const { pin_admin, items, mv_setlist_id } = req.body;
-    const { rows } = await pool.query('SELECT value FROM settings WHERE key = $1', ['pin_admin']);
-    if (rows[0]?.value !== String(pin_admin)) return res.status(401).json({ error: 'PIN admin incorrect' });
+    const { items, mv_setlist_id, section_order } = req.body;
     // Déterminer mv_setlist_id : utilisé si fourni, sinon la plus récente
     let mvId = mv_setlist_id;
     if (!mvId) {
@@ -695,8 +693,13 @@ app.put('/api/setlist', async (req, res) => {
       }
     }
     await pool.query('DELETE FROM setlist WHERE mv_setlist_id=$1', [mvId]);
-    if (items && items.length) {
-      for (const [i, item] of items.entries()) {
+    // Inclure l'item _order si section_order fourni
+    const allItems = items ? [...items] : [];
+    if(section_order){
+      allItems.push({section:'_order', song_id:null, song_title:'', special_label:section_order, position:-1});
+    }
+    if (allItems.length) {
+      for (const [i, item] of allItems.entries()) {
         await pool.query(
           'INSERT INTO setlist(mv_setlist_id, section, song_id, song_title, position, special_label, special_after, lead_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',
           [mvId, item.section, item.song_id||null, item.song_title||null, i, item.special_label||null, item.special_after||'principale', item.lead_id||null]
