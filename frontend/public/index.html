@@ -405,7 +405,7 @@ header{position:fixed;top:0;left:0;right:0;z-index:50;background:var(--bg);borde
 .chord-transpose-group{display:flex;align-items:center;gap:.25rem;margin-left:.3rem;}
 /* ── Setlist item swipe + drag ── */
 .sl-item-wrap{position:relative;overflow:hidden;border-radius:6px;margin-bottom:.25rem;}
-.sl-item-card{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem;background:var(--surface);border-radius:6px;border:1px solid var(--border);transition:transform .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;}
+.sl-item-card{display:flex;align-items:center;gap:.4rem;padding:.4rem .6rem;background:var(--surface);border-radius:6px;border:1px solid var(--border);transition:transform .2s ease;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none;}
 .sl-item-card.is-dragging{opacity:.45;border:1.5px dashed var(--muted);transition:none;}
 .sl-item-card.drop-before{box-shadow:0 -2px 0 0 #3b82f6;}
 .sl-item-card.drop-after{box-shadow:0 2px 0 0 #3b82f6;}
@@ -3957,59 +3957,42 @@ function _initSetlistDragHandles(){
 }
 
 // ── SWIPE TO DELETE ──────────────────────────────────────────────────
-// Appelé par onpointerdown sur .sl-item-card
+// Swipe gauche pour supprimer — touch-action:none sur la carte garantit
+// que le navigateur ne scroll pas, donc on peut tout gérer ici
 function slSwipeStart(e, sec, idx){
-  // Ne pas interférer avec le drag du handle
   if(e.target.closest('.sl-drag-handle')) return;
-  // Souris : pas de swipe (clic normal)
   if(e.pointerType === 'mouse') return;
+  e.preventDefault();
 
   const card   = document.getElementById('slc_'+sec+'_'+idx);
   const reveal = document.getElementById('slr_'+sec+'_'+idx);
-  if(!card) return;
+  if(!card || !reveal) return;
 
-  const x0 = e.clientX, y0 = e.clientY;
-  let dx = 0, decided = false, isSwipe = false;
+  const x0 = e.clientX;
+  let dx = 0;
 
   function onMove(ev){
-    const ddx = x0 - ev.clientX;
-    const ddy = ev.clientY - y0;
-
-    if(!decided){
-      if(Math.abs(ddx) < 5 && Math.abs(ddy) < 5) return;
-      decided = true;
-      // Mouvement surtout vertical → scroll, on abandonne
-      if(Math.abs(ddy) > Math.abs(ddx)){
-        cleanup(); return;
-      }
-      isSwipe = true;
-    }
-    if(!isSwipe) return;
-    if(ddx <= 0){ reset(); return; } // swipe droite → reset
-    ev.preventDefault();
-    dx = ddx;
+    dx = x0 - ev.clientX;
+    if(dx < 0) dx = 0;
     const t = Math.min(dx, 60);
     card.style.transition = 'none';
-    card.style.transform = 'translateX(-'+t+'px)';
-    reveal.style.opacity = String(t / 60);
+    card.style.transform  = 'translateX(-'+t+'px)';
+    reveal.style.opacity  = String(t / 60);
   }
 
   function onEnd(){
     cleanup();
-    if(isSwipe && dx >= 60){
+    if(dx >= 60){
       card.style.transition = '';
-      card.style.transform = '';
-      reveal.style.opacity = '0';
-      removeSetlistItemView(sec, idx);
+      card.style.transform  = '';
+      reveal.style.opacity  = '0';
+      setTimeout(()=> removeSetlistItemView(sec, idx), 80);
     } else {
-      reset();
+      card.style.transition = 'transform .2s ease';
+      card.style.transform  = '';
+      reveal.style.opacity  = '0';
     }
-  }
-
-  function reset(){
-    card.style.transition = 'transform .2s ease';
-    card.style.transform = '';
-    reveal.style.opacity = '0';
+    dx = 0;
   }
 
   function cleanup(){
@@ -4018,16 +4001,15 @@ function slSwipeStart(e, sec, idx){
     document.removeEventListener('pointercancel', onEnd);
   }
 
-  document.addEventListener('pointermove', onMove, {passive:false});
+  document.addEventListener('pointermove', onMove, {passive:true});
   document.addEventListener('pointerup',   onEnd,  {passive:true});
   document.addEventListener('pointercancel', onEnd, {passive:true});
 }
 
-// ── DRAG TO REORDER ──────────────────────────────────────────────────
-// Appelé par onpointerdown sur .sl-drag-handle
+// Drag pour réordonner — touch-action:none sur le handle
 function slDragStart(e, sec, fromIdx){
   e.preventDefault();
-  e.stopPropagation(); // empêche slSwipeStart de la carte parente
+  e.stopPropagation();
 
   const fromCard = document.getElementById('slc_'+sec+'_'+fromIdx);
   if(!fromCard) return;
@@ -4036,19 +4018,25 @@ function slDragStart(e, sec, fromIdx){
   let overCard = null, overPos = null;
 
   function getCardAt(x, y){
-    fromCard.style.visibility = 'hidden';
+    // Désactiver pointer-events sur la carte draguée le temps de tester
+    fromCard.style.pointerEvents = 'none';
     const el = document.elementFromPoint(x, y);
-    fromCard.style.visibility = '';
+    fromCard.style.pointerEvents = '';
     if(!el) return null;
     const c = el.closest('.sl-item-card');
     if(!c || c === fromCard) return null;
-    const m = c.id.match(/^slc_(.+)_(\d+)$/);
-    if(!m || m[1] !== sec) return null;
-    return {card:c, idx:parseInt(m[2])};
+    // Regex simple pour sec qui peut contenir des lettres/chiffres/tirets
+    const idParts = c.id.replace('slc_','').split('_');
+    const cardIdx = parseInt(idParts[idParts.length-1]);
+    const cardSec = idParts.slice(0, idParts.length-1).join('_');
+    if(cardSec !== sec) return null;
+    return {card:c, idx:cardIdx};
   }
 
   function clearHL(){
-    if(overCard){ overCard.classList.remove('drop-before','drop-after'); }
+    document.querySelectorAll('.sl-item-card.drop-before, .sl-item-card.drop-after').forEach(c=>{
+      c.classList.remove('drop-before','drop-after');
+    });
     overCard=null; overPos=null;
   }
 
@@ -4059,34 +4047,29 @@ function slDragStart(e, sec, fromIdx){
     const rect = t.card.getBoundingClientRect();
     overPos = ev.clientY < rect.top + rect.height/2 ? 'before' : 'after';
     t.card.classList.add('drop-'+overPos);
-    overCard = t.card;
+    overCard = t.card; 
   }
 
   function onEnd(){
     cleanup();
     fromCard.classList.remove('is-dragging');
-    if(overCard){
-      const m = overCard.id.match(/^slc_(.+)_(\d+)$/);
-      const savedOverCard = overCard;
-      const savedOverPos  = overPos;
-      clearHL();
-      if(m){
-        let toIdx = parseInt(m[2]);
-        if(savedOverPos === 'after') toIdx++;
-        if(toIdx > fromIdx) toIdx--;
-        if(toIdx !== fromIdx && toIdx >= 0){
-          const items  = setlistData.filter(i=>i.section===sec);
-          const others = setlistData.filter(i=>i.section!==sec);
-          const [moved] = items.splice(fromIdx,1);
-          items.splice(Math.min(toIdx, items.length), 0, moved);
-          setlistData = [...others, ...items];
-          renderSetlistView();
-          _saveSetlistViewSilent();
-          return;
-        }
-      }
-    }
+    if(!overCard){ clearHL(); return; }
+    // Parser l'index depuis l'id
+    const idParts = overCard.id.replace('slc_','').split('_');
+    const toIdxRaw = parseInt(idParts[idParts.length-1]);
+    const savedPos = overPos;
     clearHL();
+    let toIdx = toIdxRaw;
+    if(savedPos === 'after') toIdx++;
+    if(toIdx > fromIdx) toIdx--;
+    if(toIdx === fromIdx) return;
+    const items  = setlistData.filter(i=>i.section===sec);
+    const others = setlistData.filter(i=>i.section!==sec);
+    const [moved] = items.splice(fromIdx, 1);
+    items.splice(Math.max(0, Math.min(toIdx, items.length)), 0, moved);
+    setlistData = [...others, ...items];
+    renderSetlistView();
+    _saveSetlistViewSilent();
   }
 
   function cleanup(){
@@ -4095,11 +4078,12 @@ function slDragStart(e, sec, fromIdx){
     document.removeEventListener('pointercancel', onEnd);
   }
 
-  // passive:false pour pouvoir appeler preventDefault et bloquer le scroll pendant le drag
-  document.addEventListener('pointermove', onMove, {passive:false});
+  document.addEventListener('pointermove', onMove, {passive:true});
   document.addEventListener('pointerup',   onEnd,  {passive:true});
   document.addEventListener('pointercancel', onEnd, {passive:true});
 }
+
+
 
 
 
@@ -4117,11 +4101,13 @@ function moveSetlistItemView(sec, idx, dir){
 function removeSetlistItemView(sec, idx){
   const items = setlistData.filter(i=>i.section===sec);
   const toRemove = items[idx];
-  if(!toRemove) return;
+  if(!toRemove){ console.warn('removeSetlistItemView: not found', sec, idx); return; }
+  const title = toRemove.song_title||'Chant';
   const globalIdx = setlistData.indexOf(toRemove);
   if(globalIdx >= 0) setlistData.splice(globalIdx, 1);
   renderSetlistView();
   _saveSetlistViewSilent();
+  toast('"'+title+'" retiré de la setlist');
 }
 
 async function _saveSetlistViewSilent(){
