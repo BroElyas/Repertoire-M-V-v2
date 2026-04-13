@@ -99,6 +99,7 @@ async function initDB() {
     );
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS bpm INTEGER;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS time_signature TEXT;
+    ALTER TABLE songs ADD COLUMN IF NOT EXISTS title_alt TEXT;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE;
     ALTER TABLE audio_files ADD COLUMN IF NOT EXISTS file_url TEXT;
     ALTER TABLE songs ADD COLUMN IF NOT EXISTS stem_category TEXT;
@@ -578,8 +579,8 @@ app.patch('/api/pending-changes/:id/review', async (req, res) => {
   const c = change[0];
   async function applySnapshot(songId, snapshotStr) {
     const s = JSON.parse(snapshotStr || '{}');
-    await pool.query('UPDATE songs SET title=$1, author=$2, genre=$3, bpm=$4, key_signature=$5, reference_link=$6, time_signature=$7, updated_at=NOW() WHERE id=$8',
-      [s.title||null, s.author||null, s.genre||null, s.bpm||null, s.key_signature||null, s.reference_link||null, s.time_signature||null, songId]);
+    await pool.query('UPDATE songs SET title=$1, author=$2, genre=$3, bpm=$4, key_signature=$5, reference_link=$6, time_signature=$7, title_alt=$8, updated_at=NOW() WHERE id=$9',
+      [s.title||null, s.author||null, s.genre||null, s.bpm||null, s.key_signature||null, s.reference_link||null, s.time_signature||null, s.title_alt||null, songId]);
     if (Array.isArray(s.lyrics)) {
       await pool.query('DELETE FROM lyrics_blocks WHERE song_id=$1', [songId]);
       for (const [i, b] of s.lyrics.entries()) {
@@ -758,11 +759,11 @@ app.get('/api/songs/:id', async (req, res) => {
 });
 
 app.post('/api/songs', async (req, res) => {
-  const { title, author, key_signature, genre, reference_link, notes, bpm, time_signature, category_ids, lyrics, lead_keys } = req.body;
+  const { title, author, key_signature, genre, reference_link, notes, bpm, time_signature, title_alt, category_ids, lyrics, lead_keys } = req.body;
   if (!title) return res.status(400).json({ error: 'Titre requis' });
   const { rows } = await pool.query(
-    'INSERT INTO songs(title,author,key_signature,genre,reference_link,notes,bpm,time_signature) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *',
-    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null, time_signature||null]
+    'INSERT INTO songs(title,author,key_signature,genre,reference_link,notes,bpm,time_signature,title_alt) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',
+    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null, time_signature||null, title_alt||null]
   );
   const songId = rows[0].id;
   if (category_ids?.length) {
@@ -781,9 +782,9 @@ app.post('/api/songs', async (req, res) => {
 
 app.put('/api/songs/:id', async (req, res) => {
   const id = req.params.id;
-  const { title, author, key_signature, genre, reference_link, notes, bpm, time_signature, category_ids, lyrics, lead_keys } = req.body;
-  await pool.query('UPDATE songs SET title=$1,author=$2,key_signature=$3,genre=$4,reference_link=$5,notes=$6,bpm=$7,time_signature=$8,updated_at=NOW() WHERE id=$9',
-    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null, time_signature||null, id]);
+  const { title, author, key_signature, genre, reference_link, notes, bpm, time_signature, title_alt, category_ids, lyrics, lead_keys } = req.body;
+  await pool.query('UPDATE songs SET title=$1,author=$2,key_signature=$3,genre=$4,reference_link=$5,notes=$6,bpm=$7,time_signature=$8,title_alt=$9,updated_at=NOW() WHERE id=$10',
+    [title, author||null, key_signature||null, genre||null, reference_link||null, notes||null, bpm||null, time_signature||null, title_alt||null, id]);
   await pool.query('DELETE FROM song_categories WHERE song_id=$1', [id]);
   if (category_ids?.length) {
     for (const cid of category_ids) await pool.query('INSERT INTO song_categories(song_id,category_id) VALUES($1,$2) ON CONFLICT DO NOTHING', [id, cid]);
