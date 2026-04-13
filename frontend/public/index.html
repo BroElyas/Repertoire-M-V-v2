@@ -1100,8 +1100,18 @@ select.fi option{background:var(--surface2);color:var(--text);}
       <input class="fi" id="fTitle" placeholder="Ex: Amazing Grace" oninput="checkDuplicateTitle(this.value)">
       <div id="duplicateWarning" class="hidden" style="margin-top:.45rem;padding:.55rem .8rem;background:#2a1800;border:1.5px solid #e08c35;border-radius:var(--r-xs);font-size:.74rem;font-weight:700;color:#b86a00;"></div>
     </div>
+    <div class="form-row" style="margin-top:-.3rem;padding-top:0;">
+      <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.72rem;font-weight:600;color:var(--muted);">
+        <input type="checkbox" id="chkTitleAlt" onchange="document.getElementById('titleAltWrap').style.display=this.checked?'':'none';if(!this.checked)document.getElementById('fTitleAlt').value='';">
+        Ajouter un titre en autre langue
+      </label>
+    </div>
+    <div class="form-row" id="titleAltWrap" style="display:none;margin-top:-.2rem;">
+      <label>Titre alternatif <span style="font-size:.62rem;color:var(--muted);">(autre langue)</span></label>
+      <input class="fi" id="fTitleAlt" placeholder="Ex: Amazing Grace">
+    </div>
     <div class="form-2col" id="authGenreWrap">
-      <div class="form-row"><label>Auteur</label><input class="fi" id="fAuthor" placeholder="Ex: John Newton"></div>
+      <div class="form-row"><label>Auteur</label><input class="fi" id="fAuthor" placeholder="Ex: John Newton" list="authorList" autocomplete="off"><datalist id="authorList"></datalist></div>
       <div class="form-row">
         <label>Genre</label>
         <input class="fi" id="fGenre" placeholder="Gospel, Worship&#x2026;" list="genreList" autocomplete="off">
@@ -1306,6 +1316,13 @@ Vous pourrez ensuite d&#x00E9;finir si chaque bloc est un Refrain, Couplet, Brid
     <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;padding:.9rem;background:var(--surface2);border-radius:var(--r-sm);border:1.5px solid var(--border);">
       <canvas id="catPieChart" width="110" height="110" style="flex-shrink:0;"></canvas>
       <div id="catLegend" style="flex:1;display:flex;flex-direction:column;gap:.3rem;font-size:.72rem;"></div>
+    </div>
+
+    <!-- CAMEMBERT AUTEURS -->
+    <div style="font-size:.7rem;font-weight:800;color:var(--text-mid);text-transform:uppercase;letter-spacing:.08em;margin:.7rem 0 .5rem;">&#x1F3A4; Par auteur</div>
+    <div style="display:flex;gap:1rem;align-items:center;margin-bottom:1rem;padding:.9rem;background:var(--surface2);border-radius:var(--r-sm);border:1.5px solid var(--border);">
+      <canvas id="authorPieChart" width="110" height="110" style="flex-shrink:0;"></canvas>
+      <div id="authorLegend" style="flex:1;display:flex;flex-direction:column;gap:.3rem;font-size:.72rem;max-height:120px;overflow-y:auto;"></div>
     </div>
 
     <!-- SIGNALEMENTS -->
@@ -1851,6 +1868,7 @@ async function init() {
     renderList();
     renderMobList();
     buildGenreDatalist();
+    buildAuthorDatalist();
     // Load pending markers (non-blocking)
     loadPendingChanges().catch(()=>{});
 
@@ -2065,7 +2083,7 @@ function renderList(){
       <div style="display:flex;align-items:center;gap:.3rem">
         ${s.pinned?'<span style="font-size:.65rem" title="&#x00C9;pingl&#x00E9; pour r&#x00E9;vision">&#x1F4CC;</span>':''}
         ${s._hasPending?'<span title="Modification en attente" style="font-size:.6rem;">&#x23F3;</span>':''}
-        <div class="song-card-title">${s.title}</div>
+        <div class="song-card-title">${s.title}${s.title_alt?`<span style="color:var(--muted);font-weight:500;font-size:.78em;"> - ${s.title_alt}</span>`:''}</div>
       </div>
       <div class="song-card-meta">
         <span>${s.author||'&#x2014;'}</span>
@@ -2215,7 +2233,7 @@ function renderMobList(prefiltered){
       }
     }
     html += `<div class="swipe-wrap"><div class="mob-song-card" data-song-id="${s.id}" onclick="selectSong(${s.id})">
-      <div class="mob-song-card-title">${s.pinned?'&#x1F4CC; ':''}${s._hasPending?'&#x23F3; ':''}${s.title}</div>
+      <div class="mob-song-card-title">${s.pinned?'&#x1F4CC; ':''}${s._hasPending?'&#x23F3; ':''}${s.title}${s.title_alt?' - '+s.title_alt:''}</div>
       <div class="mob-song-card-author">${s.author||'&#x2014;'}</div>
       <div class="mob-song-card-tags">
         ${s.key_signature?`<span class="key-badge">${s.key_signature.split(' ')[0]}</span>`:''}
@@ -2648,7 +2666,9 @@ function startEditSong(id){
 function openAddModal(){
   editingId=null;lyricBlocks=[];lyricCounter={};
   document.getElementById('songModalTitle').textContent='Nouveau chant';
-  ['fTitle','fAuthor','fLink','fGenre','fBpm','fTimeSig'].forEach(id=>document.getElementById(id).value='');
+  ['fTitle','fAuthor','fLink','fGenre','fBpm','fTimeSig','fTitleAlt'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('chkTitleAlt').checked=false;
+  document.getElementById('titleAltWrap').style.display='none';
   document.getElementById('fKey').value='';
   renderLeadKeysForm([]);
   document.getElementById('duplicateWarning').classList.add('hidden');
@@ -2668,6 +2688,10 @@ async function openEditModal(id){
   document.getElementById('fAuthor').value=song.author||'';
   document.getElementById('fKey').value=song.key_signature||'';
   document.getElementById('fTimeSig').value=song.time_signature||'';
+  document.getElementById('fTitleAlt').value=song.title_alt||'';
+  const hasTitleAlt = !!(song.title_alt);
+  document.getElementById('chkTitleAlt').checked = hasTitleAlt;
+  document.getElementById('titleAltWrap').style.display = hasTitleAlt ? '' : 'none';
   renderLeadKeysForm(song.lead_keys||[]);
   document.getElementById('fGenre').value=song.genre||'';
   document.getElementById('fBpm').value=song.bpm||'';
@@ -2770,6 +2794,7 @@ async function submitSong(){
     author:document.getElementById('fAuthor').value.trim()||null,
     key_signature:newKey,
     time_signature:document.getElementById('fTimeSig')?.value||null,
+    title_alt:document.getElementById('fTitleAlt')?.value.trim()||null,
     lead_keys:leadKeysPayload,
     genre:document.getElementById('fGenre').value.trim()||null,
     bpm:newBpm,
@@ -2791,7 +2816,8 @@ async function submitSong(){
         const fieldMap = {
           title:'Titre', author:'Auteur', genre:'Genre',
           bpm:'BPM', key_signature:'Gamme', reference_link:'Lien',
-          time_signature:'Mesure'
+          time_signature:'Mesure',
+          title_alt:'Titre alternatif'
         };
         const affectedFields = [];
         for(const [k,label] of Object.entries(fieldMap)){
@@ -2836,6 +2862,7 @@ async function submitSong(){
           title:oldSong.title, author:oldSong.author, genre:oldSong.genre,
           bpm:oldSong.bpm, key_signature:oldSong.key_signature,
           time_signature:oldSong.time_signature,
+          title_alt:oldSong.title_alt,
           reference_link:oldSong.reference_link,
           lyrics:(oldSong.lyrics||[]).map(b=>({type:b.type,num:b.num,content:b.content||''}))
         });
@@ -2843,6 +2870,7 @@ async function submitSong(){
           title:payload.title, author:payload.author, genre:payload.genre,
           bpm:payload.bpm, key_signature:payload.key_signature,
           time_signature:payload.time_signature,
+          title_alt:payload.title_alt,
           reference_link:payload.reference_link, lyrics:payload.lyrics
         });
 
@@ -2887,6 +2915,7 @@ async function submitSong(){
     const action = editingId ? 'Modifie' : 'Ajoute';
     logActivity(action, freshSong.title);
     buildGenreDatalist();
+    buildAuthorDatalist();
     if(!isAdmin && currentContributor && editingId){
       toast('Modification appliquee - en attente de validation admin');
     } else {
@@ -3464,7 +3493,65 @@ async function renderAdminStats(){
     const stats = await apiFetch('/api/stats');
     drawPieChart(stats);
     renderCatLegend(stats);
+    drawAuthorPieChart();
+    renderAuthorLegend();
   }catch(e){}
+}
+
+function drawAuthorPieChart(){
+  const canvas = document.getElementById('authorPieChart');
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx=55,cy=55,r=48;
+  // Calculer depuis songs en mémoire
+  const authorMap = {};
+  songs.forEach(s=>{
+    const a = s.author||'Sans auteur';
+    authorMap[a] = (authorMap[a]||0)+1;
+  });
+  // Top 8 auteurs + "Autres"
+  const sorted = Object.entries(authorMap).sort((a,b)=>b[1]-a[1]);
+  const top = sorted.slice(0,8);
+  const rest = sorted.slice(8).reduce((s,[,v])=>s+v,0);
+  const COLORS = ['#c4395a','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#84cc16','#f97316'];
+  const data = top.map(([label,value],i)=>({label,value,color:COLORS[i%COLORS.length]}));
+  if(rest>0) data.push({label:'Autres',value:rest,color:'#cbd5e1'});
+  const total = data.reduce((s,d)=>s+d.value,0);
+  if(!total){ctx.clearRect(0,0,110,110);return;}
+  let startAngle=-Math.PI/2;
+  ctx.clearRect(0,0,110,110);
+  data.forEach(d=>{
+    const slice=(d.value/total)*Math.PI*2;
+    ctx.beginPath();ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,startAngle,startAngle+slice);
+    ctx.closePath();ctx.fillStyle=d.color;ctx.fill();
+    ctx.strokeStyle='white';ctx.lineWidth=2;ctx.stroke();
+    startAngle+=slice;
+  });
+  ctx.beginPath();ctx.arc(cx,cy,22,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();
+  ctx.fillStyle='#1a2340';ctx.font='bold 13px Nunito,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(total,cx,cy-5);
+  ctx.font='9px Nunito,sans-serif';ctx.fillStyle='#8a9bc4';
+  ctx.fillText('chants',cx,cy+7);
+}
+
+function renderAuthorLegend(){
+  const el=document.getElementById('authorLegend');
+  if(!el) return;
+  const authorMap={};
+  songs.forEach(s=>{ const a=s.author||'Sans auteur'; authorMap[a]=(authorMap[a]||0)+1; });
+  const sorted=Object.entries(authorMap).sort((a,b)=>b[1]-a[1]);
+  const COLORS=['#c4395a','#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#84cc16','#f97316'];
+  const top=sorted.slice(0,8);
+  const rest=sorted.slice(8).reduce((s,[,v])=>s+v,0);
+  let html=top.map(([label,value],i)=>`
+    <div style="display:flex;align-items:center;gap:.4rem;">
+      <div style="width:10px;height:10px;border-radius:3px;background:${COLORS[i%COLORS.length]};flex-shrink:0;"></div>
+      <span style="font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${label}</span>
+      <span style="color:var(--muted);margin-left:.3rem;flex-shrink:0;">${value}</span>
+    </div>`).join('');
+  if(rest>0) html+=`<div style="display:flex;align-items:center;gap:.4rem;"><div style="width:10px;height:10px;border-radius:3px;background:#cbd5e1;flex-shrink:0;"></div><span style="font-weight:700;color:var(--text);flex:1;">Autres</span><span style="color:var(--muted);">${rest}</span></div>`;
+  el.innerHTML=html||'<span style="color:var(--muted);font-size:.72rem">Aucun auteur</span>';
 }
 
 function drawPieChart(stats){
@@ -3757,6 +3844,12 @@ function buildGenreDatalist(){
   const genres = [...new Set(songs.map(s=>s.genre).filter(Boolean))].sort();
   const dl = document.getElementById('genreList');
   if(dl) dl.innerHTML = genres.map(g=>`<option value="${g}">`).join('');
+}
+
+function buildAuthorDatalist(){
+  const authors = [...new Set(songs.map(s=>s.author).filter(Boolean))].sort();
+  const dl = document.getElementById('authorList');
+  if(dl) dl.innerHTML = authors.map(a=>`<option value="${a}">`).join('');
 }
 
 // &#x2500;&#x2500; KEYBOARD &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;
