@@ -4110,20 +4110,38 @@ function slDragStart(e, sec, fromIdx){
 
   let overCard = null, overPos = null;
 
-  function getCardAt(x, y){
-    // Désactiver pointer-events sur la carte draguée le temps de tester
-    fromCard.style.pointerEvents = 'none';
-    const el = document.elementFromPoint(x, y);
-    fromCard.style.pointerEvents = '';
-    if(!el) return null;
-    const c = el.closest('.sl-item-card');
-    if(!c || c === fromCard) return null;
-    // Regex simple pour sec qui peut contenir des lettres/chiffres/tirets
-    const idParts = c.id.replace('slc_','').split('_');
-    const cardIdx = parseInt(idParts[idParts.length-1]);
-    const cardSec = idParts.slice(0, idParts.length-1).join('_');
-    if(cardSec !== sec) return null;
-    return {card:c, idx:cardIdx};
+  // Récupérer toutes les cartes de la section (sauf celle draguée)
+  // et leurs positions Y — calculé une fois au début du drag
+  // (recalculé à chaque move pour tenir compte du scroll)
+  function getSectionCards(){
+    return [...document.querySelectorAll('.sl-item-card')].filter(c=>{
+      if(c === fromCard) return false;
+      const parts = c.id.replace('slc_','').split('_');
+      return parts.slice(0, parts.length-1).join('_') === sec;
+    });
+  }
+
+  function getCardAtY(y){
+    // Trouver la carte dont le centre est le plus proche de y
+    const cards = getSectionCards();
+    let best = null, bestDist = Infinity;
+    for(const c of cards){
+      const rect = c.getBoundingClientRect();
+      const center = rect.top + rect.height/2;
+      const dist = Math.abs(center - y);
+      if(dist < bestDist){
+        bestDist = dist;
+        best = {card:c, rect, center};
+      }
+    }
+    if(!best) return null;
+    // Ne cibler que si on est dans la zone de la carte (±50% de hauteur au-dessus/dessous)
+    const margin = best.rect.height * 1.2;
+    if(Math.abs(best.center - y) > margin) return null;
+    const parts = best.card.id.replace('slc_','').split('_');
+    const idx = parseInt(parts[parts.length-1]);
+    const pos = y < best.center ? 'before' : 'after';
+    return {card:best.card, idx, pos};
   }
 
   function clearHL(){
@@ -4135,21 +4153,19 @@ function slDragStart(e, sec, fromIdx){
 
   function onMove(ev){
     clearHL();
-    const t = getCardAt(ev.clientX, ev.clientY);
+    const t = getCardAtY(ev.clientY);
     if(!t) return;
-    const rect = t.card.getBoundingClientRect();
-    overPos = ev.clientY < rect.top + rect.height/2 ? 'before' : 'after';
+    overPos = t.pos;
     t.card.classList.add('drop-'+overPos);
-    overCard = t.card; 
+    overCard = t.card;
   }
 
   function onEnd(){
     cleanup();
     fromCard.classList.remove('is-dragging');
     if(!overCard){ clearHL(); return; }
-    // Parser l'index depuis l'id
-    const idParts = overCard.id.replace('slc_','').split('_');
-    const toIdxRaw = parseInt(idParts[idParts.length-1]);
+    const parts = overCard.id.replace('slc_','').split('_');
+    const toIdxRaw = parseInt(parts[parts.length-1]);
     const savedPos = overPos;
     clearHL();
     let toIdx = toIdxRaw;
@@ -4219,6 +4235,10 @@ async function _saveSetlistViewSilent(){
       items,
       section_order: JSON.stringify(_sectionOrder)
     })});
+    // Mettre à jour item_count dans _mvSetlists (pour la carte setlist)
+    const sl = _mvSetlists.find(s=>s.id===_currentMvSetlistId);
+    if(sl) sl.item_count = items.length;
+    renderMvSetlistCards();
   }catch(e){ console.warn('save setlist silent', e); }
 }
 
