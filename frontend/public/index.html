@@ -2050,7 +2050,7 @@ function renderList(){
     ? searchResults
     : songs.filter(s=>{
         const mc = activeFilter==='all'||(s.categories||[]).some(c=>c.id==activeFilter);
-        const mq = !q||s.title.toLowerCase().includes(q)||(s.author||'').toLowerCase().includes(q);
+        const mq = !q||s.title.toLowerCase().includes(q)||(s.author||'').toLowerCase().includes(q)||(s.title_alt||'').toLowerCase().includes(q);
         return mc&&mq;
       });
 
@@ -2196,7 +2196,7 @@ function renderMobList(prefiltered){
   const mobInLyrics = document.getElementById('mobSearchLyrics')?.checked;
   let filtered = prefiltered || songs.filter(s=>{
     const mc = mobActiveFilter==='all' || (s.categories||[]).some(c=>c.id==mobActiveFilter);
-    const mq = !q || s.title.toLowerCase().includes(q) || (s.author||'').toLowerCase().includes(q);
+    const mq = !q || s.title.toLowerCase().includes(q) || (s.author||'').toLowerCase().includes(q) || (s.title_alt||'').toLowerCase().includes(q);
     return mc && mq;
   });
 
@@ -4106,54 +4106,51 @@ function slDragStart(e, sec, fromIdx){
 
   const fromCard = document.getElementById('slc_'+sec+'_'+fromIdx);
   if(!fromCard) return;
-  fromCard.classList.add('is-dragging');
+
+  // ── Créer un ghost qui suit le doigt ──
+  const ghost = fromCard.cloneNode(true);
+  ghost.id = '';
+  ghost.style.cssText = `position:fixed;z-index:9999;width:${fromCard.offsetWidth}px;opacity:.85;pointer-events:none;border:2px solid #3b82f6;border-radius:6px;background:var(--surface2);box-shadow:0 8px 24px rgba(0,0,0,.4);transition:none;`;
+  const cardRect = fromCard.getBoundingClientRect();
+  ghost.style.left = cardRect.left+'px';
+  ghost.style.top  = cardRect.top+'px';
+  document.body.appendChild(ghost);
+  fromCard.style.opacity = '0.3';
 
   let overCard = null, overPos = null;
 
-  // Récupérer toutes les cartes de la section (sauf celle draguée)
-  // et leurs positions Y — calculé une fois au début du drag
-  // (recalculé à chaque move pour tenir compte du scroll)
   function getSectionCards(){
     return [...document.querySelectorAll('.sl-item-card')].filter(c=>{
       if(c === fromCard) return false;
-      const parts = c.id.replace('slc_','').split('_');
-      return parts.slice(0, parts.length-1).join('_') === sec;
+      const p = c.id.replace('slc_','').split('_');
+      return p.slice(0,p.length-1).join('_') === sec;
     });
   }
 
-  function getCardAtY(y){
-    // Trouver la carte dont le centre est le plus proche de y
-    const cards = getSectionCards();
-    let best = null, bestDist = Infinity;
-    for(const c of cards){
-      const rect = c.getBoundingClientRect();
-      const center = rect.top + rect.height/2;
-      const dist = Math.abs(center - y);
-      if(dist < bestDist){
-        bestDist = dist;
-        best = {card:c, rect, center};
-      }
+  function findTarget(y){
+    let best=null, bestDist=Infinity;
+    for(const c of getSectionCards()){
+      const r = c.getBoundingClientRect();
+      const cy = r.top + r.height/2;
+      const d = Math.abs(cy - y);
+      if(d < bestDist){ bestDist=d; best={card:c, cy, top:r.top, height:r.height}; }
     }
-    if(!best) return null;
-    // Ne cibler que si on est dans la zone de la carte (±50% de hauteur au-dessus/dessous)
-    const margin = best.rect.height * 1.2;
-    if(Math.abs(best.center - y) > margin) return null;
-    const parts = best.card.id.replace('slc_','').split('_');
-    const idx = parseInt(parts[parts.length-1]);
-    const pos = y < best.center ? 'before' : 'after';
-    return {card:best.card, idx, pos};
+    if(!best || bestDist > best.height*1.5) return null;
+    const p = best.card.id.replace('slc_','').split('_');
+    return {card:best.card, idx:parseInt(p[p.length-1]), pos: y<best.cy?'before':'after'};
   }
 
   function clearHL(){
-    document.querySelectorAll('.sl-item-card.drop-before, .sl-item-card.drop-after').forEach(c=>{
-      c.classList.remove('drop-before','drop-after');
-    });
+    document.querySelectorAll('.sl-item-card.drop-before,.sl-item-card.drop-after').forEach(c=>
+      c.classList.remove('drop-before','drop-after'));
     overCard=null; overPos=null;
   }
 
   function onMove(ev){
+    // Déplacer le ghost
+    ghost.style.top = (ev.clientY - cardRect.height/2)+'px';
     clearHL();
-    const t = getCardAtY(ev.clientY);
+    const t = findTarget(ev.clientY);
     if(!t) return;
     overPos = t.pos;
     t.card.classList.add('drop-'+overPos);
@@ -4162,10 +4159,12 @@ function slDragStart(e, sec, fromIdx){
 
   function onEnd(){
     cleanup();
+    ghost.remove();
+    fromCard.style.opacity = '';
     fromCard.classList.remove('is-dragging');
     if(!overCard){ clearHL(); return; }
-    const parts = overCard.id.replace('slc_','').split('_');
-    const toIdxRaw = parseInt(parts[parts.length-1]);
+    const p = overCard.id.replace('slc_','').split('_');
+    const toIdxRaw = parseInt(p[p.length-1]);
     const savedPos = overPos;
     clearHL();
     let toIdx = toIdxRaw;
@@ -4174,9 +4173,9 @@ function slDragStart(e, sec, fromIdx){
     if(toIdx === fromIdx) return;
     const items  = setlistData.filter(i=>i.section===sec);
     const others = setlistData.filter(i=>i.section!==sec);
-    const [moved] = items.splice(fromIdx, 1);
-    items.splice(Math.max(0, Math.min(toIdx, items.length)), 0, moved);
-    setlistData = [...others, ...items];
+    const [moved] = items.splice(fromIdx,1);
+    items.splice(Math.max(0,Math.min(toIdx,items.length)),0,moved);
+    setlistData=[...others,...items];
     renderSetlistView();
     _saveSetlistViewSilent();
   }
@@ -4191,6 +4190,8 @@ function slDragStart(e, sec, fromIdx){
   document.addEventListener('pointerup',   onEnd,  {passive:true});
   document.addEventListener('pointercancel', onEnd, {passive:true});
 }
+
+
 
 
 
@@ -4372,7 +4373,7 @@ function setlistSearchFilter(section, q){
   const resultsEl = document.getElementById('setlistResults_'+section);
   if(!resultsEl) return;
   if(!q.trim()){ resultsEl.style.display='none'; return; }
-  const matches = songs.filter(s=>s.title.toLowerCase().includes(q.toLowerCase())||((s.author||'').toLowerCase().includes(q.toLowerCase()))).slice(0,8);
+  const matches = songs.filter(s=>s.title.toLowerCase().includes(q.toLowerCase())||((s.author||'').toLowerCase().includes(q.toLowerCase()))||((s.title_alt||'').toLowerCase().includes(q.toLowerCase()))).slice(0,8);
   if(!matches.length){ resultsEl.style.display='none'; return; }
   resultsEl.style.display = '';
   resultsEl.innerHTML = matches.map(s=>{
